@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import '../autogradEngine/tensor.dart';
@@ -28,119 +29,126 @@ import '../optimizers/optimizers.dart';
 /// network.fit(inputs, targets, epochs: 100);
 /// network.evaluate(inputs, targets);
 /// ```
-class SNetwork {
-  /// The list of layers that make up the model's architecture.
+class SNetwork extends Layer {
+  @override
+  final String name;
   final List<Layer> layers;
-
-  /// The optimizer instance configured for training.
   late Optimizer optimizer;
 
-  SNetwork(this.layers);
+  SNetwork(this.layers, {this.name = 'snetwork'});
 
-  /// A getter to automatically collect all trainable parameters from all layers.
-  List<Tensor> get parameters => layers.expand((layer) => layer.parameters).toList();
+  @override
+  List<Tensor> get parameters =>
+      layers.expand((layer) => layer.parameters).toList();
 
-  /// Configures the model for training.
-  ///
-  /// This method attaches an optimizer to the network.
   void compile({required Optimizer configuredOptimizer}) {
     optimizer = configuredOptimizer;
   }
 
-  /// Runs a forward pass on an input tensor through all layers.
-  ///
-  /// This is the internal method for prediction logic.
+  @override
   Tensor<dynamic> forward(Tensor<dynamic> input) {
     Tensor<dynamic> currentOutput = input;
-    for (var layer in layers) {
+    for (Layer layer in layers) {
       currentOutput = layer.call(currentOutput);
     }
     return currentOutput;
   }
-  /// Generates output predictions for a given input.
-  ///
-  /// A user-friendly alias for the `forward` method.
+
   Tensor<dynamic> predict(Tensor<dynamic> input) {
-    return forward(input);
+    return call(input);
   }
 
-  /// Trains the model for a fixed number of epochs on a dataset.
-  ///
-  /// This method encapsulates the entire training loop.
-  ///
-  /// - `inputs`: A list of input samples.
-  /// - `targets`: A list of corresponding target values.
-  /// - `epochs`: The number of times to iterate over the entire dataset.
-  /// - `averageWeight`: If true, prints the average magnitude of all model
-  ///   parameters at each logging interval for diagnostic purposes.
-  void fit(List<List<double>> inputs, List<List<double>> targets, {int epochs = 100, bool averageWeight = false}) {
-    print('--- STARTING TRAINING ---');
-    final stopwatch = Stopwatch()..start();
+  void fit(List<List<double>> inputs, List<List<double>> targets,
+      {int epochs = 100, bool averageWeight = false, bool debug = true}) {
+    if (debug) {
+      print('--- STARTING TRAINING ---');
+    }
+    Stopwatch stopwatch = Stopwatch()..start();
 
     for (int epoch = 0; epoch < epochs; epoch++) {
+      double epochLoss = 0.0;
+
       for (int i = 0; i < inputs.length; i++) {
         Tensor<Vector> input = Tensor<Vector>(inputs[i]);
         Tensor<Vector> target = Tensor<Vector>(targets[i]);
 
-        // The forward pass is now handled by the generic `forward` method.
         Tensor<Vector> finalOutput = forward(input) as Tensor<Vector>;
-        Tensor<Scalar> loss = mse(finalOutput, target); // Assumes MSE loss for now
+        Tensor<Scalar> loss = mse(finalOutput, target);
+
+        epochLoss += loss.value;
 
         loss.backward();
         optimizer.step();
         optimizer.zeroGrad();
+
+        // --- NEW: Progress Bar Logic ---
+        if (debug) {
+          int barWidth = 20;
+          double progress = (i + 1) / inputs.length;
+          int completed = (progress * barWidth).round();
+          String bar = '=' * completed + '>' + ' ' * (barWidth - completed);
+          int percent = (progress * 100).round();
+
+          // Use stdout.write and carriage return to update the line
+          stdout.write('\rEpoch ${epoch + 1}/$epochs: [$bar] $percent%');
+        }
       }
 
-      // Logging block
-      if ((epoch + 1) % (epochs / 10).round() == 0) {
-        print('Epoch ${epoch + 1}/$epochs...');
+      if (debug) {
+        double avgLoss = epochLoss / inputs.length;
 
-        if (averageWeight) {
+        // After the progress bar is full, overwrite it with the final loss
+        stdout.write('\rEpoch ${epoch + 1}/$epochs: [====================>] 100%, Avg Loss: ${avgLoss.toStringAsFixed(6)}');
+
+        // Calculate the interval once before the loop for efficiency.
+        int logInterval = max(1, (epochs / 10).round());
+
+  // Inside the loop, the check is now always safe.
+        bool isLogInterval = (epoch + 1) % logInterval == 0;
+        if (averageWeight && isLogInterval) {
+          // Calculate and print weight magnitude on a new line for clarity
           double totalWeightSum = 0;
           int totalWeightCount = 0;
-
-          for (var param in parameters) {
+          for (Tensor param in parameters) {
             if (param.value is Vector) {
-              for (var weight in (param.value as Vector)) {
+              for (double weight in (param.value as Vector)) {
                 totalWeightSum += weight.abs();
                 totalWeightCount++;
               }
             } else if (param.value is Matrix) {
-              for (var row in (param.value as Matrix)) {
-                for (var weight in row) {
+              for (Vector row in (param.value as Matrix)) {
+                for (double weight in row) {
                   totalWeightSum += weight.abs();
                   totalWeightCount++;
                 }
               }
             }
           }
-
           if (totalWeightCount > 0) {
             double avg = totalWeightSum / totalWeightCount;
-            print('  - Avg. Weight Magnitude: ${avg.toStringAsFixed(4)}');
+            stdout.write(', Avg Weight Mag: ${avg.toStringAsFixed(4)}');
           }
         }
+        // Print a newline to move to the next epoch's log
+        print('');
       }
     }
 
     stopwatch.stop();
-    print('--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
-  }
-
-  /// Evaluates the model on a test dataset and prints the accuracy.
-  void evaluate(List<List<double>> inputs, List<List<double>> targets) {
-    print('--- EVALUATING MODEL ACCURACY ---');
+    if (debug) {
+      print('--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
+    }
+  }  void evaluate(List<List<double>> inputs, List<List<double>> targets) {
     int correctPredictions = 0;
     for (int i = 0; i < inputs.length; i++) {
       Tensor<Vector> testInput = Tensor<Vector>(inputs[i]);
       Tensor<Vector> pred = predict(testInput) as Tensor<Vector>;
-      int result = (pred.value[0] > 0.5) ? 1 : 0; // Assumes binary classification
+      int result = (pred.value[0] > 0.5) ? 1 : 0;
 
       if (result == targets[i][0]) {
         correctPredictions++;
       }
     }
     double accuracy = (correctPredictions / inputs.length) * 100;
-    print('Model Accuracy: ${accuracy.toStringAsFixed(2)}%');
   }
 }

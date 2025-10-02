@@ -32,3 +32,15 @@ class Sigmoid implements ActivationFunction {
     return sigmoid(input as Tensor<Vector>);
   }
 }
+
+/// An activation function that applies the Sigmoid function to a Matrix.
+///
+/// This version is designed to work on 2D `Matrix` inputs, applying the Sigmoid
+/// function to each element independently.
+class SigmoidMatrix implements ActivationFunction {
+  /// Applies the Sigmoid function element-wise to the input tensor.
+  @override
+  Tensor<Matrix> call(Tensor<dynamic> input) {
+    return sigmoidMatrix(input as Tensor<Matrix>);
+  }
+}

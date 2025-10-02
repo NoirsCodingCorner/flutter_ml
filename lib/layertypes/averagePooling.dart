@@ -79,3 +79,62 @@ class AveragePooling2DLayer extends Layer {
   }
 }
 
+// Assumes Layer and Vector types are defined.
+
+/// A layer that reduces a sequence Matrix [seq_len, dModel] to a single
+/// Vector [dModel] by averaging across the sequence dimension.
+class GlobalAveragePoolingLayer extends Layer {
+  @override
+  String name = 'global_avg_pool';
+
+  @override
+  List<Tensor> get parameters => <Tensor>[];
+
+  @override
+  // No build needed as it is purely a mathematical operation.
+  void build(Tensor<dynamic> input) {
+    super.build(input);
+  }
+
+  @override
+  Tensor<Vector> forward(Tensor<dynamic> input) {
+    return globalAveragePooling(input as Tensor<Matrix>);
+  }
+}
+
+// Assumes Node and Tensor types are defined.
+
+/// Computes the average of a Tensor<Matrix> across the sequence dimension (rows).
+/// Input: [sequence_length, dModel]. Output: [dModel].
+Tensor<Vector> globalAveragePooling(Tensor<Matrix> input) {
+  Matrix inputMatrix = input.value as Matrix;
+  int sequenceLength = inputMatrix.length;
+  int dModel = inputMatrix[0].length;
+
+  Vector averagedVector = List<double>.filled(dModel, 0.0);
+
+  // Summing elements across the sequence dimension (rows)
+  for (int r = 0; r < sequenceLength; r++) {
+    for (int c = 0; c < dModel; c++) {
+      averagedVector[c] += inputMatrix[r][c];
+    }
+  }
+
+  // Averaging
+  for (int c = 0; c < dModel; c++) {
+    averagedVector[c] /= sequenceLength.toDouble();
+  }
+
+  Tensor<Vector> out = Tensor<Vector>(averagedVector);
+
+  // Backward pass: Gradient is distributed equally back to all rows of the input matrix
+  out.creator = Node(<Tensor>[input], () {
+    for (int r = 0; r < sequenceLength; r++) {
+      for (int c = 0; c < dModel; c++) {
+        input.grad[r][c] += out.grad[c] / sequenceLength.toDouble();
+      }
+    }
+  }, opName: 'global_avg_pool', cost: sequenceLength * dModel);
+
+  return out;
+}

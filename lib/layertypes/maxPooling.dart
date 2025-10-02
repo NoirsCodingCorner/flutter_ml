@@ -10,18 +10,6 @@ import 'layer.dart';
 ///
 /// It is a standard component in most Convolutional Neural Networks, typically
 /// applied after a `Conv2DLayer`.
-///
-/// - **Input:** A `Tensor<Matrix>` representing a single feature map of shape
-///   `[height, width]`.
-/// - **Output:** A `Tensor<Matrix>` representing the downsampled feature map.
-///
-/// ### Example
-/// ```dart
-/// SNetwork model = SNetwork([
-///   Conv2DLayer(16, 3, activation: ReLU()),
-///   MaxPooling2DLayer(poolSize: 2, stride: 2),
-/// ]);
-/// ```
 class MaxPooling2DLayer extends Layer {
   @override
   String name = 'max_pooling_2d';
@@ -29,7 +17,7 @@ class MaxPooling2DLayer extends Layer {
   int stride;
 
   late int inputHeight, inputWidth;
-  late List<List<List<int>>> maxIndices; // To store [y, x] of max values for backprop
+  late List<List<List<int>>> maxIndices;
 
   MaxPooling2DLayer({this.poolSize = 2, this.stride = 2});
 
@@ -88,6 +76,68 @@ class MaxPooling2DLayer extends Layer {
         }
       }
     }, opName: 'max_pool_2d');
+
+    return out;
+  }
+}
+
+
+/// A 1D max pooling layer for sequence data.
+///
+/// This layer downsamples a 1D sequence (a Vector) by taking the maximum
+/// value over a specified window (`poolSize`). This is often used in models
+/// for NLP or time-series analysis after a 1D convolution.
+class MaxPooling1DLayer extends Layer {
+  @override
+  String name = 'max_pooling_1d';
+  int poolSize;
+  int stride;
+
+  late int inputSize;
+  late List<int> maxIndices;
+
+  MaxPooling1DLayer({this.poolSize = 2, this.stride = 2});
+
+  @override
+  List<Tensor> get parameters => [];
+
+  @override
+  void build(Tensor<dynamic> input) {
+    Vector inputValue = input.value as Vector;
+    inputSize = inputValue.length;
+    super.build(input);
+  }
+
+  @override
+  Tensor<Vector> forward(Tensor<dynamic> input) {
+    Vector inputValue = (input as Tensor<Vector>).value;
+    int outputSize = (inputSize - poolSize) ~/ stride + 1;
+
+    Vector outputValue = [];
+    maxIndices = [];
+
+    for (int i = 0; i < outputSize; i++) {
+      double maxVal = -double.infinity;
+      int max_i = -1;
+
+      for (int p = 0; p < poolSize; p++) {
+        int currentIndex = i * stride + p;
+        if (inputValue[currentIndex] > maxVal) {
+          maxVal = inputValue[currentIndex];
+          max_i = currentIndex;
+        }
+      }
+      outputValue.add(maxVal);
+      maxIndices.add(max_i);
+    }
+
+    Tensor<Vector> out = Tensor<Vector>(outputValue);
+    out.creator = Node([input], () {
+      for (int i = 0; i < outputSize; i++) {
+        int max_i = maxIndices[i];
+        input.grad[max_i] += out.grad[i];
+      }
+    }, opName: 'max_pool_1d');
 
     return out;
   }

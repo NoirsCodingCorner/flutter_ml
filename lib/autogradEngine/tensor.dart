@@ -599,37 +599,49 @@ Tensor<Matrix> tanhMatrix(Tensor<Matrix> m) {
   return out;
 }
 
-/// Performs matrix-matrix multiplication.
-/// - **Input `a`:** A `Tensor<Matrix>` of shape `[M, N]`.
-/// - **Input `b`:** A `Tensor<Matrix>` of shape `[N, P]`.
-/// - **Output:** A `Tensor<Matrix>` of shape `[M, P]`.
+/// Performs matrix-matrix multiplication with improved cache efficiency.
 Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
   int M = a.value.length;
   int N = a.value[0].length;
   int P = b.value[0].length;
 
   if (N != b.value.length) {
-    throw Exception('Matrix dimensions are incompatible for multiplication: $N != ${b.value.length}');
+    throw Exception('Matrix dimensions are incompatible for multiplication.');
   }
 
+  // --- FORWARD PASS OPTIMIZATION ---
+  // 1. Transpose matrix 'b' to make column access sequential.
+  Matrix bT = [];
+  for (int i = 0; i < P; i++) {
+    Vector row = [];
+    for (int j = 0; j < N; j++) {
+      row.add(b.value[j][i]);
+    }
+    bT.add(row);
+  }
+
+  // 2. Perform multiplication with improved memory access.
   Matrix outValue = [];
   for (int i = 0; i < M; i++) {
-    Vector row = List<double>.filled(P, 0.0);
+    Vector rowA = a.value[i];
+    Vector outRow = [];
     for (int j = 0; j < P; j++) {
+      Vector rowBT = bT[j];
+      double sum = 0;
       for (int k = 0; k < N; k++) {
-        row[j] += a.value[i][k] * b.value[k][j];
+        sum += rowA[k] * rowBT[k];
       }
+      outRow.add(sum);
     }
-    outValue.add(row);
+    outValue.add(outRow);
   }
 
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   int cost = 2 * M * N * P;
 
   out.creator = Node([a, b], () {
-    // Backward pass:
-    // grad_a = grad_out @ b.T
-    // grad_b = a.T @ grad_out
+    // --- BACKWARD PASS (also optimized) ---
+    // grad_a = grad_out @ b.T (This is already the optimized form)
     for (int i = 0; i < M; i++) {
       for (int k = 0; k < N; k++) {
         for (int j = 0; j < P; j++) {
@@ -638,15 +650,105 @@ Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
       }
     }
 
+    // grad_b = a.T @ grad_out
+    // 1. Transpose matrix 'a' for cache-friendly access.
+    Matrix aT = [];
+    for (int i = 0; i < N; i++) {
+      Vector row = [];
+      for (int j = 0; j < M; j++) {
+        row.add(a.value[j][i]);
+      }
+      aT.add(row);
+    }
+
+    // 2. Calculate grad_b with improved memory access.
     for (int k = 0; k < N; k++) {
       for (int j = 0; j < P; j++) {
         for (int i = 0; i < M; i++) {
-          b.grad[k][j] += a.value[i][k] * out.grad[i][j];
+          b.grad[k][j] += aT[k][i] * out.grad[i][j];
         }
       }
     }
   }, opName: 'matMul', cost: cost);
 
+  return out;
+}
+
+Tensor<Matrix> addMatrixAndVector(Tensor<Matrix> m, Tensor<Vector> v) {
+  int numRows = m.value.length;
+  int numCols = m.value[0].length;
+
+  if (v.value.length != numCols) {
+    throw Exception('Vector length must match the number of columns in the matrix.');
+  }
+
+  Matrix outValue = [];
+  for (int i = 0; i < numRows; i++) {
+    Vector row = [];
+    for (int j = 0; j < numCols; j++) {
+      row.add(m.value[i][j] + v.value[j]);
+    }
+    outValue.add(row);
+  }
+
+  Tensor<Matrix> out = Tensor<Matrix>(outValue);
+  int cost = numRows * numCols;
+
+  out.creator = Node([m, v], () {
+    // Gradient for the matrix flows straight through.
+    for (int i = 0; i < numRows; i++) {
+      for (int j = 0; j < numCols; j++) {
+        m.grad[i][j] += out.grad[i][j];
+      }
+    }
+
+    // Gradient for the vector is the sum of the gradients from each row.
+    for (int j = 0; j < numCols; j++) {
+      for (int i = 0; i < numRows; i++) {
+        v.grad[j] += out.grad[i][j];
+      }
+    }
+  }, opName: 'addMatrixAndVector', cost: cost);
+
+  return out;
+}
+
+// Applies the ReLU function element-wise to a matrix.
+Tensor<Matrix> reluMatrix(Tensor<Matrix> m) {
+  int numRows = m.value.length;
+  int numCols = m.value[0].length;
+  Matrix outValue = [];
+
+  for (int i = 0; i < numRows; i++) {
+    Vector row = [];
+    for (int j = 0; j < numCols; j++) {
+      row.add(m.value[i][j] > 0 ? m.value[i][j] : 0.0);
+    }
+    outValue.add(row);
+  }
+
+  Tensor<Matrix> out = Tensor<Matrix>(outValue);
+  out.creator = Node([m], () {
+    for (int i = 0; i < numRows; i++) {
+      for (int j = 0; j < numCols; j++) {
+        m.grad[i][j] += out.grad[i][j] * (m.value[i][j] > 0 ? 1.0 : 0.0);
+      }
+    }
+  }, opName: 'reluMatrix', cost: numRows * numCols);
+  return out;
+}
+
+Tensor<Vector> selectRow(Tensor<Matrix> m, int rowIndex) {
+  Vector outValue = m.value[rowIndex];
+  Tensor<Vector> out = Tensor<Vector>(outValue);
+
+  out.creator = Node([m], () {
+    // The backward pass adds the incoming gradient back to the correct row
+    // of the original matrix's gradient.
+    for (int i = 0; i < outValue.length; i++) {
+      m.grad[rowIndex][i] += out.grad[i];
+    }
+  }, opName: 'selectRow', cost: 0);
   return out;
 }
 

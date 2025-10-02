@@ -5,33 +5,15 @@ import '../layertypes/denseLayer.dart';
 import '../layertypes/layer.dart';
 import '../optimizers/optimizers.dart';
 
-/// A layer that turns positive integers (indices) into dense vectors of fixed size.
+/// A layer that turns a 1D vector of integer indices into a 2D matrix of dense vectors.
 ///
-/// This layer is the standard first step for any Natural Language Processing (NLP)
-/// task. It maps a vocabulary of a given size into a continuous vector space,
-/// where the vectors are trainable parameters.
-///
-/// During training, the model learns to place words with similar meanings
-/// close to each other in this vector space.
-///
-/// Following the framework's lifecycle, the internal embedding matrix is created
-/// in the `build` method, which is called automatically the first time the layer
-/// receives an input.
+/// This layer is the standard first step for processing a single sequence of text
+/// for a Natural Language Processing (NLP) task.
 ///
 /// - **Input:** A `Tensor<Vector>` where the vector contains integer indices
-///   representing a sequence of words.
+///   representing a single sequence of words.
 /// - **Output:** A `Tensor<Matrix>` representing the sequence of embedding
 ///   vectors, with a shape of `[sequence_length, embeddingDimension]`.
-///
-/// ### Example
-/// ```dart
-/// Layer embedding = EmbeddingLayer(1000, 50);
-///
-/// Tensor<Vector> sentence = Tensor<Vector>([4, 25, 112]);
-///
-/// // The call below will first build the layer, then run the forward pass.
-/// Tensor<Matrix> embeddedSentence = embedding.call(sentence) as Tensor<Matrix>;
-/// ```
 class EmbeddingLayer extends Layer {
   @override
   String name = 'embedding';
@@ -45,11 +27,6 @@ class EmbeddingLayer extends Layer {
   @override
   List<Tensor> get parameters => [embeddings];
 
-  /// Initializes the main `embeddings` matrix.
-  ///
-  /// Unlike a `DenseLayer`, this method does not need to inspect the input's
-  /// shape, as its dimensions (`vocabularySize`, `embeddingDimension`) are
-  /// known at instantiation. It initializes the matrix with small random values.
   @override
   void build(Tensor<dynamic> input) {
     Random random = Random();
@@ -65,11 +42,6 @@ class EmbeddingLayer extends Layer {
     super.build(input);
   }
 
-  /// Performs the forward pass by looking up the indices in the embedding matrix.
-  ///
-  /// For each integer index in the input vector, this method retrieves the
-  /// corresponding vector from the `embeddings` matrix and returns the sequence
-  /// of these vectors.
   @override
   Tensor<Matrix> forward(Tensor<dynamic> input) {
     Vector wordIndices = (input as Tensor<Vector>).value;
@@ -83,9 +55,6 @@ class EmbeddingLayer extends Layer {
     Tensor<Matrix> out = Tensor<Matrix>(outputSequence);
 
     out.creator = Node([embeddings], () {
-      // The backward pass is a "scatter add". For each word in the input sequence,
-      // its corresponding gradient vector is added to the correct row of the
-      // main embedding gradient matrix.
       for (int i = 0; i < wordIndices.length; i++) {
         int index = wordIndices[i].toInt();
         for (int j = 0; j < embeddingDimension; j++) {
@@ -98,21 +67,72 @@ class EmbeddingLayer extends Layer {
   }
 }
 
-/// Selects a single row from a matrix and returns it as a vector.
-Tensor<Vector> selectRow(Tensor<Matrix> m, int rowIndex) {
-  Vector outValue = m.value[rowIndex];
-  Tensor<Vector> out = Tensor<Vector>(outValue);
+/// A layer that turns a 2D matrix of integer indices into a 3D tensor of dense vectors.
+///
+/// This layer is designed to process a **batch** of text sequences simultaneously.
+///
+/// - **Input:** A `Tensor<Matrix>` where each row is a sequence of integer
+///   indices. Shape: `[batch_size, sequence_length]`.
+/// - **Output:** A `Tensor<Tensor3D>` representing the batch of embedded
+///   sequences. Shape: `[batch_size, sequence_length, embeddingDimension]`.
+class EmbeddingLayerMatrix extends Layer {
+  @override
+  String name = 'embedding_matrix';
+  int vocabularySize;
+  int embeddingDimension;
 
-  out.creator = Node([m], () {
-    // The backward pass adds the incoming gradient back to the correct row
-    // of the original matrix's gradient.
-    for (int i = 0; i < outValue.length; i++) {
-      m.grad[rowIndex][i] += out.grad[i];
+  late Tensor<Matrix> embeddings;
+
+  EmbeddingLayerMatrix(this.vocabularySize, this.embeddingDimension);
+
+  @override
+  List<Tensor> get parameters => [embeddings];
+
+  @override
+  void build(Tensor<dynamic> input) {
+    Random random = Random();
+    Matrix embeddingValues = [];
+    for (int i = 0; i < vocabularySize; i++) {
+      Vector row = [];
+      for (int j = 0; j < embeddingDimension; j++) {
+        row.add((random.nextDouble() * 2 - 1) * 0.01);
+      }
+      embeddingValues.add(row);
     }
-  }, opName: 'selectRow', cost: 0);
-  return out;
-}
+    embeddings = Tensor<Matrix>(embeddingValues);
+    super.build(input);
+  }
 
+  @override
+  Tensor<Tensor3D> forward(Tensor<dynamic> input) {
+    Matrix batchIndices = (input as Tensor<Matrix>).value;
+    Tensor3D outputBatch = [];
+
+    for (Vector wordIndices in batchIndices) {
+      Matrix outputSequence = [];
+      for (double indexDouble in wordIndices) {
+        int index = indexDouble.toInt();
+        outputSequence.add(embeddings.value[index]);
+      }
+      outputBatch.add(outputSequence);
+    }
+
+    Tensor<Tensor3D> out = Tensor<Tensor3D>(outputBatch);
+
+    out.creator = Node([embeddings], () {
+      for (int b = 0; b < batchIndices.length; b++) {
+        for (int i = 0; i < batchIndices[b].length; i++) {
+          int index = batchIndices[b][i].toInt();
+          for (int j = 0; j < embeddingDimension; j++) {
+            embeddings.grad[index][j] += out.grad[b][i][j];
+          }
+        }
+      }
+    }, opName: 'embedding_lookup_batch', cost: 0);
+
+    return out;
+  }
+}
 
 void main() {
   Map<String, int> vocabulary = {

@@ -1,25 +1,13 @@
 import 'dart:math';
 
-import 'package:flutter_ml/layertypes/reluLayer.dart';
-
-import '../activationFunctions/relu.dart';
-import '../activationFunctions/sigmoid.dart';
 import '../autogradEngine/tensor.dart';
-import '../nets/snet.dart';
-import '../optimizers/optimizers.dart';
-import '../layertypes/batchNormalizationLayer.dart';
-import '../layertypes/denseLayer.dart';
-import '../layertypes/dropout.dart';
 import '../layertypes/layer.dart';
 
-/// A Layer Normalization layer for 1D data (Vectors).
+/// A Layer Normalization layer for 2D Matrix data.
 ///
-/// This layer normalizes its inputs across the feature dimension for a single
-/// data sample. It is designed to work on the vector outputs of layers like
-/// `DenseLayer` or `RNN`.
-///
-/// - **Input:** A `Tensor<Vector>` of shape `[num_features]`.
-/// - **Output:** A `Tensor<Vector>` of the same shape.
+/// This layer normalizes its inputs across the feature dimension for each
+/// individual data sample (row) in a batch. It is a critical component in
+/// the Transformer architecture.
 class LayerNormalization extends Layer {
   @override
   String name = 'layer_norm';
@@ -29,6 +17,45 @@ class LayerNormalization extends Layer {
   late Tensor<Vector> beta;
 
   LayerNormalization({this.epsilon = 1e-5});
+
+  @override
+  List<Tensor> get parameters => [gamma, beta];
+
+  @override
+  void build(Tensor<dynamic> input) {
+    Matrix inputMatrix = input.value as Matrix;
+    int numFeatures = inputMatrix.isNotEmpty ? inputMatrix[0].length : 0;
+
+    Vector gammaValues = [];
+    for(int i=0; i<numFeatures; i++){ gammaValues.add(1.0); }
+    gamma = Tensor<Vector>(gammaValues);
+
+    Vector betaValues = [];
+    for(int i=0; i<numFeatures; i++){ betaValues.add(0.0); }
+    beta = Tensor<Vector>(betaValues);
+
+    super.build(input);
+  }
+
+  @override
+  Tensor<Matrix> forward(Tensor<dynamic> input) {
+    return layerNorm(input as Tensor<Matrix>, gamma, beta, epsilon: epsilon);
+  }
+}
+
+/// A Layer Normalization layer for 1D Vector data.
+///
+/// This layer normalizes its inputs across the feature dimension for a single
+/// vector input.
+class LayerNormalizationVector extends Layer {
+  @override
+  String name = 'layer_norm_vector';
+  double epsilon;
+
+  late Tensor<Vector> gamma;
+  late Tensor<Vector> beta;
+
+  LayerNormalizationVector({this.epsilon = 1e-5});
 
   @override
   List<Tensor> get parameters => [gamma, beta];
@@ -51,10 +78,11 @@ class LayerNormalization extends Layer {
 
   @override
   Tensor<Vector> forward(Tensor<dynamic> input) {
-    return layerNorm1D(input as Tensor<Vector>, gamma, beta, epsilon: epsilon);
+    return layerNormVector(input as Tensor<Vector>, gamma, beta, epsilon: epsilon);
   }
 }
-Tensor<Vector> layerNorm1D(Tensor<Vector> v, Tensor<Vector> gamma, Tensor<Vector> beta, {double epsilon = 1e-5}) {
+
+Tensor<Vector> layerNormVector(Tensor<Vector> v, Tensor<Vector> gamma, Tensor<Vector> beta, {double epsilon = 1e-5}) {
   int numFeatures = v.value.length;
 
   double mean = 0;
@@ -71,16 +99,14 @@ Tensor<Vector> layerNorm1D(Tensor<Vector> v, Tensor<Vector> gamma, Tensor<Vector
   }
 
   Vector outValue = [];
-  for (int i = 0; i < numFeatures; i++) {
-    outValue.add(gamma.value[i] * normalizedVector[i] + beta.value[i]);
+  for (int c = 0; c < numFeatures; c++) {
+    outValue.add(gamma.value[c] * normalizedVector[c] + beta.value[c]);
   }
 
   Tensor<Vector> out = Tensor<Vector>(outValue);
-  int cost = numFeatures * 8; // Approximate cost
+  int cost = numFeatures * 8;
 
   out.creator = Node([v, gamma, beta], () {
-    double stdInv = 1.0 / sqrt(variance + epsilon);
-
     Vector grad_x_hat = [];
     for(int c=0; c < numFeatures; c++){
       grad_x_hat.add(out.grad[c] * gamma.value[c]);
@@ -104,178 +130,110 @@ Tensor<Vector> layerNorm1D(Tensor<Vector> v, Tensor<Vector> gamma, Tensor<Vector
       double total_grad = (1.0 / (numFeatures * sqrt(variance + epsilon))) * (term1 - term2 - term3);
       v.grad[c] += total_grad;
     }
-  }, opName: 'layer_norm_1d', cost: cost);
+  }, opName: 'layer_norm_vector', cost: cost);
   return out;
 }
 
+Tensor<Matrix> layerNorm(Tensor<Matrix> m, Tensor<Vector> gamma, Tensor<Vector> beta, {double epsilon = 1e-5}) {
+  int numRows = m.value.length;
+  int numCols = m.value[0].length;
+  Matrix outValue = [];
 
-void evaluateModel(SNetwork network, List<Vector> inputs, List<Vector> targets, String setName) {
-  int correctPredictions = 0;
-  int numSamples = inputs.length;
+  Matrix normalizedRows = [];
+  Vector means = [];
+  Vector variances = [];
 
-  // --- Ensure network is in INFERENCE mode ---
-  for (Layer layer in network.layers) {
-    if (layer is BatchNorm1D) {
-      BatchNorm1D batchNormLayer = layer as BatchNorm1D;
-      batchNormLayer.isTraining = false;
+  for (int r = 0; r < numRows; r++) {
+    Vector row = m.value[r];
+    double mean = 0;
+    for (double val in row) { mean += val; }
+    mean /= numCols;
+    means.add(mean);
+
+    double variance = 0;
+    for (double val in row) { variance += pow(val - mean, 2); }
+    variance /= numCols;
+    variances.add(variance);
+
+    Vector normalizedRow = [];
+    for (double val in row) {
+      normalizedRow.add((val - mean) / sqrt(variance + epsilon));
     }
-    // Set DropoutLayer to NOT training
-    if (layer is DropoutLayer) {
-      DropoutLayer dropoutLayer = layer as DropoutLayer;
-      dropoutLayer.isTraining = false;
+    normalizedRows.add(normalizedRow);
+
+    Vector finalRow = [];
+    for (int c = 0; c < numCols; c++) {
+      finalRow.add(gamma.value[c] * normalizedRow[c] + beta.value[c]);
     }
+    outValue.add(finalRow);
   }
 
-  for (int i = 0; i < numSamples; i++) {
-    Tensor<Vector> testInput = Tensor<Vector>(inputs[i]);
-    Tensor<Vector> pred = network.predict(testInput) as Tensor<Vector>;
-    int result = (pred.value[0] > 0.5) ? 1 : 0;
-    if (result == targets[i][0]) {
-      correctPredictions++;
+  Tensor<Matrix> out = Tensor<Matrix>(outValue);
+  int cost = numRows * numCols * 8;
+
+  out.creator = Node([m, gamma, beta], () {
+    for(int r = 0; r < numRows; r++){
+      Vector grad_x_hat = [];
+      for(int c=0; c < numCols; c++){
+        grad_x_hat.add(out.grad[r][c] * gamma.value[c]);
+        gamma.grad[c] += out.grad[r][c] * normalizedRows[r][c];
+        beta.grad[c] += out.grad[r][c];
+      }
+
+      double sum_grad_x_hat = 0;
+      for (double val in grad_x_hat) { sum_grad_x_hat += val; }
+
+      double dot_product_term = 0;
+      for (int c = 0; c < numCols; c++) {
+        dot_product_term += grad_x_hat[c] * normalizedRows[r][c];
+      }
+
+      for (int c = 0; c < numCols; c++) {
+        double term1 = numCols * grad_x_hat[c];
+        double term2 = sum_grad_x_hat;
+        double term3 = normalizedRows[r][c] * dot_product_term;
+
+        double total_grad = (1.0 / (numCols * sqrt(variances[r] + epsilon))) * (term1 - term2 - term3);
+        m.grad[r][c] += total_grad;
+      }
     }
-  }
-
-  double accuracy = (correctPredictions / numSamples) * 100.0;
-  print('${setName} Accuracy: ${accuracy.toStringAsFixed(2)}%');
-}
-
-// --- HELPER FUNCTION FOR TRAINING AND EVALUATION ---
-void trainAndEvaluate(SNetwork network, List<Vector> trainInputs, List<Vector> trainTargets, List<Vector> testInputs, List<Vector> testTargets) {
-  int numTrainSamples = trainInputs.length;
-  int epochs = 200;
-
-  network.predict(Tensor<Vector>(trainInputs[0]));
-
-  network.compile(
-      configuredOptimizer: Adam(network.parameters, learningRate: 0.005)
-  );
-
-  Optimizer optimizer = network.optimizer;
-
-  // --- Ensure network is in TRAINING mode ---
-  for (Layer layer in network.layers) {
-    if (layer is BatchNorm1D) {
-      BatchNorm1D batchNormLayer = layer as BatchNorm1D;
-      batchNormLayer.isTraining = true;
-    }
-    // Set DropoutLayer to TRAINING
-    if (layer is DropoutLayer) {
-      DropoutLayer dropoutLayer = layer as DropoutLayer;
-      dropoutLayer.isTraining = true;
-    }
-  }
-
-  // Training loop
-  for (int epoch = 0; epoch < epochs; epoch++) {
-    for (int i = 0; i < numTrainSamples; i++) {
-      optimizer.zeroGrad();
-
-      Tensor<Vector> inputTensor = Tensor<Vector>(trainInputs[i]);
-      Tensor<Vector> targetTensor = Tensor<Vector>(trainTargets[i]);
-
-      Tensor<Vector> finalOutput = network.predict(inputTensor) as Tensor<Vector>;
-      Tensor<Scalar> loss = mse(finalOutput, targetTensor);
-
-      loss.backward();
-      optimizer.step();
-    }
-  }
-
-  // --- Evaluation ---
-  print('Training Complete.');
-  // 1. Check for memorization/overfitting (Training Set)
-  evaluateModel(network, trainInputs, trainTargets, '  Training Set');
-  // 2. Check for generalization (Test Set - the true metric)
-  evaluateModel(network, testInputs, testTargets, '  Test Set');
+  }, opName: 'layer_norm', cost: cost);
+  return out;
 }
 
 void main() {
-  // --- 1. PREPARE THE DATASET ---
-  int numTotalSamples = 1000;
-  List<Vector> allInputs = <Vector>[];
-  List<Vector> allTargets = <Vector>[];
+  LayerNormalization normLayer = LayerNormalization();
+
+  Tensor<Matrix> input = Tensor<Matrix>([
+    [1.0, -2.0, 0.5, 3.0],
+    [5.0, 15.0, -10.0, 2.0],
+  ]);
+
+  Tensor<Matrix> output = normLayer.call(input) as Tensor<Matrix>;
+
+  Matrix weightValues = [];
   Random random = Random();
-
-  for (int i = 0; i < numTotalSamples; i++) {
-    double x = (random.nextDouble() * 4.0) - 2.0;
-    double y = (random.nextDouble() * 4.0) - 2.0;
-    allInputs.add(<double>[x, y]);
-    double distance = sqrt(x * x + y * y);
-    allTargets.add(<double>[(distance < 1.5) ? 1.0 : 0.0]);
-  }
-
-  // --- 2. SPLIT THE DATASET (80% Train, 20% Test) ---
-  int splitIndex = (numTotalSamples * 0.8).toInt();
-  List<Vector> trainInputs = <Vector>[];
-  List<Vector> trainTargets = <Vector>[];
-  List<Vector> testInputs = <Vector>[];
-  List<Vector> testTargets = <Vector>[];
-
-  for (int i = 0; i < numTotalSamples; i++) {
-    if (i < splitIndex) {
-      trainInputs.add(allInputs[i]);
-      trainTargets.add(allTargets[i]);
-    } else {
-      testInputs.add(allInputs[i]);
-      testTargets.add(allTargets[i]);
+  for(int r=0; r<2; r++){
+    Vector row = [];
+    for(int c=0; c<4; c++){
+      row.add(random.nextDouble());
     }
+    weightValues.add(row);
   }
+  Tensor<Matrix> weights = Tensor<Matrix>(weightValues);
+  Tensor<Matrix> weightedOutput = elementWiseMultiplyMatrix(output, weights);
 
-  // --- 3. DEFINE THE MODELS with Dropout ---
-  double dropoutRate = 0.2;
+  Tensor<Scalar> loss = sumMatrix(weightedOutput);
+  loss.backward();
 
-  // Model A: Plain Deep Network + Dropout
-  SNetwork plainDeepNetwork = SNetwork(<Layer>[
-    DenseLayer(16, activation: ReLU()),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16, activation: ReLU()),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16, activation: ReLU()),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16, activation: ReLU()),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16, activation: ReLU()),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16, activation: ReLU()),
-    DropoutLayer(dropoutRate),
-    DenseLayer(1, activation: Sigmoid()),
-  ]);
+  Tensor<Vector> gamma = normLayer.parameters[0] as Tensor<Vector>;
+  Tensor<Vector> beta = normLayer.parameters[1] as Tensor<Vector>;
 
-  // Model B: Normalized Deep Network + Dropout
-  SNetwork normalizedDeepNetwork = SNetwork(<Layer>[
-    DenseLayer(16),
-    LayerNormalization(),
-    ReLULayer(),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16),
-    LayerNormalization(),
-    ReLULayer(),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16),
-    LayerNormalization(),
-    ReLULayer(),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16),
-    LayerNormalization(),
-    ReLULayer(),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16),
-    LayerNormalization(),
-    ReLULayer(),
-    DropoutLayer(dropoutRate),
-    DenseLayer(16),
-    LayerNormalization(),
-    ReLULayer(),
-    DropoutLayer(dropoutRate),
-    DenseLayer(1, activation: Sigmoid()),
-  ]);
-
-  // --- 4. RUN THE EXPERIMENTS ---
-  print('--- Training Plain Deep Network with Dropout (EXPECTED TO STRUGGLE) ---');
-  trainAndEvaluate(plainDeepNetwork, trainInputs, trainTargets, testInputs, testTargets);
-
-  print('\n' + '='*50 + '\n');
-
-  print('--- Training Deep Network with Layer Normalization and Dropout (EXPECTED TO SUCCEED) ---');
-  trainAndEvaluate(normalizedDeepNetwork, trainInputs, trainTargets, testInputs, testTargets);
+  print('--- Layer Normalization Test ---');
+  print('\nInput Matrix:\n${input.value}');
+  print('\nNormalized & Scaled Output:\n${output.value.map((r) => r.map((e) => e.toStringAsFixed(4)))}');
+  print('\n--- Backward Pass Gradients ---');
+  print('Input Gradient:\n${input.grad.map((r) => r.map((e) => e.toStringAsFixed(4)))}');
+  print('\nGamma Gradient:\n${gamma.grad.map((e) => e.toStringAsFixed(4))}');
+  print('Beta Gradient:\n${beta.grad.map((e) => e.toStringAsFixed(4))}');
 }

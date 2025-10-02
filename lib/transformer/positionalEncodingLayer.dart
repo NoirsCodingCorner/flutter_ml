@@ -12,16 +12,6 @@ import 'embeddingLayer.dart';
 /// input embedding, allowing the model to learn from the sequence order.
 ///
 /// It uses the standard sinusoidal formula from the "Attention Is All You Need" paper.
-///
-/// - **Input:** A `Tensor<Matrix>` of shape `[sequence_length, embedding_dimension]`.
-/// - **Output:** A `Tensor<Matrix>` of the same shape, with positional info added.
-/// Injects information about the relative or absolute position of tokens in a sequence.
-///
-/// Since the Transformer architecture contains no recurrence, it has no inherent
-/// sense of word order. This layer adds a unique, non-trainable vector to each
-/// input embedding, allowing the model to learn from the sequence order.
-///
-/// It uses the standard sinusoidal formula from the "Attention Is All You Need" paper.
 class PositionalEncoding extends Layer {
   @override
   String name = 'positional_encoding';
@@ -32,19 +22,18 @@ class PositionalEncoding extends Layer {
 
   PositionalEncoding(this.maxLength, this.dModel);
 
-  /// This layer has no trainable parameters.
   @override
   List<Tensor> get parameters => [];
 
-  /// Initializes the positional encoding matrix.
-  ///
-  /// This method pre-calculates the sinusoidal encoding matrix up to the
-  /// specified `maxLength`. It is called automatically on the first forward pass.
   @override
   void build(Tensor<dynamic> input) {
     Matrix pe = [];
     for (int i = 0; i < maxLength; i++) {
-      pe.add(List<double>.filled(dModel, 0.0));
+      Vector row = [];
+      for (int j = 0; j < dModel; j++) {
+        row.add(0.0);
+      }
+      pe.add(row);
     }
 
     for (int pos = 0; pos < maxLength; pos++) {
@@ -61,7 +50,6 @@ class PositionalEncoding extends Layer {
     super.build(input);
   }
 
-  /// Performs the forward pass by adding the positional encoding to the input.
   @override
   Tensor<Matrix> forward(Tensor<dynamic> input) {
     Tensor<Matrix> inputMatrix = input as Tensor<Matrix>;
@@ -76,7 +64,6 @@ class PositionalEncoding extends Layer {
     return addMatrix(inputMatrix, positionalTensor);
   }
 }
-
 
 void main() {
   int vocabSize = 1000;

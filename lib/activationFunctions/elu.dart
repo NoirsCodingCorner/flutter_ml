@@ -3,29 +3,18 @@ import 'dart:math';
 import '../autogradEngine/tensor.dart';
 import 'activation_funciton.dart';
 
-/// The Exponential Linear Unit (ELU) activation function.
+/// An activation function that applies the Exponential Linear Unit (ELU) to a Vector.
 ///
-/// Like `LeakyReLU`, ELU is an alternative to `ReLU` that addresses the "Dying ReLU"
-/// problem by having a non-zero output for negative inputs.
+/// ELU is an alternative to `ReLU` that has a small negative value for negative
+/// inputs, which can help prevent the "Dying ReLU" problem and speed up learning.
 ///
-/// Instead of a linear slope, ELU uses a smooth exponential curve for negative
-/// values, which can help the optimizer converge more quickly. Its outputs
-/// for negative inputs are also negative, which can help push the mean
-/// activation closer to zero, improving learning.
-///
-///
-///
-/// ### Example
-/// ```dart
-/// Layer hiddenLayer = DenseLayer(128, activation: ELU(alpha: 1.0));
-/// ```
+/// The function is defined as `$f(x) = x` if `$x > 0$`, and `$f(x) = \alpha(e^x - 1)$` if `$x \le 0$`.
 class ELU implements ActivationFunction {
-  /// Controls the saturation point for negative inputs. Default is 1.0.
+  /// Controls the saturation point for negative inputs.
   final double alpha;
 
   ELU({this.alpha = 1.0});
 
-  /// Applies the ELU function element-wise to the input tensor.
   @override
   Tensor<Vector> call(Tensor<dynamic> input) {
     return vectorELU(input as Tensor<Vector>, alpha: alpha);
@@ -41,12 +30,50 @@ Tensor<Vector> vectorELU(Tensor<Vector> v, {double alpha = 1.0}) {
   }
   Tensor<Vector> out = Tensor<Vector>(outValue);
 
-  // Derivative is 1 for x > 0. For x <= 0, derivative is alpha * e^x.
-  // This can be re-written as: out.value[i] + alpha
   out.creator = Node([v], () {
     for (int i = 0; i < N; i++) {
       v.grad[i] += out.grad[i] * (v.value[i] > 0 ? 1.0 : out.value[i] + alpha);
     }
   }, opName: 'elu', cost: N);
+  return out;
+}
+
+/// An activation function that applies the Exponential Linear Unit (ELU) to a Matrix.
+///
+/// This version is designed to work on 2D `Matrix` inputs, applying the ELU
+/// function to each element independently.
+class ELUMatrix implements ActivationFunction {
+  /// Controls the saturation point for negative inputs.
+  final double alpha;
+
+  ELUMatrix({this.alpha = 1.0});
+
+  @override
+  Tensor<Matrix> call(Tensor<dynamic> input) {
+    return matrixELU(input as Tensor<Matrix>, alpha: alpha);
+  }
+}
+
+/// Mathematical operation for the ELU function on a matrix.
+Tensor<Matrix> matrixELU(Tensor<Matrix> m, {double alpha = 1.0}) {
+  int numRows = m.value.length;
+  int numCols = m.value[0].length;
+  Matrix outValue = [];
+  for (int i = 0; i < numRows; i++) {
+    Vector row = [];
+    for (int j = 0; j < numCols; j++) {
+      row.add(m.value[i][j] > 0 ? m.value[i][j] : alpha * (exp(m.value[i][j]) - 1));
+    }
+    outValue.add(row);
+  }
+
+  Tensor<Matrix> out = Tensor<Matrix>(outValue);
+  out.creator = Node([m], () {
+    for (int i = 0; i < numRows; i++) {
+      for (int j = 0; j < numCols; j++) {
+        m.grad[i][j] += out.grad[i][j] * (m.value[i][j] > 0 ? 1.0 : out.value[i][j] + alpha);
+      }
+    }
+  }, opName: 'elu_matrix', cost: numRows * numCols);
   return out;
 }

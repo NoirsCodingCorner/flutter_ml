@@ -24,11 +24,3 @@ abstract class ActivationFunction {
   /// function is responsible for connecting the operation to the autograd graph.
   Tensor<dynamic> call(Tensor<dynamic> input);
 }
-
-/// The Hyperbolic Tangent (Tanh) activation function.
-class Tanh implements ActivationFunction {
-  @override
-  Tensor<Vector> call(Tensor<dynamic> input) {
-    return vectorTanh(input as Tensor<Vector>);
-  }
-}
