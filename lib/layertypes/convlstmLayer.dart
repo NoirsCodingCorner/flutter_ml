@@ -4,6 +4,7 @@ import '../activationFunctions/sigmoid.dart';
 import '../autogradEngine/tensor.dart';
 import '../nets/snet.dart';
 import '../optimizers/optimizers.dart';
+import '../optimizers/sgd.dart';
 import 'denseLayer.dart';
 import 'flattenLayer.dart';
 import 'layer.dart';

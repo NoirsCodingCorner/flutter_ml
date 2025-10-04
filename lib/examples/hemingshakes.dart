@@ -105,7 +105,7 @@ void main() {
       configuredOptimizer: Adam(styleClassifier.parameters, learningRate: 0.005)
   );
 
-  styleClassifier.fit(trainInputs, trainTargets, epochs: 2, debug: true);
+  //styleClassifier.fit(trainInputs, trainTargets, epochs: 2, debug: true);
 
   // --- 5. EVALUATION ---
   Logger.green('\n--- FINAL EVALUATION ON UNSEEN TEST DATA ---', prefix: '📊');
@@ -131,5 +131,6 @@ void main() {
   String result = (prediction.value[0] > 0.5) ? "Shakespeare" : "Hemingway";
   print('Prediction for "$testSentences[0]": $result (Raw: ${prediction.value[0].toStringAsFixed(4)})');
   prediction.printGraph();
+  prediction.printParallelGraph();
 
 }

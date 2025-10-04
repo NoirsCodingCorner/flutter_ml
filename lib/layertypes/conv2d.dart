@@ -3,6 +3,7 @@ import 'dart:math';
 import '../activationFunctions/activation_funciton.dart';
 import '../autogradEngine/tensor.dart';
 import '../nets/snet.dart';
+import '../optimizers/adam.dart';
 import '../optimizers/optimizers.dart';
 import 'layer.dart';
 
@@ -169,4 +170,6 @@ void main() {
 
   print('Count for patch with 3 ones (Target: 3.0): ${result1.value[0][0].toStringAsFixed(4)}');
   print('Count for patch with 6 ones (Target: 6.0): ${result2.value[0][0].toStringAsFixed(4)}');
+
+  result1.printGraph();
 }
