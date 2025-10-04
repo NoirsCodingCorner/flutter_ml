@@ -149,3 +149,4 @@ class LSTMLayer extends Layer {
     return h;
   }
 }
+
