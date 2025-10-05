@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter_ml/optimizers/sgd.dart';
+
 import '../activationFunctions/sigmoid.dart';
 import '../autogradEngine/tensor.dart';
 import '../diagnosysTools/logger.dart';
@@ -86,10 +88,10 @@ void main() {
 
   // --- 4. MODEL DEFINITION & TRAINING ---
   int vocabSize = vocabulary.length;
-  int dModel = 32;
+  int dModel = 16;
   int numHeads = 4;
-  int dff = 64;
-  int numEncoderBlocks = 2;
+  int dff = 32;
+  int numEncoderBlocks = 1;
 
   SNetwork styleClassifier = SNetwork([
     EmbeddingLayer(vocabSize, dModel),
@@ -102,7 +104,7 @@ void main() {
 
   styleClassifier.predict(Tensor<Vector>(trainInputs[0]));
   styleClassifier.compile(
-      configuredOptimizer: Adam(styleClassifier.parameters, learningRate: 0.005)
+      configuredOptimizer: SGD(styleClassifier.parameters, learningRate: 0.005)
   );
 
   //styleClassifier.fit(trainInputs, trainTargets, epochs: 2, debug: true);

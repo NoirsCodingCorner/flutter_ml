@@ -3,6 +3,7 @@ import 'dart:math';
 import '../autogradEngine/tensor.dart';
 import '../layertypes/denseLayer.dart';
 import '../layertypes/layer.dart';
+import '../optimizers/adam.dart';
 import '../optimizers/optimizers.dart';
 
 /// A layer that turns a 1D vector of integer indices into a 2D matrix of dense vectors.

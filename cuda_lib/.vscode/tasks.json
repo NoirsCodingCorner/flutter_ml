@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "windows": {
+        "options": {
+            "shell": {
+                "executable": "cmd.exe",
+                "args": [
+                    "/C",
+                    "\"C:/Program Files/Microsoft Visual Studio/2022/Community/VC/Auxiliary/Build/vcvars64.bat\"",
+                    "&&"
+                ]
+            }
+        },
+        "tasks": [
+            {
+                "label": "CUDA Build DLL",
+                "type": "shell",
+                "command": "nvcc",
+                "args": [
+                    "--shared",
+                    "-o",
+                    "${fileDirname}\\cuda_lib.dll",
+                    "${file}",
+                    "-lcublas" // <-- Add this line to link the cuBLAS library
+                ],
+                "group": {
+                    "kind": "build",
+                    "isDefault": true
+                },
+                "presentation": { "reveal": "always", "panel": "new" },
+                "problemMatcher": ["$nvcc"]
+            }
+        ]
+    }
+}

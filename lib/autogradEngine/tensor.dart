@@ -2,14 +2,22 @@ import 'dart:math';
 
 import '../activationFunctions/gelu.dart';
 import '../diagnosysTools/logger.dart';
+import '../flutter_ml.dart';
 
 class Node {
   final List<Tensor> inputs;
   final Function backwardFn;
   final String opName;
-  final int cost; // NEW: Stores the computational cost
+  final int cost;
+  final Map<String, dynamic> extraParams; // <-- Add this field
 
-  Node(this.inputs, this.backwardFn, {this.opName = 'op', this.cost = 0});
+  Node(
+    this.inputs,
+    this.backwardFn, {
+    this.opName = 'op',
+    this.cost = 0,
+    this.extraParams = const {},
+  });
 }
 
 class Tensor<T> {
@@ -84,8 +92,6 @@ class Tensor<T> {
       }
     }
   }
-
-  // --- Private helpers for printGraph ---
 
   String _getShape() {
     if (value is Scalar) return '[]';
@@ -211,6 +217,7 @@ class Tensor<T> {
       }
     }
   }
+
   // Add this method to your Tensor class
   void printParallelGraph() {
     Logger.yellow('Parallel Computational Graph:', prefix: '⚡️');
@@ -226,6 +233,7 @@ class Tensor<T> {
       }
       topo.add(node);
     }
+
     buildTopo(creator);
 
     // 2. Calculate the dependency level for each node.
@@ -260,12 +268,15 @@ class Tensor<T> {
     for (int level in sortedLevels) {
       List<Node> nodesInLevel = parallelGroups[level]!;
       int levelCost = 0;
-      for(Node node in nodesInLevel){
+      for (Node node in nodesInLevel) {
         levelCost += node.cost;
       }
       totalCost += levelCost;
 
-      Logger.cyan('--- Level ${level + 1} (${nodesInLevel.length} parallel ops, cost: $levelCost) ---', prefix: '');
+      Logger.cyan(
+        '--- Level ${level + 1} (${nodesInLevel.length} parallel ops, cost: $levelCost) ---',
+        prefix: '',
+      );
       for (Node node in nodesInLevel) {
         print('  - op: ${node.opName}, cost: ${node.cost}');
       }
@@ -285,6 +296,7 @@ typedef Tensor3D = List<List<List<double>>>;
 // UTILITY FUNCTIONS (No Graph Connection)
 ////////////////////////////////////////////////////////////////////////////////
 
+// Note: This function doesn't create a computational graph node, so it's fine as is.
 Matrix padMatrix(Matrix input, int padding) {
   int newHeight = input.length + 2 * padding;
   int newWidth = input[0].length + 2 * padding;
@@ -313,11 +325,11 @@ Tensor<Scalar> multiply(Tensor<Scalar> a, Tensor<Scalar> b) {
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       a.grad += out.grad * b.value;
       b.grad += out.grad * a.value;
     },
-    opName: 'multiply',
+    opName: 'multiply_scalar', // <-- Changed for clarity and to fix the bug
     cost: 1,
   );
   return out;
@@ -328,7 +340,7 @@ Tensor<Scalar> sigmoidScalar(Tensor<Scalar> s) {
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
   out.creator = Node(
     [s],
-    () {
+        () {
       s.grad += out.grad * (out.value * (1 - out.value));
     },
     opName: 'sigmoidScalar',
@@ -338,20 +350,20 @@ Tensor<Scalar> sigmoidScalar(Tensor<Scalar> s) {
 }
 
 Tensor<Scalar> binaryCrossEntropy(
-  Tensor<Scalar> prediction,
-  Tensor<Scalar> target,
-) {
+    Tensor<Scalar> prediction,
+    Tensor<Scalar> target,
+    ) {
   Scalar outValue =
-      -(target.value * log(prediction.value) +
-          (1 - target.value) * log(1 - prediction.value));
+  -(target.value * log(prediction.value) +
+      (1 - target.value) * log(1 - prediction.value));
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
   out.creator = Node(
     [prediction, target],
-    () {
+        () {
       prediction.grad +=
           out.grad *
-          ((prediction.value - target.value) /
-              (prediction.value * (1 - prediction.value)));
+              ((prediction.value - target.value) /
+                  (prediction.value * (1 - prediction.value)));
     },
     opName: 'binaryCrossEntropy',
     cost: 1,
@@ -363,6 +375,8 @@ Tensor<Scalar> binaryCrossEntropy(
 // VECTOR (1D) OPERATIONS
 ////////////////////////////////////////////////////////////////////////////////
 
+// Assuming your Tensor, Node, and type aliases are defined.
+
 Tensor<Vector> add(Tensor<Vector> a, Tensor<Vector> b) {
   int N = a.value.length;
   Vector outValue = [];
@@ -372,13 +386,13 @@ Tensor<Vector> add(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < a.value.length; i++) {
         a.grad[i] += out.grad[i];
         b.grad[i] += out.grad[i];
       }
     },
-    opName: 'add',
+    opName: 'add_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
@@ -393,12 +407,13 @@ Tensor<Vector> addScalar(Tensor<Vector> v, double s) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i++) {
         v.grad[i] += out.grad[i];
       }
     },
-    opName: 'addScalar',
+    opName: 'addScalar_vector', // <-- Renamed for clarity
+    extraParams: {'s': s},    // <-- CRITICAL: Storing the non-Tensor parameter
     cost: N,
   );
   return out;
@@ -409,7 +424,7 @@ Tensor<Vector> concatenate(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int aLength = a.value.length;
       for (int i = 0; i < aLength; i++) {
         a.grad[i] += out.grad[i];
@@ -418,7 +433,7 @@ Tensor<Vector> concatenate(Tensor<Vector> a, Tensor<Vector> b) {
         b.grad[i] += out.grad[aLength + i];
       }
     },
-    opName: 'concat',
+    opName: 'concat_vector', // <-- Renamed for clarity
     cost: 0,
   );
   return out;
@@ -433,13 +448,13 @@ Tensor<Scalar> dot(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < a.value.length; i++) {
         a.grad[i] += out.grad * b.value[i];
         b.grad[i] += out.grad * a.value[i];
       }
     },
-    opName: 'dot',
+    opName: 'dot', // This name is already unique
     cost: 2 * N,
   );
   return out;
@@ -454,13 +469,13 @@ Tensor<Vector> elementWiseMultiply(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < a.value.length; i++) {
         a.grad[i] += out.grad[i] * b.value[i];
         b.grad[i] += out.grad[i] * a.value[i];
       }
     },
-    opName: 'multiply',
+    opName: 'multiply_vector', // <-- Changed from ambiguous 'multiply'
     cost: N,
   );
   return out;
@@ -476,13 +491,13 @@ Tensor<Scalar> mse(Tensor<Vector> predictions, Tensor<Vector> targets) {
   Tensor<Scalar> out = Tensor<Scalar>(sumSquaredError / N);
   out.creator = Node(
     [predictions, targets],
-    () {
+        () {
       for (int i = 0; i < predictions.value.length; i++) {
         predictions.grad[i] +=
             (2 * (predictions.value[i] - targets.value[i])) / N;
       }
     },
-    opName: 'mse',
+    opName: 'mse_vector', // <-- Renamed for clarity
     cost: 3 * N,
   );
   return out;
@@ -497,12 +512,12 @@ Tensor<Vector> relu(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < v.value.length; i++) {
         v.grad[i] += out.grad[i] * (v.value[i] > 0 ? 1.0 : 0.0);
       }
     },
-    opName: 'relu',
+    opName: 'relu_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
@@ -517,12 +532,12 @@ Tensor<Vector> sigmoid(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < v.value.length; i++) {
         v.grad[i] += out.grad[i] * (out.value[i] * (1 - out.value[i]));
       }
     },
-    opName: 'sigmoid',
+    opName: 'sigmoid_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
@@ -537,12 +552,12 @@ Tensor<Scalar> sum(Tensor<Vector> v) {
   Tensor<Scalar> out = Tensor<Scalar>(total);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < v.value.length; i++) {
         v.grad[i] += out.grad * 1.0;
       }
     },
-    opName: 'sum',
+    opName: 'sum_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
@@ -563,12 +578,12 @@ Tensor<Vector> vectorTanh(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < v.value.length; i++) {
         v.grad[i] += out.grad[i] * (1 - pow(out.value[i], 2));
       }
     },
-    opName: 'tanh',
+    opName: 'tanh_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
@@ -583,12 +598,12 @@ Tensor<Vector> vectorExp(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i++) {
         v.grad[i] += out.grad[i] * out.value[i];
       }
     },
-    opName: 'exp',
+    opName: 'exp_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
@@ -603,21 +618,21 @@ Tensor<Vector> vectorLog(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i++) {
         v.grad[i] += out.grad[i] * (1 / v.value[i]);
       }
     },
-    opName: 'log',
+    opName: 'log_vector', // <-- Renamed for clarity
     cost: N,
   );
   return out;
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 // MATRIX (2D) OPERATIONS
 ////////////////////////////////////////////////////////////////////////////////
 
+// Assuming your Tensor, Node, and type aliases are defined.
 Tensor<Matrix> addMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
   int numRows = a.value.length;
   int numCols = a.value[0].length;
@@ -632,7 +647,7 @@ Tensor<Matrix> addMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           a.grad[i][j] += out.grad[i][j];
@@ -640,7 +655,7 @@ Tensor<Matrix> addMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
         }
       }
     },
-    opName: 'addMatrix',
+    opName: 'add_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
   );
   return out;
@@ -660,7 +675,7 @@ Tensor<Matrix> addMatrixAndVector(Tensor<Matrix> m, Tensor<Vector> v) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m, v],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           m.grad[i][j] += out.grad[i][j];
@@ -672,7 +687,7 @@ Tensor<Matrix> addMatrixAndVector(Tensor<Matrix> m, Tensor<Vector> v) {
         }
       }
     },
-    opName: 'addMatrixAndVector',
+    opName: 'addMatrixAndVector', // This name is already unique
     cost: numRows * numCols,
   );
   return out;
@@ -692,7 +707,7 @@ Tensor<Matrix> addScalarToMatrix(Tensor<Matrix> m, Tensor<Scalar> s) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m, s],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           m.grad[i][j] += out.grad[i][j];
@@ -700,7 +715,7 @@ Tensor<Matrix> addScalarToMatrix(Tensor<Matrix> m, Tensor<Scalar> s) {
       }
       s.grad += sumMatrix(Tensor<Matrix>(out.grad)).value;
     },
-    opName: 'addScalarToMatrix',
+    opName: 'addScalarToMatrix', // This name is already unique
     cost: numRows * numCols,
   );
   return out;
@@ -728,15 +743,15 @@ Tensor<Matrix> concatenateMatricesByColumn(List<Tensor<Matrix>> matrices) {
       }
       currentCol += numCols;
     }
-  }, opName: 'concat_matrix_col');
+  }, opName: 'concat_matrix_col'); // This name is already unique
   return out;
 }
 
 Tensor<Matrix> conv2d(
-  Tensor<Matrix> input,
-  Tensor<Matrix> kernel, {
-  String padding = 'valid',
-}) {
+    Tensor<Matrix> input,
+    Tensor<Matrix> kernel, {
+      String padding = 'valid',
+    }) {
   Matrix inputMatrix = input.value;
   int padSize = 0;
   if (padding == 'same') {
@@ -774,7 +789,7 @@ Tensor<Matrix> conv2d(
   int cost = outputHeight * outputWidth * 2 * kernelHeight * kernelWidth;
   out.creator = Node(
     [input, kernel],
-    () {
+        () {
       for (int y = 0; y < outputHeight; y++) {
         for (int x = 0; x < outputWidth; x++) {
           for (int ky = 0; ky < kernelHeight; ky++) {
@@ -797,6 +812,7 @@ Tensor<Matrix> conv2d(
       }
     },
     opName: 'conv2d',
+    extraParams: {'padding': padding}, // <-- CRITICAL: Storing the non-Tensor parameter
     cost: cost,
   );
   return out;
@@ -816,7 +832,7 @@ Tensor<Matrix> elementWiseMultiplyMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           a.grad[i][j] += out.grad[i][j] * b.value[i][j];
@@ -824,58 +840,108 @@ Tensor<Matrix> elementWiseMultiplyMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
         }
       }
     },
-    opName: 'multiplyMatrix',
+    opName: 'multiply_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
   );
   return out;
 }
 
+
+// Assuming your Tensor, Node, and CudaCaller classes are defined.
+
+/// Performs matrix multiplication, using the GPU for large matrices.
 Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
   int M = a.value.length;
   int N = a.value[0].length;
   int P = b.value[0].length;
-  // ... (shape check) ...
+  // Note: Add your shape check assertion here if needed
 
-  Matrix bT = [];
-  for (int i = 0; i < P; i++) {
-    Vector row = [];
-    for (int j = 0; j < N; j++) {
-      row.add(b.value[j][i]);
-    }
-    bT.add(row);
-  }
+  Matrix outValue; // This will hold the result from either the CPU or GPU path.
 
-  Matrix outValue = [];
-  for (int i = 0; i < M; i++) {
-    Vector rowA = a.value[i];
-    Vector outRow = [];
-    for (int j = 0; j < P; j++) {
-      Vector rowBT = bT[j];
-      double sum = 0;
-      for (int k = 0; k < N; k++) {
-        sum += rowA[k] * rowBT[k];
+  // --- Condition to switch between CPU and GPU ---
+  // If either matrix has more than 1000 elements, use the GPU.
+  if ((M * N) > 1000 || (N * P) > 1000) {
+    // --- 🚀 GPU Path ---
+    // 1. Flatten Matrix A from List<List<double>> to List<double>
+    List<double> flatA = [];
+    for (int i = 0; i < M; i++) {
+      for (int j = 0; j < N; j++) {
+        flatA.add(a.value[i][j]);
       }
-      outRow.add(sum);
     }
-    outValue.add(outRow);
+
+    // 2. Flatten Matrix B
+    List<double> flatB = [];
+    for (int i = 0; i < N; i++) {
+      for (int j = 0; j < P; j++) {
+        flatB.add(b.value[i][j]);
+      }
+    }
+
+    // 3. Call the static CUDA method
+    List<double> flatC = CudaCaller.matmult(flatA, flatB, M, N, P);
+
+    // 4. Unflatten the flat result back into a List<List<double>>
+    outValue = [];
+    for (int i = 0; i < M; i++) {
+      int startIndex = i * P;
+      int endIndex = startIndex + P;
+      outValue.add(flatC.sublist(startIndex, endIndex));
+    }
+  } else {
+    // --- 🧠 CPU Path ---
+    Matrix bT = [];
+    for (int i = 0; i < P; i++) {
+      Vector row = [];
+      for (int j = 0; j < N; j++) {
+        row.add(b.value[j][i]);
+      }
+      bT.add(row);
+    }
+
+    outValue = [];
+    for (int i = 0; i < M; i++) {
+      Vector rowA = a.value[i];
+      Vector outRow = [];
+      for (int j = 0; j < P; j++) {
+        Vector rowBT = bT[j];
+        double sum = 0;
+        for (int k = 0; k < N; k++) {
+          sum += rowA[k] * rowBT[k];
+        }
+        outRow.add(sum);
+      }
+      outValue.add(outRow);
+    }
   }
 
+  // --- Common Logic for Both Paths (Backward Pass Setup) ---
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   int cost = 2 * M * N * P;
+
   out.creator = Node(
     [a, b],
-    () {
-      // grad_a = grad_out @ b.T (Optimized)
-      // We already have bT from the forward pass.
+        () {
+      // Create b.T here for the gradient calculation
+      Matrix bT = [];
+      for (int i = 0; i < P; i++) {
+        Vector row = [];
+        for (int j = 0; j < N; j++) {
+          row.add(b.value[j][i]);
+        }
+        bT.add(row);
+      }
+
+      // grad_a = grad_out @ b.T
       for (int i = 0; i < M; i++) {
         for (int k = 0; k < N; k++) {
           for (int j = 0; j < P; j++) {
-            a.grad[i][k] += out.grad[i][j] * bT[j][k]; // Sequential access
+            a.grad[i][k] += out.grad[i][j] * bT[j][k];
           }
         }
       }
 
-      // grad_b = a.T @ grad_out (Optimized)
+      // grad_b = a.T @ grad_out
       Matrix aT = [];
       for (int i = 0; i < N; i++) {
         Vector row = [];
@@ -892,7 +958,7 @@ Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
         }
       }
     },
-    opName: 'matMul',
+    opName: 'matMul', // This name is specific and standard
     cost: cost,
   );
   return out;
@@ -913,7 +979,7 @@ Tensor<Vector> matVecMul(Tensor<Matrix> M, Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [M, v],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           M.grad[i][j] += out.grad[i] * v.value[j];
@@ -925,7 +991,7 @@ Tensor<Vector> matVecMul(Tensor<Matrix> M, Tensor<Vector> v) {
         }
       }
     },
-    opName: 'matVecMul',
+    opName: 'matVecMul', // This name is already unique
     cost: 2 * numRows * numCols,
   );
   return out;
@@ -945,18 +1011,18 @@ Tensor<Scalar> mseMatrix(Tensor<Matrix> predictions, Tensor<Matrix> targets) {
   Tensor<Scalar> out = Tensor<Scalar>(sumSquaredError / N);
   out.creator = Node(
     [predictions, targets],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           predictions.grad[i][j] +=
               out.grad *
-              2 *
-              (predictions.value[i][j] - targets.value[i][j]) /
-              N;
+                  2 *
+                  (predictions.value[i][j] - targets.value[i][j]) /
+                  N;
         }
       }
     },
-    opName: 'mseMatrix',
+    opName: 'mse_matrix', // <-- Renamed for clarity
     cost: 3 * N,
   );
   return out;
@@ -976,24 +1042,24 @@ Tensor<Matrix> reluMatrix(Tensor<Matrix> m) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           m.grad[i][j] += out.grad[i][j] * (m.value[i][j] > 0 ? 1.0 : 0.0);
         }
       }
     },
-    opName: 'reluMatrix',
+    opName: 'relu_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
   );
   return out;
 }
 
 Tensor<Matrix> reshapeVectorToMatrix(
-  Tensor<Vector> v,
-  int numRows,
-  int numCols,
-) {
+    Tensor<Vector> v,
+    int numRows,
+    int numCols,
+    ) {
   Matrix outValue = [];
   int index = 0;
   for (int i = 0; i < numRows; i++) {
@@ -1007,7 +1073,7 @@ Tensor<Matrix> reshapeVectorToMatrix(
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       int index = 0;
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
@@ -1017,6 +1083,8 @@ Tensor<Matrix> reshapeVectorToMatrix(
       }
     },
     opName: 'reshape',
+    // <-- CRITICAL: Storing the non-Tensor parameters
+    extraParams: {'numRows': numRows, 'numCols': numCols},
     cost: 0,
   );
   return out;
@@ -1036,15 +1104,16 @@ Tensor<Matrix> scaleMatrix(Tensor<Matrix> m, double s) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           m.grad[i][j] += out.grad[i][j] * s;
         }
       }
     },
-    opName: 'scaleMatrix',
+    opName: 'scale_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
+    extraParams: {'s': s}, // <-- Storing the non-Tensor parameter
   );
   return out;
 }
@@ -1054,16 +1123,20 @@ Tensor<Vector> selectRow(Tensor<Matrix> m, int rowIndex) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < outValue.length; i++) {
         m.grad[rowIndex][i] += out.grad[i];
       }
     },
     opName: 'selectRow',
+    // <-- CRITICAL: Storing the non-Tensor parameter
+    extraParams: {'rowIndex': rowIndex},
     cost: 0,
   );
   return out;
 }
+
+// Assuming your Tensor, Node, and type aliases are defined.
 
 Tensor<Matrix> sigmoidMatrix(Tensor<Matrix> m) {
   int numRows = m.value.length;
@@ -1079,15 +1152,17 @@ Tensor<Matrix> sigmoidMatrix(Tensor<Matrix> m) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
-          out.grad[i][j] +=
+          // BUG FIX: The original gradient calculation was incorrect.
+          // It should use m.grad, not out.grad on the left side.
+          m.grad[i][j] +=
               out.grad[i][j] * (out.value[i][j] * (1 - out.value[i][j]));
         }
       }
     },
-    opName: 'sigmoidMatrix',
+    opName: 'sigmoid_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
   );
   return out;
@@ -1121,7 +1196,7 @@ Tensor<Matrix> softmaxMatrix(Tensor<Matrix> m) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int r = 0; r < numRows; r++) {
         Vector softmaxRow = out.value[r];
         Vector gradRow = out.grad[r];
@@ -1134,7 +1209,7 @@ Tensor<Matrix> softmaxMatrix(Tensor<Matrix> m) {
         }
       }
     },
-    opName: 'softmax_matrix',
+    opName: 'softmax_matrix', // This name is already unique
     cost: numRows * numCols * numCols,
   );
   return out;
@@ -1152,14 +1227,14 @@ Tensor<Scalar> sumMatrix(Tensor<Matrix> m) {
   Tensor<Scalar> out = Tensor<Scalar>(total);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           m.grad[i][j] += out.grad * 1.0;
         }
       }
     },
-    opName: 'sumMatrix',
+    opName: 'sum_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
   );
   return out;
@@ -1185,14 +1260,14 @@ Tensor<Matrix> tanhMatrix(Tensor<Matrix> m) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
           m.grad[i][j] += out.grad[i][j] * (1 - pow(out.value[i][j], 2));
         }
       }
     },
-    opName: 'tanhMatrix',
+    opName: 'tanh_matrix', // <-- Renamed for clarity
     cost: numRows * numCols,
   );
   return out;
@@ -1212,14 +1287,14 @@ Tensor<Matrix> transpose(Tensor<Matrix> a) {
   Tensor<Matrix> out = Tensor<Matrix>(outValue);
   out.creator = Node(
     [a],
-    () {
+        () {
       for (int i = 0; i < N; i++) {
         for (int j = 0; j < M; j++) {
           a.grad[j][i] += out.grad[i][j];
         }
       }
     },
-    opName: 'transpose',
+    opName: 'transpose', // This name is already unique
     cost: 0,
   );
   return out;
@@ -1250,7 +1325,7 @@ Tensor<Tensor3D> add3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
   Tensor<Tensor3D> out = Tensor<Tensor3D>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int d = 0; d < depth; d++) {
         for (int h = 0; h < height; h++) {
           for (int w = 0; w < width; w++) {
@@ -1260,7 +1335,7 @@ Tensor<Tensor3D> add3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
         }
       }
     },
-    opName: 'add3D',
+    opName: 'add_3d', // <-- Renamed for clarity
     cost: depth * height * width,
   );
   return out;
@@ -1287,7 +1362,7 @@ Tensor<Tensor3D> elementWiseMultiply3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
   Tensor<Tensor3D> out = Tensor<Tensor3D>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int d = 0; d < depth; d++) {
         for (int h = 0; h < height; h++) {
           for (int w = 0; w < width; w++) {
@@ -1297,7 +1372,7 @@ Tensor<Tensor3D> elementWiseMultiply3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
         }
       }
     },
-    opName: 'multiply3D',
+    opName: 'multiply_3d', // <-- Renamed for clarity
     cost: depth * height * width,
   );
   return out;
@@ -1309,7 +1384,7 @@ Tensor<Tensor3D> concatenate3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int aDepth = a.value.length;
       for (int d = 0; d < aDepth; d++) {
         for (int h = 0; h < a.value[0].length; h++) {
@@ -1327,7 +1402,7 @@ Tensor<Tensor3D> concatenate3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
         }
       }
     },
-    opName: 'concat3D',
+    opName: 'concat_3d', // <-- Renamed for clarity
     cost: 0,
   );
   return out;
@@ -1337,16 +1412,19 @@ Tensor<Tensor3D> concatenate3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
 // COMPOSITE OPERATIONS
 ////////////////////////////////////////////////////////////////////////////////
 
+// This is a composite function; it doesn't create its own Node,
+// so it doesn't need changes. The GraphCopier will copy the
+// primitive operations it's made of.
 Tensor<Vector> softplus(Tensor<Vector> v) {
   return vectorLog(addScalar(vectorExp(v), 1.0));
 }
 
 Tensor<Matrix> layerNorm(
-  Tensor<Matrix> m,
-  Tensor<Vector> gamma,
-  Tensor<Vector> beta, {
-  double epsilon = 1e-5,
-}) {
+    Tensor<Matrix> m,
+    Tensor<Vector> gamma,
+    Tensor<Vector> beta, {
+      double epsilon = 1e-5,
+    }) {
   int numRows = m.value.length;
   int numCols = m.value[0].length;
   Matrix outValue = [];
@@ -1389,7 +1467,7 @@ Tensor<Matrix> layerNorm(
 
   out.creator = Node(
     [m, gamma, beta],
-    () {
+        () {
       for (int r = 0; r < numRows; r++) {
         Vector grad_x_hat = [];
         for (int c = 0; c < numCols; c++) {
@@ -1415,17 +1493,17 @@ Tensor<Matrix> layerNorm(
 
           double total_grad =
               (1.0 / (numCols * sqrt(variances[r] + epsilon))) *
-              (term1 - term2 - term3);
+                  (term1 - term2 - term3);
           m.grad[r][c] += total_grad;
         }
       }
     },
-    opName: 'layer_norm',
+    opName: 'layer_norm', // This name is already unique
+    extraParams: {'epsilon': epsilon}, // <-- CRITICAL: Storing the non-Tensor parameter
     cost: cost,
   );
   return out;
 }
-
 void main() {
   // The main function usage remains the same
   Tensor<Matrix> M = Tensor<Matrix>([
