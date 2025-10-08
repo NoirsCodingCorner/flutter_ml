@@ -1,6 +1,16 @@
 
 import '../autogradEngine/tensor.dart';
 
+
+export 'elu.dart';
+export 'relu.dart';
+export 'leakyRelu.dart';
+export 'softmax.dart';
+export 'mish.dart';
+export 'sigmoid.dart';
+export 'silu.dart';
+
+
 /// The abstract base class (or interface) for all activation functions.
 ///
 /// The purpose of this class is to define a common contract that all

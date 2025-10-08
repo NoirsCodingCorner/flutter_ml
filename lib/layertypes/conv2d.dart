@@ -99,7 +99,7 @@ class Conv2DLayer extends Layer {
 }
 
 
-void main() {
+/*void main() {
   int kernelSize = 3;
   int numSamples = 500;
   int epochs = 100;
@@ -172,4 +172,4 @@ void main() {
   print('Count for patch with 6 ones (Target: 6.0): ${result2.value[0][0].toStringAsFixed(4)}');
 
   result1.printGraph();
-}
+}*/

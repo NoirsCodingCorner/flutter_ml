@@ -115,7 +115,7 @@ class RNN extends Layer {
 
       Tensor<Vector> inputPart = matVecMul(W_xh, x_t);
       Tensor<Vector> hiddenPart = matVecMul(W_hh, h);
-      Tensor<Vector> combined = add(add(inputPart, hiddenPart), b_h);
+      Tensor<Vector> combined = addVector(addVector(inputPart, hiddenPart), b_h);
 
       h = activation.call(combined) as Tensor<Vector>;
     }

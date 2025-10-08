@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../activationFunctions/activation_funciton.dart';
+import '../activationFunctions/relu.dart';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
@@ -52,7 +53,7 @@ class DenseLayer extends Layer {
 
   @override
   Tensor<Vector> forward(Tensor<dynamic> input) {
-    Tensor<Vector> linearOutput = add(matVecMul(weights, input as Tensor<Vector>), biases);
+    Tensor<Vector> linearOutput = addVector(matVecMul(weights, input as Tensor<Vector>), biases);
 
     if (activation != null) {
       return activation!.call(linearOutput) as Tensor<Vector>;
@@ -123,3 +124,27 @@ class DenseLayerMatrix extends Layer {
     }
   }
 }
+
+
+/*void main() {
+  // 1. Define input size and output size
+  int inputSize = 4;
+  int outputSize = 3;
+
+  // 2. Create the input tensor
+  // Input: [1.0, 2.0, -1.0, 0.5]
+  Vector inputVector = [1.0, 2.0, -1.0, 0.5];
+  Tensor<Vector> inputTensor = Tensor<Vector>(inputVector);
+
+  // 3. Instantiate the layer with an activation function
+  DenseLayer layer = DenseLayer(outputSize, activation: ReLU());
+
+  // 4. Build the layer (initializes weights/biases)
+  layer.build(inputTensor);
+
+  // 6. Perform a forward pass
+  Tensor<Vector> outputTensor = layer.forward(inputTensor);
+
+  outputTensor.printGraph();
+  // A simple check to ensure the output size is correct
+}*/

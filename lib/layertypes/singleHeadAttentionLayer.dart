@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import '../activationFunctions/softmax.dart';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
@@ -89,7 +90,7 @@ class SingleHeadAttention extends Layer {
 }
 
 
-void main() {
+/*void main() {
   int dModel = 4;
   int dK = 2;
 
@@ -117,4 +118,4 @@ void main() {
   print('\nAttention Weights Matrix (shape: ${attentionWeights.value.length}x${attentionWeights.value[0].length}):');
   attentionWeights.value.forEach((row) => print(row.map((e) => e.toStringAsFixed(4)).toList()));
   outputSequence.printGraph();
-}
+}*/

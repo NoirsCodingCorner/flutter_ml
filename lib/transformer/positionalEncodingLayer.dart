@@ -65,7 +65,7 @@ class PositionalEncoding extends Layer {
   }
 }
 
-void main() {
+/*void main() {
   int vocabSize = 1000;
   int dModel = 128;
   int maxSequenceLength = 50;
@@ -90,4 +90,4 @@ void main() {
   print('\nInput sentence has ${sentence.value.length} words.');
   print('Final output shape is [${finalEmbeddings.value.length}, ${finalEmbeddings.value[0].length}]');
   print('This confirms the positional information was added correctly.');
-}
+}*/

@@ -118,25 +118,25 @@ class DualLSTMLayer extends Layer {
 
       // Forget Gate
       Tensor<Vector> lf_t_linear = matVecMul(lW_f, combined_input_lower);
-      Tensor<Vector> lf_t_biased = add(lf_t_linear, lb_f);
+      Tensor<Vector> lf_t_biased = addVector(lf_t_linear, lb_f);
       Tensor<Vector> lf_t = sigmoid(lf_t_biased);
 
       // Input Gate
       Tensor<Vector> li_t_linear = matVecMul(lW_i, combined_input_lower);
-      Tensor<Vector> li_t_biased = add(li_t_linear, lb_i);
+      Tensor<Vector> li_t_biased = addVector(li_t_linear, lb_i);
       Tensor<Vector> li_t = sigmoid(li_t_biased);
       Tensor<Vector> lc_tilde_t_linear = matVecMul(lW_c, combined_input_lower);
-      Tensor<Vector> lc_tilde_t_biased = add(lc_tilde_t_linear, lb_c);
+      Tensor<Vector> lc_tilde_t_biased = addVector(lc_tilde_t_linear, lb_c);
       Tensor<Vector> lc_tilde_t = vectorTanh(lc_tilde_t_biased);
 
       // Cell State Update
       Tensor<Vector> lc_retained = elementWiseMultiply(lf_t, lc);
       Tensor<Vector> lc_new_info = elementWiseMultiply(li_t, lc_tilde_t);
-      lc = add(lc_retained, lc_new_info);
+      lc = addVector(lc_retained, lc_new_info);
 
       // Output Gate
       Tensor<Vector> lo_t_linear = matVecMul(lW_o, combined_input_lower);
-      Tensor<Vector> lo_t_biased = add(lo_t_linear, lb_o);
+      Tensor<Vector> lo_t_biased = addVector(lo_t_linear, lb_o);
       Tensor<Vector> lo_t = sigmoid(lo_t_biased);
       Tensor<Vector> lc_activated = vectorTanh(lc);
       lh = elementWiseMultiply(lo_t, lc_activated);
@@ -150,25 +150,25 @@ class DualLSTMLayer extends Layer {
 
         // Forget Gate
         Tensor<Vector> hf_t_linear = matVecMul(hW_f, combined_input_higher);
-        Tensor<Vector> hf_t_biased = add(hf_t_linear, hb_f);
+        Tensor<Vector> hf_t_biased = addVector(hf_t_linear, hb_f);
         Tensor<Vector> hf_t = sigmoid(hf_t_biased);
 
         // Input Gate
         Tensor<Vector> hi_t_linear = matVecMul(hW_i, combined_input_higher);
-        Tensor<Vector> hi_t_biased = add(hi_t_linear, hb_i);
+        Tensor<Vector> hi_t_biased = addVector(hi_t_linear, hb_i);
         Tensor<Vector> hi_t = sigmoid(hi_t_biased);
         Tensor<Vector> hc_tilde_t_linear = matVecMul(hW_c, combined_input_higher);
-        Tensor<Vector> hc_tilde_t_biased = add(hc_tilde_t_linear, hb_c);
+        Tensor<Vector> hc_tilde_t_biased = addVector(hc_tilde_t_linear, hb_c);
         Tensor<Vector> hc_tilde_t = vectorTanh(hc_tilde_t_biased);
 
         // Cell State Update
         Tensor<Vector> hc_retained = elementWiseMultiply(hf_t, hc);
         Tensor<Vector> hc_new_info = elementWiseMultiply(hi_t, hc_tilde_t);
-        hc = add(hc_retained, hc_new_info);
+        hc = addVector(hc_retained, hc_new_info);
 
         // Output Gate
         Tensor<Vector> ho_t_linear = matVecMul(hW_o, combined_input_higher);
-        Tensor<Vector> ho_t_biased = add(ho_t_linear, hb_o);
+        Tensor<Vector> ho_t_biased = addVector(ho_t_linear, hb_o);
         Tensor<Vector> ho_t = sigmoid(ho_t_biased);
         Tensor<Vector> hc_activated = vectorTanh(hc);
         hh = elementWiseMultiply(ho_t, hc_activated);
@@ -183,7 +183,7 @@ class DualLSTMLayer extends Layer {
 // Assuming the following helper functions/classes exist outside of main:
 // Tensor, Layer, MultiLSTMLayer, LSTMLayer, SNetwork, SGD, mse, etc.
 
-void main() {
+/*void main() {
   // --- Inline Helper Functions ---
 
   // Inlined prepareRnnData
@@ -399,4 +399,4 @@ void main() {
 
   double lstmWinPercentage = (lstmWins / numTrials) * 100;
   print('\n**Standard LSTM won ${lstmWinPercentage.toStringAsFixed(1)}% of the trials.**');
-}
+}*/

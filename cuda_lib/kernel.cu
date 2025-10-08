@@ -1,7 +1,8 @@
 #include <iostream>
 #include <cublas_v2.h>
+#include <chrono> // Required for timing
 
-// This wrapper function will be called from Dart.
+// This is your existing function. No changes are needed here.
 extern "C" __declspec(dllexport)
 void multiplyMatrices(float* h_a, float* h_b, float* h_c, int m, int k, int n) {
     // A is an m x k matrix
@@ -26,14 +27,9 @@ void multiplyMatrices(float* h_a, float* h_b, float* h_c, int m, int k, int n) {
     cublasHandle_t handle;
     cublasCreate(&handle);
 
-    // Set scaling factors for C = alpha*(A*B) + beta*C
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    // The main cuBLAS call for Single-precision General Matrix Multiplication (SGEMM)
-    // IMPORTANT: cuBLAS uses column-major order, while C++/Dart use row-major.
-    // A standard trick is to compute C = B^T * A^T which is equivalent to C = A * B
-    // in row-major. We do this by swapping A and B in the call and their dimensions.
     cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
                 n, m, k,
                 &alpha,
@@ -42,7 +38,6 @@ void multiplyMatrices(float* h_a, float* h_b, float* h_c, int m, int k, int n) {
                 &beta,
                 d_c, n);
 
-    // Clean up the cuBLAS handle
     cublasDestroy(handle);
 
     // 4. Copy the result matrix C from device (GPU) back to host (CPU)
@@ -52,4 +47,53 @@ void multiplyMatrices(float* h_a, float* h_b, float* h_c, int m, int k, int n) {
     cudaFree(d_a);
     cudaFree(d_b);
     cudaFree(d_c);
+}
+
+
+// --- NEW BENCHMARK FUNCTION ---
+
+/// Runs an increasing benchmark for matrix multiplication and returns
+/// the size at which the computation time exceeded 1000 milliseconds.
+extern "C" __declspec(dllexport)
+int benchtest() {
+    int size = 100;
+    const int step = 100;
+
+    // Loop forever, increasing the size with each iteration
+    for (;; size += step) {
+        int m = size;
+        int k = size;
+        int n = size;
+
+        // Allocate memory on the CPU (host) for the matrices
+        float* h_a = new float[m * k];
+        float* h_b = new float[k * n];
+        float* h_c = new float[m * n];
+
+        // Start the high-resolution timer
+        auto start = std::chrono::high_resolution_clock::now();
+
+        // Call the existing function to perform the GPU work
+        multiplyMatrices(h_a, h_b, h_c, m, k, n);
+
+        // Stop the timer and calculate the duration in milliseconds
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+        long long elapsedTime = duration.count();
+
+        // Print progress to the console
+        std::cout << "Size: " << size << "x" << size << " ... Time: " << elapsedTime << " ms" << std::endl;
+
+        // IMPORTANT: Free the host memory to avoid leaks
+        delete[] h_a;
+        delete[] h_b;
+        delete[] h_c;
+
+        // Check if the time limit was exceeded
+        if (elapsedTime > 1000) {
+            return size; // Return the size that broke the 1-second barrier
+        }
+    }
+
+    return 0; // This line should ideally not be reached
 }
