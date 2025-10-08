@@ -70,7 +70,7 @@ class TransformerEncoderBlock extends Layer {
   }
 }
 
-void main() {
+/*void main() {
   int vocabSize = 1000;
   int dModel = 32;
   int numHeads = 4;
@@ -98,4 +98,4 @@ void main() {
 
   // 3. Print the graph to see the complete structure
   transformer.predict(dummySentence).printGraph(); // Use maxDepth to keep it readable
-}
+}*/

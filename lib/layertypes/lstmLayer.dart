@@ -120,26 +120,26 @@ class LSTMLayer extends Layer {
 
       // 1. Forget Gate: Decides what old information to discard from the cell state.
       Tensor<Vector> f_t_linear = matVecMul(W_f, combined_input);
-      Tensor<Vector> f_t_biased = add(f_t_linear, b_f);
+      Tensor<Vector> f_t_biased = addVector(f_t_linear, b_f);
       Tensor<Vector> f_t = sigmoid(f_t_biased);
 
       // 2. Input Gate: Decides which new information to store in the cell state.
       Tensor<Vector> i_t_linear = matVecMul(W_i, combined_input);
-      Tensor<Vector> i_t_biased = add(i_t_linear, b_i);
+      Tensor<Vector> i_t_biased = addVector(i_t_linear, b_i);
       Tensor<Vector> i_t = sigmoid(i_t_biased);
 
       Tensor<Vector> c_tilde_t_linear = matVecMul(W_c, combined_input);
-      Tensor<Vector> c_tilde_t_biased = add(c_tilde_t_linear, b_c);
+      Tensor<Vector> c_tilde_t_biased = addVector(c_tilde_t_linear, b_c);
       Tensor<Vector> c_tilde_t = vectorTanh(c_tilde_t_biased);
 
       // 3. Cell State Update: Forgets old info and adds new candidate info.
       Tensor<Vector> c_retained = elementWiseMultiply(f_t, c);
       Tensor<Vector> c_new_info = elementWiseMultiply(i_t, c_tilde_t);
-      c = add(c_retained, c_new_info);
+      c = addVector(c_retained, c_new_info);
 
       // 4. Output Gate: Determines the next hidden state from the updated cell state.
       Tensor<Vector> o_t_linear = matVecMul(W_o, combined_input);
-      Tensor<Vector> o_t_biased = add(o_t_linear, b_o);
+      Tensor<Vector> o_t_biased = addVector(o_t_linear, b_o);
       Tensor<Vector> o_t = sigmoid(o_t_biased);
 
       Tensor<Vector> c_activated = vectorTanh(c);

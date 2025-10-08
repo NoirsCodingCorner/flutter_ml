@@ -2,6 +2,16 @@ import 'dart:math';
 
 import '../autogradEngine/tensor.dart';
 
+export 'adagrad.dart';
+export 'adam.dart';
+export 'adamw.dart';
+export 'amsgrad.dart';
+export 'rmsprop.dart';
+export 'sgd.dart';
+export 'nag.dart';
+export 'sgdmomentum.dart';
+
+
 /// The abstract base class for all optimization algorithms.
 ///
 /// An `Optimizer`'s role is to hold a model's trainable `parameters` and update

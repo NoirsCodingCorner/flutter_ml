@@ -155,7 +155,7 @@ class ConvLSTMLayer extends Layer {
     return h;
   }
 }
-void main() {
+/*void main() {
   SNetwork network = SNetwork([
     ConvLSTMLayer(8, 3),
     FlattenLayer(),
@@ -262,3 +262,4 @@ void main() {
   print('\n--- FINAL COMPUTATIONAL GRAPH ---');
   prediction.printGraph();
 }
+*/

@@ -164,14 +164,14 @@ class MultiTierLSTMLayer extends Layer {
       int tierIndex
       ) {
     // Forget Gate
-    Tensor<Vector> f_t = sigmoid(add(matVecMul(W_f_tiers[tierIndex], combined_input), b_f_tiers[tierIndex]));
+    Tensor<Vector> f_t = sigmoid(addVector(matVecMul(W_f_tiers[tierIndex], combined_input), b_f_tiers[tierIndex]));
     // Input Gate
-    Tensor<Vector> i_t = sigmoid(add(matVecMul(W_i_tiers[tierIndex], combined_input), b_i_tiers[tierIndex]));
-    Tensor<Vector> c_tilde_t = vectorTanh(add(matVecMul(W_c_tiers[tierIndex], combined_input), b_c_tiers[tierIndex]));
+    Tensor<Vector> i_t = sigmoid(addVector(matVecMul(W_i_tiers[tierIndex], combined_input), b_i_tiers[tierIndex]));
+    Tensor<Vector> c_tilde_t = vectorTanh(addVector(matVecMul(W_c_tiers[tierIndex], combined_input), b_c_tiers[tierIndex]));
     // Cell State Update
-    Tensor<Vector> c_next = add(elementWiseMultiply(f_t, c_prev), elementWiseMultiply(i_t, c_tilde_t));
+    Tensor<Vector> c_next = addVector(elementWiseMultiply(f_t, c_prev), elementWiseMultiply(i_t, c_tilde_t));
     // Output Gate
-    Tensor<Vector> o_t = sigmoid(add(matVecMul(W_o_tiers[tierIndex], combined_input), b_o_tiers[tierIndex]));
+    Tensor<Vector> o_t = sigmoid(addVector(matVecMul(W_o_tiers[tierIndex], combined_input), b_o_tiers[tierIndex]));
     Tensor<Vector> h_next = elementWiseMultiply(o_t, vectorTanh(c_next));
 
     return {'h': h_next, 'c': c_next};
@@ -192,7 +192,7 @@ class MultiTierLSTMLayer extends Layer {
 }
 
 
-void main() {
+/*void main() {
   // --- Inline Helper Function for Complex Data ---
 
   void prepareComplexRnnData({
@@ -356,4 +356,4 @@ void main() {
 
   print('--------------------------------------------------');
   print('🥇 Best performing model (given equal time): $bestModel');
-}
+}*/

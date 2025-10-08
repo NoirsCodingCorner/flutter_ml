@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math';
 
+import '../activationFunctions/relu.dart';
+import '../activationFunctions/sigmoid.dart';
 import '../autogradEngine/tensor.dart';
 import '../layertypes/layer.dart';
 import '../optimizers/optimizers.dart';
@@ -55,6 +57,7 @@ class SNetwork extends Layer {
   }
 
   Tensor<dynamic> predict(Tensor<dynamic> input) {
+    //Call simply looks if this already has been built, id yes then it calls forward. Otherwise it builds the net
     return call(input);
   }
 
@@ -150,5 +153,76 @@ class SNetwork extends Layer {
       }
     }
     double accuracy = (correctPredictions / inputs.length) * 100;
+  }
+}
+
+void main() {
+  // --- 1. Define XOR Dataset ---
+  final List<Vector> xorInputs = [];
+  xorInputs.add([0.0, 0.0]);
+  xorInputs.add([0.0, 1.0]);
+  xorInputs.add([1.0, 0.0]);
+  xorInputs.add([1.0, 1.0]);
+
+  final List<Vector> xorTargets = [];
+  xorTargets.add([0.0]); // 0 XOR 0 = 0
+  xorTargets.add([1.0]); // 0 XOR 1 = 1
+  xorTargets.add([1.0]); // 1 XOR 0 = 1
+  xorTargets.add([0.0]); // 1 XOR 1 = 0
+
+  // --- 2. Build the SNetwork (Simple Sequential Model) ---
+  final List<Layer> layers = [];
+
+  // Hidden Layer (2 -> 2)
+  final DenseLayer hiddenLayer = DenseLayer(2, activation: ReLU());
+  layers.add(hiddenLayer);
+
+  // Output Layer (2 -> 1)
+  final DenseLayer outputLayer = DenseLayer(1, activation: Sigmoid());
+  layers.add(outputLayer);
+
+  final SNetwork model = SNetwork(layers, name: 'XOR-Net');
+
+  // ************************************************
+  // --- IMPORTANT: Initial Predict/Build Call ---
+  // This step runs the first forward pass, calling 'build' on all layers,
+  // which populates the 'model.parameters' list. This is necessary
+  // if the optimizer needs the parameters list before 'fit' starts.
+  // We use the first input data point to establish the shape.
+  final Tensor<Vector> initialInputTensor = Tensor<Vector>(xorInputs[0]);
+  // The result is not used, only the side-effect of calling 'build' is needed.
+  model.predict(initialInputTensor);
+  // ************************************************
+
+  // --- 3. Compile the Network ---
+  // The 'model.parameters' list is now populated because of the 'predict' call.
+  final SGD optimizer = SGD(model.parameters, learningRate: 0.001);
+  model.compile(configuredOptimizer: optimizer);
+
+  // --- 4. Train the Network ---
+  final int epochs = 5000;
+  print('Training ${model.name} for $epochs epochs...');
+
+  model.fit(xorInputs, xorTargets, epochs: epochs, debug: true);
+
+  // --- 5. Evaluate and Test ---
+  print('\n--- Testing Predictions ---');
+
+  int i = 0;
+  for (Vector input in xorInputs) {
+    final Tensor<Vector> inputTensor = Tensor<Vector>(input);
+    final Tensor<Vector> predictionTensor = model.predict(inputTensor) as Tensor<Vector>;
+
+    // Get the target (label)
+    final int target = xorTargets[i][0].toInt();
+
+    // Convert output to a binary decision (0 or 1)
+    final double rawOutput = predictionTensor.value[0];
+    final int predictedClass = (rawOutput > 0.5) ? 1 : 0;
+
+    print('Input: $input, Target: $target, Output: ${rawOutput.toStringAsFixed(4)}, Predicted: $predictedClass, Correct: ${predictedClass == target}');
+
+    // Explicitly increment the counter for the targets list
+    i = i + 1;
   }
 }

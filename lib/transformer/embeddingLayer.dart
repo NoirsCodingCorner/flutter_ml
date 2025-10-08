@@ -135,7 +135,7 @@ class EmbeddingLayerMatrix extends Layer {
   }
 }
 
-void main() {
+/*void main() {
   Map<String, int> vocabulary = {
     'king': 0, 'queen': 1, 'man': 2, 'woman': 3,
   };
@@ -202,4 +202,4 @@ void main() {
     Tensor<Vector> finalOutput = denseLayer.call(embeddedVector) as Tensor<Vector>;
     print('  - Score for "${dataPoint[0]}": ${finalOutput.value[0].toStringAsFixed(4)} (Target: ${dataPoint[1]})');
   }
-}
+}*/

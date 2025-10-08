@@ -151,7 +151,7 @@ class GeneralizedChainedScaleLayer extends Layer {
       for (int j = 0; j <= currentLevelData.length - grainSize; j += grainSize) {
         List<Tensor<Vector>> chunk = currentLevelData.sublist(j, j + grainSize);
         Tensor<Vector> flattened = concatenateAll(chunk);
-        Tensor<Vector> summary = vectorTanh(add(matVecMul(aggW[i], flattened), aggB[i]));
+        Tensor<Vector> summary = vectorTanh(addVector(matVecMul(aggW[i], flattened), aggB[i]));
         nextLevelSummaries.add(summary);
       }
       // The summaries from this level become the input for the next level up in the hierarchy.
@@ -192,13 +192,13 @@ class GeneralizedChainedScaleLayer extends Layer {
     for (Tensor<Vector> x_t in sequence) {
       Tensor<Vector> combined_input = concatenate(h, x_t);
 
-      Tensor<Vector> f_t = sigmoid(add(matVecMul(lstmWf[tierIndex], combined_input), lstmBf[tierIndex]));
-      Tensor<Vector> i_t = sigmoid(add(matVecMul(lstmWi[tierIndex], combined_input), lstmBi[tierIndex]));
-      Tensor<Vector> c_tilde_t = vectorTanh(add(matVecMul(lstmWc[tierIndex], combined_input), lstmBc[tierIndex]));
+      Tensor<Vector> f_t = sigmoid(addVector(matVecMul(lstmWf[tierIndex], combined_input), lstmBf[tierIndex]));
+      Tensor<Vector> i_t = sigmoid(addVector(matVecMul(lstmWi[tierIndex], combined_input), lstmBi[tierIndex]));
+      Tensor<Vector> c_tilde_t = vectorTanh(addVector(matVecMul(lstmWc[tierIndex], combined_input), lstmBc[tierIndex]));
 
-      c = add(elementWiseMultiply(f_t, c), elementWiseMultiply(i_t, c_tilde_t));
+      c = addVector(elementWiseMultiply(f_t, c), elementWiseMultiply(i_t, c_tilde_t));
 
-      Tensor<Vector> o_t = sigmoid(add(matVecMul(lstmWo[tierIndex], combined_input), lstmBo[tierIndex]));
+      Tensor<Vector> o_t = sigmoid(addVector(matVecMul(lstmWo[tierIndex], combined_input), lstmBo[tierIndex]));
       h = elementWiseMultiply(o_t, vectorTanh(c));
     }
     return h;
@@ -244,7 +244,7 @@ void setTrainingMode(SNetwork model, bool isTraining) {
   }
 }
 
-void main() {
+/*void main() {
   // --- 1. File Loading and Parsing ---
   print('💾 Loading silver price data...');
   File csvFile = File('lib/datasets/silver.csv');
@@ -420,5 +420,5 @@ void main() {
     String maxStr = maxPred.toStringAsFixed(4);
     print('  Day $dayStr: Avg Price: \$$avgStr (Range: \$${minStr} - \$${maxStr})');
   }
-}
+}*/
 

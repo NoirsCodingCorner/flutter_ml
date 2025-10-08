@@ -9,7 +9,7 @@ import '../nets/snet.dart';
 import 'embeddingLayer.dart';
 import 'globalpoolingLayer.dart';
 
-void main() {
+/*void main() {
   Map<String, int> vocabulary = {
     '<pad>': 0, 'i': 1, 'love': 2, 'this': 3, 'movie': 4, 'is': 5, 'great': 6,
     'a': 7, 'bad': 8, 'film': 9, 'hate': 10, 'terrible': 11, 'good': 12,
@@ -80,4 +80,4 @@ void main() {
     }
   }
 
-}
+}*/

@@ -1,32 +1,29 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
-
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
-
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+Full autograd engine in pure dart code. Includes full control over all the math and allows for rapid development of new 
+models, architectures etc.
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+This is a learning package. To start id recommend you to look in to the tensor class itself as it contains the most interesting
+aspects of the engine. It contains the bare bone building blocks of the engine itself and functions as all there is about gradient propagation.
 
-## Usage
+To boot there are many additional on top building blocks that help you understand how this complex system works.
+Math operations are open and can be looked it, the entire structure is open making it super easy to debug and experiment with.
+Although this costs performance due to the obvious loss of parallelism it is a great way to make understanding the engine easier.
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+## Features
+
+This package includes many features. The most important of them are: 
+- Auto gradient engine
+- Auto building of computational graphs
+- General Layer structure similar to other frameworks such as Pytorch or tensorflow
+- Ready to use activation functions
+- Ready to use optimizers
+- Ready to use loss functions
+- Detailed Computational Graph printouts via a custom Logger
+- Transformer networks integrated
+- many more features...
 
 ```dart
 const like = 'sample';

@@ -201,7 +201,7 @@ Tensor<Matrix> layerNorm(Tensor<Matrix> m, Tensor<Vector> gamma, Tensor<Vector> 
   return out;
 }
 
-void main() {
+/*void main() {
   LayerNormalization normLayer = LayerNormalization();
 
   Tensor<Matrix> input = Tensor<Matrix>([
@@ -236,4 +236,4 @@ void main() {
   print('Input Gradient:\n${input.grad.map((r) => r.map((e) => e.toStringAsFixed(4)))}');
   print('\nGamma Gradient:\n${gamma.grad.map((e) => e.toStringAsFixed(4))}');
   print('Beta Gradient:\n${beta.grad.map((e) => e.toStringAsFixed(4))}');
-}
+}*/

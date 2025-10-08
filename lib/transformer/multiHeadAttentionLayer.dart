@@ -85,7 +85,7 @@ class MultiHeadAttention extends Layer {
 }
 
 
-void main() {
+/*void main() {
   int sequenceLength = 3;
   int dModel = 4;
   int numHeads = 4;
@@ -118,5 +118,5 @@ void main() {
     }
   }
   outputSequence.printGraph();
-}
+}*/
 

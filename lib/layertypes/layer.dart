@@ -1,5 +1,21 @@
 import '../autogradEngine/tensor.dart';
 
+export 'averagePooling.dart';
+export 'batchNormalizationLayer.dart';
+export 'conv2d.dart';
+export 'convlstmLayer.dart';
+export 'denseLayer.dart';
+export 'dropout.dart';
+export 'duallstm.dart';
+export 'flattenLayer.dart';
+export 'lstmLayer.dart';
+export 'maxPooling.dart';
+export 'multilstm.dart';
+export 'reluLayer.dart';
+export 'rnnLayer.dart';
+export 'singleHeadAttentionLayer.dart';
+export 'trendmodelLayer.dart';
+
 /// The abstract base class for all neural network layers.
 ///
 /// A `Layer` is the fundamental, callable building block of a neural network. It
