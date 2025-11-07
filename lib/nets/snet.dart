@@ -156,7 +156,7 @@ class SNetwork extends Layer {
   }
 }
 
-void main() {
+/*void main() {
   // --- 1. Define XOR Dataset ---
   final List<Vector> xorInputs = [];
   xorInputs.add([0.0, 0.0]);
@@ -196,7 +196,7 @@ void main() {
 
   // --- 3. Compile the Network ---
   // The 'model.parameters' list is now populated because of the 'predict' call.
-  final SGD optimizer = SGD(model.parameters, learningRate: 0.001);
+  final SGD optimizer = SGD(model.parameters, learningRate: 0.1);
   model.compile(configuredOptimizer: optimizer);
 
   // --- 4. Train the Network ---
@@ -225,4 +225,4 @@ void main() {
     // Explicitly increment the counter for the targets list
     i = i + 1;
   }
-}
+}*/

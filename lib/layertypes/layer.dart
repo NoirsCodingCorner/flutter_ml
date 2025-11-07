@@ -10,7 +10,7 @@ export 'duallstm.dart';
 export 'flattenLayer.dart';
 export 'lstmLayer.dart';
 export 'maxPooling.dart';
-export 'multilstm.dart';
+//export 'multilstm.dart';
 export 'reluLayer.dart';
 export 'rnnLayer.dart';
 export 'singleHeadAttentionLayer.dart';

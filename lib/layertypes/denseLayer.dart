@@ -147,4 +147,89 @@ class DenseLayerMatrix extends Layer {
 
   outputTensor.printGraph();
   // A simple check to ensure the output size is correct
-}*/
+}
+
+const int BATCH_SIZE = 256;
+const int DIM_IN = 1024;
+const int DIM_HIDDEN = 4096;
+const int DIM_OUT = 1024;
+const int NUM_STEPS = 5; // WARNING: Pure Dart. Keep this VERY low.
+
+void main() {
+  print("--- Dart NN Benchmark (Pure Dart) ---");
+  print(
+      "Batch: $BATCH_SIZE, In: $DIM_IN, Hidden: $DIM_HIDDEN, Out: $DIM_OUT");
+  print("Running $NUM_STEPS forward passes...");
+
+  // 1. Create Layers
+  // We use DenseLayerMatrix from 'denseLayer.dart'
+  DenseLayerMatrix layer1 = DenseLayerMatrix(DIM_HIDDEN, activation: ReLUMatrix());  DenseLayerMatrix layer2 = DenseLayerMatrix(DIM_OUT); // No activation
+
+  // 2. Create Dummy Input
+  print("Initializing data...");
+  Tensor<Matrix> inputTensor =
+  _createDummyMatrix(BATCH_SIZE, DIM_IN, 1234);
+
+  // 3. Build Layers
+  // This initializes the weights (W1, B1)
+  layer1.build(inputTensor);
+
+  // We need a dummy tensor of the *intermediate* shape to build layer 2
+  Tensor<Matrix> intermediateTensor =
+  _createDummyMatrix(BATCH_SIZE, DIM_HIDDEN, 5678);
+  // This initializes the weights (W2, B2)
+  layer2.build(intermediateTensor);
+
+  print("Layers built. Starting benchmark...");
+
+  // 4. Warm-up run (1 step)
+  // This ensures any JIT compilation is done before we time.
+  print("Running 1 warm-up step...");
+  Tensor<Matrix> a1_warmup = layer1.forward(inputTensor);
+  Tensor<Matrix> yPred_warmup = layer2.forward(a1_warmup);
+
+  // 5. Timed Benchmark
+  print("Running $NUM_STEPS timed steps...");
+  Stopwatch stopwatch = Stopwatch()..start();
+
+  for (int i = 0; i < NUM_STEPS; i++) {
+    // Run the 2-layer forward pass
+    Tensor<Matrix> a1 = layer1.forward(inputTensor);
+    Tensor<Matrix> yPred = layer2.forward(a1);
+  }
+
+  stopwatch.stop();
+  print("...Benchmark complete.");
+
+  // 6. Report Results
+  double totalMs = stopwatch.elapsedMilliseconds.toDouble();
+  double msPerStep = totalMs / NUM_STEPS.toDouble();
+  double stepsPerSec = (NUM_STEPS.toDouble() / totalMs) * 1000.0;
+
+  print("\n--- Benchmark Results (Pure Dart, Forward Pass Only) ---");
+  print("Total steps:   $NUM_STEPS");
+  print("Total time:    ${totalMs.toStringAsFixed(4)} ms");
+  print("Time per step: ${msPerStep.toStringAsFixed(4)} ms");
+  print("Steps per sec: ${stepsPerSec.toStringAsFixed(4)}");
+
+  print("\n--- For Comparison (C++/CUDA, Full Train Step) ---");
+  print("Time per step: 2.236416 ms (forward + backward + update)");
+  print("Steps per sec: 447.144066 (forward + backward + update)");
+}
+
+/// Helper to create a matrix with random data
+/// (This was provided in your denseLayer.dart)
+Tensor<Matrix> _createDummyMatrix(int rows, int cols, int seed) {
+  // We must assume 'Matrix' and 'Vector' types are defined.
+  Random r = Random(seed);
+  Matrix m = [];
+  for (int i = 0; i < rows; i++) {
+    Vector row = [];
+    for (int j = 0; j < cols; j++) {
+      row.add(r.nextDouble() * 2.0 - 1.0); // Random value [-1, 1]
+    }
+    m.add(row);
+  }
+  return Tensor<Matrix>(m);
+}
+*/

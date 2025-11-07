@@ -54,12 +54,12 @@ void main() {
 
   for (String sentence in hemingwayText.split(RegExp(r'[\.!?]'))) {
     if (sentence.trim().length > 5) {
-      dataset.add({'text': sentence, 'label': 0.0});
+      dataset.add({'text': sentence, 'label': 0.0}); // 0.0 for Hemingway
     }
   }
   for (String sentence in shakespeareText.split(RegExp(r'[\.!?]'))) {
     if (sentence.trim().length > 5) {
-      dataset.add({'text': sentence, 'label': 1.0});
+      dataset.add({'text': sentence, 'label': 1.0}); // 1.0 for Shakespeare
     }
   }
   Logger.cyan('Step 3: Created dataset with ${dataset.length} sentences.', prefix: '✅');
@@ -104,10 +104,10 @@ void main() {
 
   styleClassifier.predict(Tensor<Vector>(trainInputs[0]));
   styleClassifier.compile(
-      configuredOptimizer: SGD(styleClassifier.parameters, learningRate: 0.005)
+      configuredOptimizer: Adam(styleClassifier.parameters, learningRate: 0.001)
   );
 
-  //styleClassifier.fit(trainInputs, trainTargets, epochs: 2, debug: true);
+  styleClassifier.fit(trainInputs, trainTargets, epochs: 10, debug: true);
 
   // --- 5. EVALUATION ---
   Logger.green('\n--- FINAL EVALUATION ON UNSEEN TEST DATA ---', prefix: '📊');
@@ -116,23 +116,47 @@ void main() {
   // --- 6. TESTING ON NEW SENTENCES ---
   Logger.blue('\n--- TESTING ON NEW SENTENCES ---', prefix: '🧪');
   List<String> testSentences = [
-    "the old man and the sea", "wherefore art thou",
-    "a farewell to arms", "o happy dagger this is thy sheath",
+    "the old man and the sea",
+    "wherefore art thou",
+    "a farewell to arms",
+    "o happy dagger this is thy sheath",
+    "death which cannot choose"
   ];
 
-  for (String sentence in testSentences) {
+  // Correct labels for the sentences above
+  List<String> correctLabels = [
+    "Hemingway",
+    "Shakespeare",
+    "Hemingway",
+    "Shakespeare",
+    "Hemingway"
+  ];
+
+  Tensor<Vector>? lastPrediction;
+
+  for (int i = 0; i < testSentences.length; i++) {
+    String sentence = testSentences[i];
+    String correctLabel = correctLabels[i];
+
     Vector tokenized = preprocessSentence(sentence, vocabulary, maxSequenceLength);
     Tensor<Vector> inputTensor = Tensor<Vector>(tokenized);
     Tensor<Vector> prediction = styleClassifier.predict(inputTensor) as Tensor<Vector>;
-    String result = (prediction.value[0] > 0.5) ? "Shakespeare" : "Hemingway";
-    print('Prediction for "$sentence": $result (Raw: ${prediction.value[0].toStringAsFixed(4)})');
-  }
-  Vector tokenized = preprocessSentence(testSentences[0], vocabulary, maxSequenceLength);
-  Tensor<Vector> inputTensor = Tensor<Vector>(tokenized);
-  Tensor<Vector> prediction = styleClassifier.predict(inputTensor) as Tensor<Vector>;
-  String result = (prediction.value[0] > 0.5) ? "Shakespeare" : "Hemingway";
-  print('Prediction for "$testSentences[0]": $result (Raw: ${prediction.value[0].toStringAsFixed(4)})');
-  prediction.printGraph();
-  prediction.printParallelGraph();
+    lastPrediction = prediction; // Save for graph printing
 
+    // The model outputs > 0.5 for Shakespeare (label 1.0)
+    String predictedLabel = (prediction.value[0] > 0.5) ? "Shakespeare" : "Hemingway";
+    String resultEmoji = (predictedLabel == correctLabel) ? '✅ Correct' : '❌ Incorrect';
+
+    print('Input: "$sentence"');
+    print(' -> Prediction: $predictedLabel (Raw: ${prediction.value[0].toStringAsFixed(4)})');
+    print(' -> Correct:    $correctLabel');
+    print(' -> Result:     $resultEmoji\n');
+  }
+
+  // Print graph for the last sentence processed
+  if (lastPrediction != null) {
+    print('--- Computation Graph for last prediction ---');
+    lastPrediction.printGraph();
+    lastPrediction.printParallelGraph();
+  }
 }

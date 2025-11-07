@@ -27,10 +27,5 @@ export 'silu.dart';
 /// Layer denseWithTanh = DenseLayer(64, activation: Tanh());
 /// ```
 abstract class ActivationFunction {
-  /// The sole method that subclasses must implement.
-  ///
-  /// It takes an input tensor, applies the specific activation function's logic,
-  /// and returns the resulting output tensor. The underlying mathematical
-  /// function is responsible for connecting the operation to the autograd graph.
   Tensor<dynamic> call(Tensor<dynamic> input);
 }

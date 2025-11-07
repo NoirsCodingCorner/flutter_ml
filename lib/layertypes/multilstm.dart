@@ -192,7 +192,7 @@ class MultiTierLSTMLayer extends Layer {
 }
 
 
-/*void main() {
+void main() {
   // --- Inline Helper Function for Complex Data ---
 
   void prepareComplexRnnData({
@@ -356,4 +356,4 @@ class MultiTierLSTMLayer extends Layer {
 
   print('--------------------------------------------------');
   print('🥇 Best performing model (given equal time): $bestModel');
-}*/
+}

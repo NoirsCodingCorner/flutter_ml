@@ -327,6 +327,8 @@ Tensor<Scalar> add(Tensor<Scalar> a, Tensor<Scalar> b) {
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
   out.creator = Node([a, b], () {
     /* backwardFn */
+    a.grad += out.grad;
+    b.grad += out.grad;
   }, opName: 'add');
   return out;
 }
@@ -1354,7 +1356,7 @@ Tensor<Vector> softplus(Tensor<Vector> v) {
   return vectorLog(addScalar(vectorExp(v), 1.0));
 }
 
-void main() {
+/*void main() {
   // The main function usage remains the same
   Tensor<Matrix> M = Tensor<Matrix>([
     [1.0, 2.0],
@@ -1374,4 +1376,4 @@ void main() {
   print('Backward pass gradients:');
   print('Gradient of M: ${M.grad}');
   print('Gradient of v: ${v.grad}');
-}
+}*/
