@@ -6,15 +6,6 @@ import '../layertypes/layer.dart';
 import '../optimizers/adam.dart';
 import '../optimizers/optimizers.dart';
 
-/// A layer that turns a 1D vector of integer indices into a 2D matrix of dense vectors.
-///
-/// This layer is the standard first step for processing a single sequence of text
-/// for a Natural Language Processing (NLP) task.
-///
-/// - **Input:** A `Tensor<Vector>` where the vector contains integer indices
-///   representing a single sequence of words.
-/// - **Output:** A `Tensor<Matrix>` representing the sequence of embedding
-///   vectors, with a shape of `[sequence_length, embeddingDimension]`.
 class EmbeddingLayer extends Layer {
   @override
   String name = 'embedding';
@@ -66,16 +57,29 @@ class EmbeddingLayer extends Layer {
 
     return out;
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'embeddings': embeddings.value,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    List<dynamic> embeddingsDynamic = weightsMap['embeddings'] as List<dynamic>;
+    Matrix newEmbeddings = embeddingsDynamic.map((dynamic row) {
+      return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+    }).toList();
+
+    for (int i = 0; i < embeddings.value.length; i++) {
+      for (int j = 0; j < embeddings.value[0].length; j++) {
+        embeddings.value[i][j] = newEmbeddings[i][j];
+      }
+    }
+  }
 }
 
-/// A layer that turns a 2D matrix of integer indices into a 3D tensor of dense vectors.
-///
-/// This layer is designed to process a **batch** of text sequences simultaneously.
-///
-/// - **Input:** A `Tensor<Matrix>` where each row is a sequence of integer
-///   indices. Shape: `[batch_size, sequence_length]`.
-/// - **Output:** A `Tensor<Tensor3D>` representing the batch of embedded
-///   sequences. Shape: `[batch_size, sequence_length, embeddingDimension]`.
 class EmbeddingLayerMatrix extends Layer {
   @override
   String name = 'embedding_matrix';
@@ -133,73 +137,25 @@ class EmbeddingLayerMatrix extends Layer {
 
     return out;
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'embeddings': embeddings.value,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    List<dynamic> embeddingsDynamic = weightsMap['embeddings'] as List<dynamic>;
+    Matrix newEmbeddings = embeddingsDynamic.map((dynamic row) {
+      return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+    }).toList();
+
+    for (int i = 0; i < embeddings.value.length; i++) {
+      for (int j = 0; j < embeddings.value[0].length; j++) {
+        embeddings.value[i][j] = newEmbeddings[i][j];
+      }
+    }
+  }
 }
-
-/*void main() {
-  Map<String, int> vocabulary = {
-    'king': 0, 'queen': 1, 'man': 2, 'woman': 3,
-  };
-  int vocabSize = vocabulary.length;
-  int embeddingDimension = 2; // Use a 2D vector so we can visualize it
-
-  List<List<dynamic>> trainingData = [
-    ['king', 0.9],
-    ['queen', 0.9],
-    ['man', 0.1],
-    ['woman', 0.1],
-  ];
-
-  EmbeddingLayer embeddingLayer = EmbeddingLayer(vocabSize, embeddingDimension);
-  DenseLayer denseLayer = DenseLayer(1);
-
-  // Build the layers with dummy data
-  embeddingLayer.build(Tensor<Vector>([0]));
-  denseLayer.build(Tensor<Vector>([0.0, 0.0]));
-
-  List<Tensor> allParameters = [...embeddingLayer.parameters, ...denseLayer.parameters];
-  Optimizer optimizer = Adam(allParameters, learningRate: 0.1);
-  int epochs = 150;
-
-  print('--- Starting Training ---');
-  for (int epoch = 0; epoch < epochs; epoch++) {
-    double totalLoss = 0;
-    for (List<dynamic> dataPoint in trainingData) {
-      optimizer.zeroGrad();
-
-      int wordIndex = vocabulary[dataPoint[0]]!;
-      Tensor<Vector> input = Tensor<Vector>([wordIndex.toDouble()]);
-      Tensor<Vector> target = Tensor<Vector>([dataPoint[1] as double]);
-
-      Tensor<Matrix> embeddedSequence = embeddingLayer.call(input) as Tensor<Matrix>;
-      Tensor<Vector> embeddedVector = selectRow(embeddedSequence, 0);
-      Tensor<Vector> finalOutput = denseLayer.call(embeddedVector) as Tensor<Vector>;
-
-      Tensor<Scalar> loss = mse(finalOutput, target);
-      totalLoss += loss.value;
-
-      loss.backward();
-      optimizer.step();
-    }
-    if ((epoch + 1) % 15 == 0) {
-      print('Epoch ${epoch + 1}, Avg Loss: ${totalLoss / trainingData.length}');
-    }
-  }
-  print('--- Training Complete! ---\n');
-
-  print('--- Proof of Learning ---');
-  print('Final Learned Embedding Vectors:');
-  vocabulary.forEach((word, index) {
-    Vector vector = embeddingLayer.embeddings.value[index];
-    print('  - $word: [${vector[0].toStringAsFixed(2)}, ${vector[1].toStringAsFixed(2)}]');
-  });
-
-  print('\nFinal Royalty Score Predictions:');
-  for (List<dynamic> dataPoint in trainingData) {
-    int wordIndex = vocabulary[dataPoint[0]]!;
-    Tensor<Vector> input = Tensor<Vector>([wordIndex.toDouble()]);
-    Tensor<Matrix> embeddedSequence = embeddingLayer.call(input) as Tensor<Matrix>;
-    Tensor<Vector> embeddedVector = selectRow(embeddedSequence, 0);
-    Tensor<Vector> finalOutput = denseLayer.call(embeddedVector) as Tensor<Vector>;
-    print('  - Score for "${dataPoint[0]}": ${finalOutput.value[0].toStringAsFixed(4)} (Target: ${dataPoint[1]})');
-  }
-}*/

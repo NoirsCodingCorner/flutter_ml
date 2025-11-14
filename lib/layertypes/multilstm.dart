@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import '../autogradEngine/tensor.dart';
 import '../nets/snet.dart';
 import '../optimizers/optimizers.dart';
@@ -7,31 +8,21 @@ import 'denseLayer.dart';
 import 'layer.dart';
 import 'lstmLayer.dart';
 
-/// A Multi-Tier Long Short-Term Memory (MT-LSTM) layer.
-///
-/// This is a generalized, hierarchical recurrent layer designed to capture
-/// dependencies across an arbitrary number of configured timescales.
 class MultiTierLSTMLayer extends Layer {
   @override
   String name = 'multitier_lstm';
 
   final int hiddenSize;
-  /// Defines the clock speed for each tier relative to the one below it.
-  /// Example: [7, 4] means tier 1 updates every 7 tier-0 steps, and
-  /// tier 2 updates every 4 tier-1 steps.
   final List<int> tierClockCycles;
   final int numTiers;
 
-  // Lists to hold the parameters for each tier.
   late List<Tensor<Matrix>> W_f_tiers, W_i_tiers, W_c_tiers, W_o_tiers;
   late List<Tensor<Vector>> b_f_tiers, b_i_tiers, b_c_tiers, b_o_tiers;
 
-  // For efficient checking of update triggers.
   late List<int> cumulativeClockCycles;
 
   MultiTierLSTMLayer(this.hiddenSize, {required this.tierClockCycles})
       : numTiers = tierClockCycles.length + 1 {
-    // Pre-calculate the global step interval for each tier's update.
     cumulativeClockCycles = [];
     int product = 1;
     for (int cycle in tierClockCycles) {
@@ -58,7 +49,6 @@ class MultiTierLSTMLayer extends Layer {
     int inputSize = inputMatrix.isNotEmpty ? inputMatrix[0].length : 0;
     Random random = Random();
 
-    // Initialize parameter lists
     W_f_tiers = []; W_i_tiers = []; W_c_tiers = []; W_o_tiers = [];
     b_f_tiers = []; b_i_tiers = []; b_c_tiers = []; b_o_tiers = [];
 
@@ -75,14 +65,11 @@ class MultiTierLSTMLayer extends Layer {
       return Tensor<Matrix>(values);
     }
 
-    // Loop to build parameters for each tier
     for (int i = 0; i < numTiers; i++) {
       int combinedSize;
       if (i == 0) {
-        // Lowest tier's input: [h_0, c_1, c_2, ..., x_t]
         combinedSize = hiddenSize + ((numTiers - 1) * hiddenSize) + inputSize;
       } else {
-        // Higher tier's input: [h_i, h_{i-1}]
         combinedSize = hiddenSize + hiddenSize;
       }
 
@@ -104,7 +91,6 @@ class MultiTierLSTMLayer extends Layer {
     Matrix sequence = (input as Tensor<Matrix>).value;
     int totalSteps = sequence.length;
 
-    // Initialize lists of hidden and cell states for all tiers.
     List<Tensor<Vector>> h_states = [];
     List<Tensor<Vector>> c_states = [];
     for (int i = 0; i < numTiers; i++) {
@@ -112,73 +98,53 @@ class MultiTierLSTMLayer extends Layer {
       c_states.add(Tensor<Vector>(List<double>.filled(hiddenSize, 0.0)));
     }
 
-    // Main loop over the entire sequence
     for (int globalStep = 0; globalStep < totalSteps; globalStep++) {
       Tensor<Vector> x_t = Tensor<Vector>(sequence[globalStep]);
 
-      // --- 1. LOWEST TIER (Tier 0) UPDATE ---
-      // This tier always runs.
-
-      // Feedback from all higher tiers
       Tensor<Vector> contextFromHigherTiers;
       if (numTiers > 1) {
-        // Concatenate all higher cell states: [c_1, c_2, ...]
         contextFromHigherTiers = concatenateAll(c_states.sublist(1));
       } else {
-        contextFromHigherTiers = Tensor<Vector>([]); // No higher tiers
+        contextFromHigherTiers = Tensor<Vector>([]);
       }
 
-      // Combine [h_0, context, x_t]
       Tensor<Vector> temp_combined = concatenate(h_states[0], contextFromHigherTiers);
       Tensor<Vector> combined_input_lower = concatenate(temp_combined, x_t);
 
-      // Perform LSTM update for Tier 0
-      var updatedStates = _lstmStep(combined_input_lower, h_states[0], c_states[0], 0);
+      Map<String, Tensor<Vector>> updatedStates = _lstmStep(combined_input_lower, h_states[0], c_states[0], 0);
       h_states[0] = updatedStates['h']!;
       c_states[0] = updatedStates['c']!;
 
-      // --- 2. HIGHER TIERS UPDATE ---
-      // Loop upwards through the higher tiers to check for updates.
       for (int i = 1; i < numTiers; i++) {
         if ((globalStep + 1) % cumulativeClockCycles[i - 1] == 0) {
-          // Input is this tier's hidden state and the hidden state from the tier below.
           Tensor<Vector> combined_input_higher = concatenate(h_states[i], h_states[i - 1]);
 
-          // Perform LSTM update for Tier i
-          var updatedHigherStates = _lstmStep(combined_input_higher, h_states[i], c_states[i], i);
+          Map<String, Tensor<Vector>> updatedHigherStates = _lstmStep(combined_input_higher, h_states[i], c_states[i], i);
           h_states[i] = updatedHigherStates['h']!;
           c_states[i] = updatedHigherStates['c']!;
         }
       }
     }
 
-    // The final output is the hidden state of the most granular tier.
     return h_states[0];
   }
 
-  /// Helper function to perform a single LSTM step for a given tier.
   Map<String, Tensor<Vector>> _lstmStep(
       Tensor<Vector> combined_input,
       Tensor<Vector> h_prev,
       Tensor<Vector> c_prev,
       int tierIndex
       ) {
-    // Forget Gate
     Tensor<Vector> f_t = sigmoid(addVector(matVecMul(W_f_tiers[tierIndex], combined_input), b_f_tiers[tierIndex]));
-    // Input Gate
     Tensor<Vector> i_t = sigmoid(addVector(matVecMul(W_i_tiers[tierIndex], combined_input), b_i_tiers[tierIndex]));
     Tensor<Vector> c_tilde_t = vectorTanh(addVector(matVecMul(W_c_tiers[tierIndex], combined_input), b_c_tiers[tierIndex]));
-    // Cell State Update
     Tensor<Vector> c_next = addVector(elementWiseMultiply(f_t, c_prev), elementWiseMultiply(i_t, c_tilde_t));
-    // Output Gate
     Tensor<Vector> o_t = sigmoid(addVector(matVecMul(W_o_tiers[tierIndex], combined_input), b_o_tiers[tierIndex]));
     Tensor<Vector> h_next = elementWiseMultiply(o_t, vectorTanh(c_next));
 
     return {'h': h_next, 'c': c_next};
   }
 
-  // Helper to concatenate a list of vectors. You'll need to add this to your tensor.dart
-  // or operations file.
   Tensor<Vector> concatenateAll(List<Tensor<Vector>> tensors) {
     if (tensors.isEmpty) return Tensor<Vector>([]);
     if (tensors.length == 1) return tensors[0];
@@ -188,6 +154,79 @@ class MultiTierLSTMLayer extends Layer {
       result = concatenate(result, tensors[i]);
     }
     return result;
+  }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    Map<String, dynamic> weights = {};
+
+    List<Matrix> serializeMatrixList(List<Tensor<Matrix>> tensorList) {
+      List<Matrix> values = [];
+      for (Tensor<Matrix> t in tensorList) {
+        values.add(t.value);
+      }
+      return values;
+    }
+
+    List<Vector> serializeVectorList(List<Tensor<Vector>> tensorList) {
+      List<Vector> values = [];
+      for (Tensor<Vector> t in tensorList) {
+        values.add(t.value);
+      }
+      return values;
+    }
+
+    weights['W_f_tiers'] = serializeMatrixList(W_f_tiers);
+    weights['W_i_tiers'] = serializeMatrixList(W_i_tiers);
+    weights['W_c_tiers'] = serializeMatrixList(W_c_tiers);
+    weights['W_o_tiers'] = serializeMatrixList(W_o_tiers);
+
+    weights['b_f_tiers'] = serializeVectorList(b_f_tiers);
+    weights['b_i_tiers'] = serializeVectorList(b_i_tiers);
+    weights['b_c_tiers'] = serializeVectorList(b_c_tiers);
+    weights['b_o_tiers'] = serializeVectorList(b_o_tiers);
+
+    return weights;
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+
+    void _copyMatrixList(List<Tensor<Matrix>> tensorList, List<dynamic> newDataList) {
+      for (int i = 0; i < tensorList.length; i++) {
+        List<dynamic> newMatrixDynamic = newDataList[i] as List<dynamic>;
+        Matrix newMatrix = newMatrixDynamic.map((dynamic row) {
+          return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+        }).toList();
+
+        Tensor<Matrix> tensor = tensorList[i];
+        for (int r = 0; r < tensor.value.length; r++) {
+          for (int c = 0; c < tensor.value[r].length; c++) {
+            tensor.value[r][c] = newMatrix[r][c];
+          }
+        }
+      }
+    }
+
+    void _copyVectorList(List<Tensor<Vector>> tensorList, List<dynamic> newDataList) {
+      for (int i = 0; i < tensorList.length; i++) {
+        List<dynamic> newVector = newDataList[i] as List<dynamic>;
+        Tensor<Vector> tensor = tensorList[i];
+        for (int j = 0; j < tensor.value.length; j++) {
+          tensor.value[j] = newVector[j] as double;
+        }
+      }
+    }
+
+    _copyMatrixList(W_f_tiers, weightsMap['W_f_tiers'] as List<dynamic>);
+    _copyMatrixList(W_i_tiers, weightsMap['W_i_tiers'] as List<dynamic>);
+    _copyMatrixList(W_c_tiers, weightsMap['W_c_tiers'] as List<dynamic>);
+    _copyMatrixList(W_o_tiers, weightsMap['W_o_tiers'] as List<dynamic>);
+
+    _copyVectorList(b_f_tiers, weightsMap['b_f_tiers'] as List<dynamic>);
+    _copyVectorList(b_i_tiers, weightsMap['b_i_tiers'] as List<dynamic>);
+    _copyVectorList(b_c_tiers, weightsMap['b_c_tiers'] as List<dynamic>);
+    _copyVectorList(b_o_tiers, weightsMap['b_o_tiers'] as List<dynamic>);
   }
 }
 

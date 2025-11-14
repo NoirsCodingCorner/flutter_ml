@@ -2,14 +2,6 @@ import '../autogradEngine/tensor.dart';
 import 'averagePooling.dart';
 import 'layer.dart';
 
-/// A 2D max pooling layer.
-///
-/// This layer downsamples an input feature map by taking the maximum value
-/// over a specified window (`poolSize`). This helps to make the representation
-/// more compact and more robust to the precise location of features.
-///
-/// It is a standard component in most Convolutional Neural Networks, typically
-/// applied after a `Conv2DLayer`.
 class MaxPooling2DLayer extends Layer {
   @override
   String name = 'max_pooling_2d';
@@ -79,14 +71,17 @@ class MaxPooling2DLayer extends Layer {
 
     return out;
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {};
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weights) {
+  }
 }
 
-
-/// A 1D max pooling layer for sequence data.
-///
-/// This layer downsamples a 1D sequence (a Vector) by taking the maximum
-/// value over a specified window (`poolSize`). This is often used in models
-/// for NLP or time-series analysis after a 1D convolution.
 class MaxPooling1DLayer extends Layer {
   @override
   String name = 'max_pooling_1d';
@@ -140,5 +135,14 @@ class MaxPooling1DLayer extends Layer {
     }, opName: 'max_pool_1d');
 
     return out;
+  }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {};
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weights) {
   }
 }

@@ -2,22 +2,12 @@ import 'package:flutter_ml/transformer/positionalEncodingLayer.dart';
 
 import '../activationFunctions/relu.dart';
 import '../autogradEngine/tensor.dart';
-import '../layertypes/denseLayer.dart';
 import '../layertypes/layer.dart';
 import '../nets/snet.dart';
 import 'embeddingLayer.dart';
 import 'layerNormalization.dart';
 import 'multiHeadAttentionLayer.dart';
 
-/// Implements a single Transformer Encoder Block.
-///
-/// This is the main repeating component of the Transformer's encoder. It consists
-/// of two primary sub-layers: a Multi-Head Self-Attention mechanism and a
-/// position-wise Feed-Forward Network. Each sub-layer is followed by a
-/// residual connection and a layer normalization step.
-///
-/// By stacking these blocks, the model can build an increasingly deep and
-/// context-aware representation of the input sequence.
 class TransformerEncoderBlock extends Layer {
   @override
   String name = 'transformer_encoder_block';
@@ -68,34 +58,22 @@ class TransformerEncoderBlock extends Layer {
 
     return addAndNorm2;
   }
-}
 
-/*void main() {
-  int vocabSize = 1000;
-  int dModel = 32;
-  int numHeads = 4;
-  int dff = 64;
-  int numEncoderBlocks = 2; // A 2-layer Transformer
-
-  // 1. Assemble the full model architecture
-  List<Layer> modelLayers = [
-    EmbeddingLayer(vocabSize, dModel),
-    PositionalEncoding(100, dModel),
-  ];
-  for (int i = 0; i < numEncoderBlocks; i++) {
-    modelLayers.add(TransformerEncoderBlock(dModel, numHeads, dff));
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'mha': mha.getWeights(),
+      'layerNorm1': layerNorm1.getWeights(),
+      'ffn': ffn.getWeights(),
+      'layerNorm2': layerNorm2.getWeights(),
+    };
   }
-  // For classification, you would typically add a final Dense layer.
 
-  SNetwork transformer = SNetwork(modelLayers);
-
-  // 2. Build the model with a dummy input
-  Tensor<Vector> dummySentence = Tensor<Vector>([10, 20, 30]);
-  transformer.predict(dummySentence);
-
-  print('--- Full Transformer Encoder Model ---');
-  print('Model built successfully with ${numEncoderBlocks} encoder blocks.');
-
-  // 3. Print the graph to see the complete structure
-  transformer.predict(dummySentence).printGraph(); // Use maxDepth to keep it readable
-}*/
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    mha.setWeights(weightsMap['mha'] as Map<String, dynamic>);
+    layerNorm1.setWeights(weightsMap['layerNorm1'] as Map<String, dynamic>);
+    ffn.setWeights(weightsMap['ffn'] as Map<String, dynamic>);
+    layerNorm2.setWeights(weightsMap['layerNorm2'] as Map<String, dynamic>);
+  }
+}

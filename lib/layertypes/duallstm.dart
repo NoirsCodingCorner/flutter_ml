@@ -10,19 +10,7 @@ import 'lstmLayer.dart';
 
 /// A Multi-Timeline Long Short-Term Memory (MT-LSTM) layer.
 ///
-/// This is a custom, hierarchical recurrent layer designed to capture dependencies
-/// across multiple, distinct timescales within a single sequence.
-///
-/// It operates on two levels:
-/// 1.  A **Lower Tier** that processes the input at every single timestep, capturing
-///     high-frequency, short-term patterns.
-/// 2.  A **Higher Tier** that runs at a slower "clock speed." It only updates
-///     after a block of lower-tier steps, allowing it to learn low-frequency,
-///     long-term trends by processing aggregated information.
-///
-/// A key feature is the **feedback mechanism**, where the state of the higher-tier
-/// memory is fed back as a context to the lower tier at every step. This allows
-/// the long-term trend to influence the processing of short-term data.
+/// ... (rest of class doc) ...
 class DualLSTMLayer extends Layer {
   @override
   String name = 'duallstm';
@@ -177,6 +165,65 @@ class DualLSTMLayer extends Layer {
 
     // Return the final hidden state of the lower, most granular tier.
     return lh;
+  }
+
+  // --- ADDED METHODS ---
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      // Lower Tier
+      'lW_f': lW_f.value, 'lb_f': lb_f.value,
+      'lW_i': lW_i.value, 'lb_i': lb_i.value,
+      'lW_c': lW_c.value, 'lb_c': lb_c.value,
+      'lW_o': lW_o.value, 'lb_o': lb_o.value,
+      // Higher Tier
+      'hW_f': hW_f.value, 'hb_f': hb_f.value,
+      'hW_i': hW_i.value, 'hb_i': hb_i.value,
+      'hW_c': hW_c.value, 'hb_c': hb_c.value,
+      'hW_o': hW_o.value, 'hb_o': hb_o.value,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    // --- Helper functions to copy data using explicit loops ---
+    void _copyMatrix(Tensor<Matrix> tensor, Matrix newData) {
+      int height = tensor.value.length;
+      int width = (height > 0) ? tensor.value[0].length : 0;
+      for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+          tensor.value[i][j] = newData[i][j];
+        }
+      }
+    }
+
+    void _copyVector(Tensor<Vector> tensor, List<dynamic> newData) {
+      int length = tensor.value.length;
+      for (int i = 0; i < length; i++) {
+        tensor.value[i] = newData[i] as double;
+      }
+    }
+
+    // --- Load Lower Tier Weights ---
+    _copyMatrix(lW_f, weightsMap['lW_f'] as Matrix);
+    _copyMatrix(lW_i, weightsMap['lW_i'] as Matrix);
+    _copyMatrix(lW_c, weightsMap['lW_c'] as Matrix);
+    _copyMatrix(lW_o, weightsMap['lW_o'] as Matrix);
+    _copyVector(lb_f, weightsMap['lb_f'] as List);
+    _copyVector(lb_i, weightsMap['lb_i'] as List);
+    _copyVector(lb_c, weightsMap['lb_c'] as List);
+    _copyVector(lb_o, weightsMap['lb_o'] as List);
+
+    // --- Load Higher Tier Weights ---
+    _copyMatrix(hW_f, weightsMap['hW_f'] as Matrix);
+    _copyMatrix(hW_i, weightsMap['hW_i'] as Matrix);
+    _copyMatrix(hW_c, weightsMap['hW_c'] as Matrix);
+    _copyMatrix(hW_o, weightsMap['hW_o'] as Matrix);
+    _copyVector(hb_f, weightsMap['hb_f'] as List);
+    _copyVector(hb_i, weightsMap['hb_i'] as List);
+    _copyVector(hb_c, weightsMap['hb_c'] as List);
+    _copyVector(hb_o, weightsMap['hb_o'] as List);
   }
 }
 
