@@ -5,13 +5,6 @@ import '../nets/snet.dart';
 import '../layertypes/layer.dart';
 import 'embeddingLayer.dart';
 
-/// Injects information about the relative or absolute position of tokens in a sequence.
-///
-/// Since the Transformer architecture contains no recurrence, it has no inherent
-/// sense of word order. This layer adds a unique, non-trainable vector to each
-/// input embedding, allowing the model to learn from the sequence order.
-///
-/// It uses the standard sinusoidal formula from the "Attention Is All You Need" paper.
 class PositionalEncoding extends Layer {
   @override
   String name = 'positional_encoding';
@@ -63,31 +56,13 @@ class PositionalEncoding extends Layer {
 
     return addMatrix(inputMatrix, positionalTensor);
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {};
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weights) {
+  }
 }
-
-/*void main() {
-  int vocabSize = 1000;
-  int dModel = 128;
-  int maxSequenceLength = 50;
-
-  // 1. Define the model
-  SNetwork model = SNetwork([
-    EmbeddingLayer(vocabSize, dModel),
-    PositionalEncoding(maxSequenceLength, dModel),
-    // ... other layers like Transformer Blocks would follow ...
-  ]);
-
-  // 2. Build the model with a dummy input
-  // The input must match what the FIRST layer expects (a Vector of indices).
-  Tensor<Vector> dummySentence = Tensor<Vector>([0]);
-  model.predict(dummySentence);
-  print('Model built successfully.');
-
-  // 3. Run a real sample through the model
-  Tensor<Vector> sentence = Tensor<Vector>([10, 42, 5, 99]); // A 4-word sentence
-  Tensor<Matrix> finalEmbeddings = model.predict(sentence) as Tensor<Matrix>;
-
-  print('\nInput sentence has ${sentence.value.length} words.');
-  print('Final output shape is [${finalEmbeddings.value.length}, ${finalEmbeddings.value[0].length}]');
-  print('This confirms the positional information was added correctly.');
-}*/

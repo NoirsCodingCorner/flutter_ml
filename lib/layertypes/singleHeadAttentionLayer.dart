@@ -4,24 +4,6 @@ import '../activationFunctions/softmax.dart';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
-/// Implements a single head of the self-attention mechanism.
-///
-/// This layer learns the contextual relationships between tokens in a sequence
-/// by calculating Query, Key, and Value projections and producing a weighted
-/// average of the values based on the query-key similarity.
-/// Implements a single head of the self-attention mechanism.
-///
-/// This layer is the core of the Transformer architecture. It learns contextual
-/// relationships between tokens in a sequence. It does this by creating Query (Q),
-/// Key (K), and Value (V) projections for each input token and then producing a
-/// weighted average of the Values based on the Query-Key similarity.
-///
-/// The attention formula is: $Attention(Q, K, V) = \text{softmax}(\frac{QK^T}{\sqrt{d_k}})V$
-///
-/// - **Input:** A `Tensor<Matrix>` of shape `[sequence_length, dModel]`.
-/// - **Output:** A `Tensor<Matrix>` of shape `[sequence_length, dV]`.
-/// Implements a single head of the self-attention mechanism.
-/// Implements a single head of the self-attention mechanism.
 class SingleHeadAttention extends Layer {
   @override
   String name = 'single_head_attention';
@@ -33,8 +15,6 @@ class SingleHeadAttention extends Layer {
   late Tensor<Matrix> Wk;
   late Tensor<Matrix> Wv;
 
-  /// Stores the attention weights from the most recent forward pass.
-  /// Useful for debugging and visualization.
   late Tensor<Matrix> lastAttentionWeights;
 
   SingleHeadAttention(this.dModel, {int? dK, int? dV})
@@ -65,7 +45,6 @@ class SingleHeadAttention extends Layer {
     super.build(input);
   }
 
-  /// The forward pass now correctly returns only a Tensor<Matrix>.
   @override
   Tensor<Matrix> forward(Tensor<dynamic> input) {
     Tensor<Matrix> inputMatrix = input as Tensor<Matrix>;
@@ -80,42 +59,40 @@ class SingleHeadAttention extends Layer {
     Tensor<Matrix> scaledScores = scaleMatrix(scores, 1 / sqrt(dK));
     Tensor<Matrix> attentionWeights = softmaxMatrix(scaledScores);
 
-    // Store the weights in the public property for inspection.
     lastAttentionWeights = attentionWeights;
 
     Tensor<Matrix> out = matMul(attentionWeights, V);
 
     return out;
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'Wq': Wq.value,
+      'Wk': Wk.value,
+      'Wv': Wv.value,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    void _copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
+      Matrix newData = newDataDynamic.map((dynamic row) {
+        return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+      }).toList();
+
+      int height = tensor.value.length;
+      int width = (height > 0) ? tensor.value[0].length : 0;
+      for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+          tensor.value[i][j] = newData[i][j];
+        }
+      }
+    }
+
+    _copyMatrix(Wq, weightsMap['Wq'] as List<dynamic>);
+    _copyMatrix(Wk, weightsMap['Wk'] as List<dynamic>);
+    _copyMatrix(Wv, weightsMap['Wv'] as List<dynamic>);
+  }
 }
-
-
-/*void main() {
-  int dModel = 4;
-  int dK = 2;
-
-  SingleHeadAttention attentionLayer = SingleHeadAttention(dModel, dK: dK, dV: dK);
-
-  Tensor<Matrix> inputSequence = Tensor<Matrix>([
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 1.0],
-  ]);
-
-  // The 'call' method builds the layer and runs the forward pass.
-  Tensor<Matrix> outputSequence = attentionLayer.call(inputSequence) as Tensor<Matrix>;
-
-  // After the forward pass, access the stored weights.
-  Tensor<Matrix> attentionWeights = attentionLayer.lastAttentionWeights;
-
-  print('--- Single Head Attention Test ---');
-  print('\nInput Sequence (shape: ${inputSequence.value.length}x${inputSequence.value[0].length}):');
-  print(inputSequence.value);
-
-  print('\nOutput Sequence (shape: ${outputSequence.value.length}x${outputSequence.value[0].length}):');
-  outputSequence.value.forEach((row) => print(row.map((e) => e.toStringAsFixed(4)).toList()));
-
-  print('\nAttention Weights Matrix (shape: ${attentionWeights.value.length}x${attentionWeights.value[0].length}):');
-  attentionWeights.value.forEach((row) => print(row.map((e) => e.toStringAsFixed(4)).toList()));
-  outputSequence.printGraph();
-}*/

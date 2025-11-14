@@ -4,67 +4,22 @@ import '../activationFunctions/activation_funciton.dart';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
-/// A simple Recurrent Neural Network (RNN) layer.
-///
-/// An `RNN` is the fundamental building block for processing sequential data. It
-/// maintains a hidden state (or "memory") that is updated at each timestep by
-/// combining the current input with the hidden state from the previous step.
-/// This recurrent connection allows it to learn patterns over time.
-///
-/// The core operation at each timestep `t` is defined by the formula:
-/// `$h_t = \text{activation}(W_{xh}x_t + W_{hh}h_{t-1} + b_h)$
-///
-/// - **Input:** A `Tensor<Matrix>` representing the sequence, with a shape of
-///   `[sequence_length, input_size]`.
-/// - **Output:** A `Tensor<Vector>` representing the **final** hidden state after
-///   processing the entire sequence, with a shape of `[hidden_size]`.
-///
-/// ### Example
-/// ```dart
-/// // An RNN layer with 16 memory units and a Tanh activation.
-/// Layer rnn = RNN(16, activation: Tanh());
-///
-/// // An input sequence with 3 timesteps and 5 features each.
-/// Tensor<Matrix> sequence = Tensor<Matrix>([
-///   [0.1, 0.2, 0.3, 0.4, 0.5],
-///   [0.6, 0.7, 0.8, 0.9, 1.0],
-///   [0.5, 0.4, 0.3, 0.2, 0.1],
-/// ]);
-///
-/// // The output is the final hidden state vector of length 16.
-/// Tensor<Vector> finalState = rnn.call(sequence) as Tensor<Vector>;
-/// ```
 class RNN extends Layer {
   @override
   String name = 'rnn';
 
-  /// The number of units in the hidden state, representing the "memory" capacity.
   int hiddenSize;
-
-  /// The non-linear activation function to apply to the hidden state.
-  /// `Tanh` is the traditional choice for simple RNNs.
   ActivationFunction activation;
 
-  /// The input-to-hidden weight matrix.
   late Tensor<Matrix> W_xh;
-
-  /// The hidden-to-hidden (recurrent) weight matrix.
   late Tensor<Matrix> W_hh;
-
-  /// The bias for the hidden state.
   late Tensor<Vector> b_h;
 
   RNN(this.hiddenSize, {required this.activation});
 
-  /// Provides the three trainable parameters of the RNN to the optimizer.
   @override
   List<Tensor> get parameters => [W_xh, W_hh, b_h];
 
-  /// Initializes the `W_xh`, `W_hh`, and `b_h` parameter tensors.
-  ///
-  /// This method infers the `inputSize` from the input sequence and creates
-  /// the weight matrices with the correct shapes. It uses Xavier/Glorot
-  /// initialization, which is a good practice for layers with `Tanh` activations.
   @override
   void build(Tensor<dynamic> input) {
     Matrix inputMatrix = input.value as Matrix;
@@ -100,11 +55,6 @@ class RNN extends Layer {
     super.build(input);
   }
 
-  /// Performs the forward pass for the RNN layer.
-  ///
-  /// It initializes a zero-vector for the hidden state `h`, then iterates
-  /// through each timestep of the input sequence, updating `h` at each step
-  /// according to the RNN recurrence relation.
   @override
   Tensor<Vector> forward(Tensor<dynamic> input) {
     Matrix sequence = (input as Tensor<Matrix>).value;
@@ -121,5 +71,46 @@ class RNN extends Layer {
     }
 
     return h;
+  }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'W_xh': W_xh.value,
+      'W_hh': W_hh.value,
+      'b_h': b_h.value,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    void _copyMatrix(Tensor<Matrix> tensor, Matrix newData) {
+      int height = tensor.value.length;
+      int width = (height > 0) ? tensor.value[0].length : 0;
+      for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+          tensor.value[i][j] = newData[i][j];
+        }
+      }
+    }
+
+    void _copyVector(Tensor<Vector> tensor, List<dynamic> newData) {
+      int length = tensor.value.length;
+      for (int i = 0; i < length; i++) {
+        tensor.value[i] = newData[i] as double;
+      }
+    }
+
+    Matrix new_W_xh = (weightsMap['W_xh'] as List<dynamic>).map((dynamic row) {
+      return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+    }).toList();
+    _copyMatrix(W_xh, new_W_xh);
+
+    Matrix new_W_hh = (weightsMap['W_hh'] as List<dynamic>).map((dynamic row) {
+      return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+    }).toList();
+    _copyMatrix(W_hh, new_W_hh);
+
+    _copyVector(b_h, weightsMap['b_h'] as List);
   }
 }

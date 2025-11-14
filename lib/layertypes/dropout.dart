@@ -3,33 +3,6 @@ import 'dart:math';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
-/// A Dropout layer for regularization.
-///
-/// Dropout is a technique used to prevent overfitting. During training, it
-/// randomly sets a fraction of input units to 0 with a frequency of `rate`
-//
-/// at each step. This forces the network to learn more robust features.
-///
-/// **IMPORTANT:** This layer should only be active during training. During
-/// evaluation or inference, it should be disabled or bypassed, allowing all
-/// data to pass through unmodified.
-///
-/// This implementation uses "inverted dropout," where the outputs of the
-/// non-dropped units are scaled up by `1 / (1 - rate)`. This ensures that
-/// the expected output magnitude remains the same, and no changes are needed
-/// at test time.
-///
-/// - **Input:** A `Tensor<Vector>` or `Tensor<Matrix>`.
-/// - **Output:** A tensor of the same shape as the input.
-///
-/// ### Example
-/// ```dart
-/// SNetwork model = SNetwork([
-///   DenseLayer(128, activation: ReLU()),
-///   DropoutLayer(0.5), // Drops 50% of the inputs from the previous layer
-///   DenseLayer(10),
-/// ]);
-/// ```
 class DropoutLayer extends Layer {
   @override
   String name = 'dropout';
@@ -72,13 +45,17 @@ class DropoutLayer extends Layer {
     }, opName: 'dropout', cost: inputValue.length);
     return out;
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {};
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weights) {
+  }
 }
 
-/// A Dropout layer for regularizing 2D Matrix data.
-///
-/// During training, it randomly sets a fraction of input units to 0 with a
-/// frequency of `rate`. This is applied to each element of the matrix independently.
-/// This layer should only be active during training.
 class DropoutLayerMatrix extends Layer {
   @override
   String name = 'dropout_matrix';
@@ -129,5 +106,14 @@ class DropoutLayerMatrix extends Layer {
       }
     }, opName: 'dropout_matrix', cost: inputMatrix.length * inputMatrix[0].length);
     return out;
+  }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {};
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weights) {
   }
 }

@@ -3,22 +3,6 @@ import 'dart:math';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
-/// A 1D Batch Normalization layer.
-///
-/// This layer normalizes its inputs to have a mean of approximately 0 and a
-/// standard deviation of approximately 1. This helps to stabilize and accelerate
-/// the training of deep neural networks.
-///
-/// It maintains a running average of the mean and variance of the data it sees
-/// during training. It also has two trainable parameters: `gamma` (a scaling
-/// factor) and `beta` (a shifting factor).
-///
-/// **IMPORTANT:** This layer behaves differently during training and inference.
-/// You must manually set the `isTraining` flag to `false` before evaluating
-/// your model.
-///
-/// - **Input:** A `Tensor<Vector>` of shape `[num_features]`.
-/// - **Output:** A `Tensor<Vector>` of the same shape.
 class BatchNorm1D extends Layer {
   @override
   String name = 'batch_norm_1d';
@@ -90,8 +74,11 @@ class BatchNorm1D extends Layer {
       currentVariance = runningVariance;
     }
 
+    Vector varianceToUse = isTraining ? runningVariance : currentVariance;
+
     for (int i = 0; i < numFeatures; i++) {
-      xHat[i] = (x.value[i] - currentMean[i]) / sqrt(currentVariance[i] + epsilon);
+      double meanToUse = isTraining ? runningMean[i] : currentMean[i];
+      xHat[i] = (x.value[i] - meanToUse) / sqrt(varianceToUse[i] + epsilon);
     }
 
     Vector outValue = [];
@@ -102,7 +89,7 @@ class BatchNorm1D extends Layer {
     Tensor<Vector> out = Tensor<Vector>(outValue);
     out.creator = Node([x, gamma, beta], () {
       for(int i=0; i < numFeatures; i++){
-        double invStd = 1 / sqrt(currentVariance[i] + epsilon);
+        double invStd = 1 / sqrt(varianceToUse[i] + epsilon);
         gamma.grad[i] += out.grad[i] * xHat[i];
         beta.grad[i] += out.grad[i];
         x.grad[i] += out.grad[i] * gamma.value[i] * invStd;
@@ -111,21 +98,33 @@ class BatchNorm1D extends Layer {
 
     return out;
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'gamma': gamma.value,
+      'beta': beta.value,
+      'runningMean': runningMean,
+      'runningVariance': runningVariance,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    Vector newGamma = (weightsMap['gamma'] as List).map((dynamic e) => e as double).toList();
+    Vector newBeta = (weightsMap['beta'] as List).map((dynamic e) => e as double).toList();
+    Vector newRunningMean = (weightsMap['runningMean'] as List).map((dynamic e) => e as double).toList();
+    Vector newRunningVariance = (weightsMap['runningVariance'] as List).map((dynamic e) => e as double).toList();
+
+    for (int i = 0; i < numFeatures; i++) {
+      gamma.value[i] = newGamma[i];
+      beta.value[i] = newBeta[i];
+      runningMean[i] = newRunningMean[i];
+      runningVariance[i] = newRunningVariance[i];
+    }
+  }
 }
 
-/// A 2D Batch Normalization layer.
-///
-/// This layer normalizes its inputs across the spatial dimensions (`height`, `width`)
-/// for each channel independently. It is designed to be used after a `Conv2DLayer`
-/// and before its activation function.
-///
-/// It maintains a running average of the mean and variance for each channel and
-/// has trainable `gamma` (scale) and `beta` (shift) parameters for each channel.
-///
-/// **IMPORTANT:** Set the `isTraining` flag to `false` during evaluation.
-///
-/// - **Input:** A `Tensor<Tensor3D>` of shape `[channels, height, width]`.
-/// - **Output:** A `Tensor<Tensor3D>` of the same shape.
 class BatchNorm2D extends Layer {
   @override
   String name = 'batch_norm_2d';
@@ -179,37 +178,36 @@ class BatchNorm2D extends Layer {
 
     Vector currentMean = List<double>.filled(numChannels, 0.0);
     Vector currentVariance = List<double>.filled(numChannels, 0.0);
-
-    // Calculate mean and variance for each channel
-    double numElements = (height * width).toDouble();
-    for (int c = 0; c < numChannels; c++) {
-      double sum = 0;
-      for (int h = 0; h < height; h++) {
-        for (int w = 0; w < width; w++) {
-          sum += x.value[c][h][w];
-        }
-      }
-      currentMean[c] = sum / numElements;
-
-      double varianceSum = 0;
-      for (int h = 0; h < height; h++) {
-        for (int w = 0; w < width; w++) {
-          varianceSum += pow(x.value[c][h][w] - currentMean[c], 2);
-        }
-      }
-      currentVariance[c] = varianceSum / numElements;
-    }
-
     Vector meanToUse;
     Vector varianceToUse;
 
+    double numElements = (height * width).toDouble();
+
     if (isTraining) {
+      for (int c = 0; c < numChannels; c++) {
+        double sum = 0;
+        for (int h = 0; h < height; h++) {
+          for (int w = 0; w < width; w++) {
+            sum += x.value[c][h][w];
+          }
+        }
+        currentMean[c] = sum / numElements;
+
+        double varianceSum = 0;
+        for (int h = 0; h < height; h++) {
+          for (int w = 0; w < width; w++) {
+            varianceSum += pow(x.value[c][h][w] - currentMean[c], 2);
+          }
+        }
+        currentVariance[c] = varianceSum / numElements;
+      }
+
       for (int c = 0; c < numChannels; c++) {
         runningMean[c] = momentum * runningMean[c] + (1 - momentum) * currentMean[c];
         runningVariance[c] = momentum * runningVariance[c] + (1 - momentum) * currentVariance[c];
       }
-      meanToUse = runningMean;
-      varianceToUse = runningVariance;
+      meanToUse = currentMean;
+      varianceToUse = currentVariance;
     } else {
       meanToUse = runningMean;
       varianceToUse = runningVariance;
@@ -238,7 +236,6 @@ class BatchNorm2D extends Layer {
 
     Tensor<Tensor3D> out = Tensor<Tensor3D>(outValue);
     out.creator = Node([x, gamma, beta], () {
-      // Backward pass (simplified, treats mean/variance as constants)
       for (int c = 0; c < numChannels; c++) {
         double invStd = 1 / sqrt(varianceToUse[c] + epsilon);
         for (int h = 0; h < height; h++) {
@@ -252,5 +249,30 @@ class BatchNorm2D extends Layer {
     }, opName: 'batch_norm_2d');
 
     return out;
+  }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'gamma': gamma.value,
+      'beta': beta.value,
+      'runningMean': runningMean,
+      'runningVariance': runningVariance,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    Vector newGamma = (weightsMap['gamma'] as List).map((dynamic e) => e as double).toList();
+    Vector newBeta = (weightsMap['beta'] as List).map((dynamic e) => e as double).toList();
+    Vector newRunningMean = (weightsMap['runningMean'] as List).map((dynamic e) => e as double).toList();
+    Vector newRunningVariance = (weightsMap['runningVariance'] as List).map((dynamic e) => e as double).toList();
+
+    for (int i = 0; i < numChannels; i++) {
+      gamma.value[i] = newGamma[i];
+      beta.value[i] = newBeta[i];
+      runningMean[i] = newRunningMean[i];
+      runningVariance[i] = newRunningVariance[i];
+    }
   }
 }

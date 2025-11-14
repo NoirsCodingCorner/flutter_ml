@@ -5,13 +5,6 @@ import '../activationFunctions/relu.dart';
 import '../autogradEngine/tensor.dart';
 import 'layer.dart';
 
-/// A standard, fully-connected neural network layer for 1D Vector data.
-///
-/// A `DenseLayer` implements the operation: `activation(weights @ input + biases)`.
-/// It is the most common layer for processing flat feature vectors.
-///
-/// - **Input:** A `Tensor<Vector>` of shape `[input_size]`.
-/// - **Output:** A `Tensor<Vector>` of shape `[output_size]`.
 class DenseLayer extends Layer {
   @override
   String name = 'dense';
@@ -43,7 +36,7 @@ class DenseLayer extends Layer {
     weights = Tensor<Matrix>(w);
 
     Vector b = [];
-    for(int i=0; i<outputSize; i++){
+    for(int i = 0; i < outputSize; i++){
       b.add(0.0);
     }
     biases = Tensor<Vector>(b);
@@ -61,18 +54,36 @@ class DenseLayer extends Layer {
       return linearOutput;
     }
   }
+
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'weights': weights.value,
+      'biases': biases.value,
+    };
+  }
+
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    List<dynamic> weightsDynamic = weightsMap['weights'] as List<dynamic>;
+    Matrix newWeights = weightsDynamic.map((dynamic row) {
+      return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+    }).toList();
+
+    Vector newBiases = (weightsMap['biases'] as List).map((dynamic e) => e as double).toList();
+
+    for (int i = 0; i < weights.value.length; i++) {
+      for (int j = 0; j < weights.value[0].length; j++) {
+        weights.value[i][j] = newWeights[i][j];
+      }
+    }
+
+    for (int i = 0; i < biases.value.length; i++) {
+      biases.value[i] = newBiases[i];
+    }
+  }
 }
 
-/// A fully-connected layer that operates on a batch of data (a Matrix).
-///
-/// A `DenseLayerMatrix` applies the same dense transformation to every row
-/// of the input matrix. It implements the operation: `activation(input @ weights + biases)`.
-///
-/// This is used for batch processing or in architectures like Transformers where
-/// sequences of vectors are processed.
-///
-/// - **Input:** A `Tensor<Matrix>` of shape `[batch_size, input_size]`.
-/// - **Output:** A `Tensor<Matrix>` of shape `[batch_size, output_size]`.
 class DenseLayerMatrix extends Layer {
   @override
   String name = 'dense_matrix';
@@ -104,7 +115,7 @@ class DenseLayerMatrix extends Layer {
     weights = Tensor<Matrix>(w);
 
     Vector b = [];
-    for(int i=0; i<outputSize; i++){
+    for(int i = 0; i < outputSize; i++){
       b.add(0.0);
     }
     biases = Tensor<Vector>(b);
@@ -117,119 +128,37 @@ class DenseLayerMatrix extends Layer {
     Tensor<Matrix> linearOutput = addMatrixAndVector(matMul(input as Tensor<Matrix>, weights), biases);
 
     if (activation != null) {
-      // Assumes your activation function can handle matrices (e.g., using reluMatrix)
       return activation!.call(linearOutput) as Tensor<Matrix>;
     } else {
       return linearOutput;
     }
   }
-}
 
-
-/*void main() {
-  // 1. Define input size and output size
-  int inputSize = 4;
-  int outputSize = 3;
-
-  // 2. Create the input tensor
-  // Input: [1.0, 2.0, -1.0, 0.5]
-  Vector inputVector = [1.0, 2.0, -1.0, 0.5];
-  Tensor<Vector> inputTensor = Tensor<Vector>(inputVector);
-
-  // 3. Instantiate the layer with an activation function
-  DenseLayer layer = DenseLayer(outputSize, activation: ReLU());
-
-  // 4. Build the layer (initializes weights/biases)
-  layer.build(inputTensor);
-
-  // 6. Perform a forward pass
-  Tensor<Vector> outputTensor = layer.forward(inputTensor);
-
-  outputTensor.printGraph();
-  // A simple check to ensure the output size is correct
-}
-
-const int BATCH_SIZE = 256;
-const int DIM_IN = 1024;
-const int DIM_HIDDEN = 4096;
-const int DIM_OUT = 1024;
-const int NUM_STEPS = 5; // WARNING: Pure Dart. Keep this VERY low.
-
-void main() {
-  print("--- Dart NN Benchmark (Pure Dart) ---");
-  print(
-      "Batch: $BATCH_SIZE, In: $DIM_IN, Hidden: $DIM_HIDDEN, Out: $DIM_OUT");
-  print("Running $NUM_STEPS forward passes...");
-
-  // 1. Create Layers
-  // We use DenseLayerMatrix from 'denseLayer.dart'
-  DenseLayerMatrix layer1 = DenseLayerMatrix(DIM_HIDDEN, activation: ReLUMatrix());  DenseLayerMatrix layer2 = DenseLayerMatrix(DIM_OUT); // No activation
-
-  // 2. Create Dummy Input
-  print("Initializing data...");
-  Tensor<Matrix> inputTensor =
-  _createDummyMatrix(BATCH_SIZE, DIM_IN, 1234);
-
-  // 3. Build Layers
-  // This initializes the weights (W1, B1)
-  layer1.build(inputTensor);
-
-  // We need a dummy tensor of the *intermediate* shape to build layer 2
-  Tensor<Matrix> intermediateTensor =
-  _createDummyMatrix(BATCH_SIZE, DIM_HIDDEN, 5678);
-  // This initializes the weights (W2, B2)
-  layer2.build(intermediateTensor);
-
-  print("Layers built. Starting benchmark...");
-
-  // 4. Warm-up run (1 step)
-  // This ensures any JIT compilation is done before we time.
-  print("Running 1 warm-up step...");
-  Tensor<Matrix> a1_warmup = layer1.forward(inputTensor);
-  Tensor<Matrix> yPred_warmup = layer2.forward(a1_warmup);
-
-  // 5. Timed Benchmark
-  print("Running $NUM_STEPS timed steps...");
-  Stopwatch stopwatch = Stopwatch()..start();
-
-  for (int i = 0; i < NUM_STEPS; i++) {
-    // Run the 2-layer forward pass
-    Tensor<Matrix> a1 = layer1.forward(inputTensor);
-    Tensor<Matrix> yPred = layer2.forward(a1);
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'weights': weights.value,
+      'biases': biases.value,
+    };
   }
 
-  stopwatch.stop();
-  print("...Benchmark complete.");
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    List<dynamic> weightsDynamic = weightsMap['weights'] as List<dynamic>;
+    Matrix newWeights = weightsDynamic.map((dynamic row) {
+      return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+    }).toList();
 
-  // 6. Report Results
-  double totalMs = stopwatch.elapsedMilliseconds.toDouble();
-  double msPerStep = totalMs / NUM_STEPS.toDouble();
-  double stepsPerSec = (NUM_STEPS.toDouble() / totalMs) * 1000.0;
+    Vector newBiases = (weightsMap['biases'] as List).map((dynamic e) => e as double).toList();
 
-  print("\n--- Benchmark Results (Pure Dart, Forward Pass Only) ---");
-  print("Total steps:   $NUM_STEPS");
-  print("Total time:    ${totalMs.toStringAsFixed(4)} ms");
-  print("Time per step: ${msPerStep.toStringAsFixed(4)} ms");
-  print("Steps per sec: ${stepsPerSec.toStringAsFixed(4)}");
-
-  print("\n--- For Comparison (C++/CUDA, Full Train Step) ---");
-  print("Time per step: 2.236416 ms (forward + backward + update)");
-  print("Steps per sec: 447.144066 (forward + backward + update)");
-}
-
-/// Helper to create a matrix with random data
-/// (This was provided in your denseLayer.dart)
-Tensor<Matrix> _createDummyMatrix(int rows, int cols, int seed) {
-  // We must assume 'Matrix' and 'Vector' types are defined.
-  Random r = Random(seed);
-  Matrix m = [];
-  for (int i = 0; i < rows; i++) {
-    Vector row = [];
-    for (int j = 0; j < cols; j++) {
-      row.add(r.nextDouble() * 2.0 - 1.0); // Random value [-1, 1]
+    for (int i = 0; i < weights.value.length; i++) {
+      for (int j = 0; j < weights.value[0].length; j++) {
+        weights.value[i][j] = newWeights[i][j];
+      }
     }
-    m.add(row);
+
+    for (int i = 0; i < biases.value.length; i++) {
+      biases.value[i] = newBiases[i];
+    }
   }
-  return Tensor<Matrix>(m);
 }
-*/

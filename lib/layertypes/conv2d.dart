@@ -7,26 +7,6 @@ import '../optimizers/adam.dart';
 import '../optimizers/optimizers.dart';
 import 'layer.dart';
 
-/// A 2D convolutional layer.
-///
-/// This layer creates a set of convolutional filters (kernels) that are convolved
-/// with the input to produce a stack of output feature maps. It is the primary
-
-/// building block for Convolutional Neural Networks (CNNs).
-///
-/// This implementation takes a single-channel input (2D Matrix) and produces a
-/// multi-channel output (3D Tensor).
-///
-/// - **Input:** A `Tensor<Matrix>` representing a single-channel image of shape
-///   `[height, width]`.
-/// - **Output:** A `Tensor<Tensor3D>` representing the output feature maps, with a
-///   shape of `[output_channels, new_height, new_width]`.
-///
-/// ### Example
-/// ```dart
-/// // A layer that creates 8 feature maps using 3x3 kernels.
-/// Layer conv = Conv2DLayer(8, 3, activation: ReLU());
-/// ```
 class Conv2DLayer extends Layer {
   @override
   String name = 'conv2d_layer';
@@ -53,7 +33,6 @@ class Conv2DLayer extends Layer {
     Random random = Random();
     kernels = [];
 
-    // He initialization for kernels
     for (int i = 0; i < outChannels; i++) {
       Matrix kernelValues = [];
       double stddev = sqrt(2.0 / (kernelSize * kernelSize));
@@ -85,91 +64,42 @@ class Conv2DLayer extends Layer {
 
     Tensor<Tensor3D> out = Tensor<Tensor3D>(outputChannels);
 
-    // The backward pass is implicitly handled by the autograd engine through the
-    // operations used above (`conv2d`, `addScalarToMatrix`).
-    // A more direct Node could be created here for efficiency if needed.
-
-    // Note: Activation would require a 3D-aware activation function.
-    // if (activation != null) {
-    //   out = activation.call(out) as Tensor<Tensor3D>;
-    // }
-
     return out;
   }
-}
 
+  @override
+  Map<String, dynamic> getWeights() {
+    List<Matrix> kernelValues = [];
+    for (Tensor<Matrix> kernel in kernels) {
+      kernelValues.add(kernel.value);
+    }
 
-/*void main() {
-  int kernelSize = 3;
-  int numSamples = 500;
-  int epochs = 100;
-  double learningRate = 0.01;
+    return {
+      'kernels': kernelValues,
+      'biases': biases.value,
+    };
+  }
 
-  Tensor<Matrix> kernel = Tensor<Matrix>([
-    [(Random().nextDouble() - 0.5), (Random().nextDouble() - 0.5), (Random().nextDouble() - 0.5)],
-    [(Random().nextDouble() - 0.5), (Random().nextDouble() - 0.5), (Random().nextDouble() - 0.5)],
-    [(Random().nextDouble() - 0.5), (Random().nextDouble() - 0.5), (Random().nextDouble() - 0.5)],
-  ]);
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    List<dynamic> newKernelValues = weightsMap['kernels'] as List<dynamic>;
+    Vector newBiases = (weightsMap['biases'] as List).map((dynamic e) => e as double).toList();
 
-  List<Tensor<Matrix>> inputs = [];
-  List<Tensor<Matrix>> targets = [];
-  Random random = Random();
+    for (int i = 0; i < kernels.length; i++) {
+      List<dynamic> kernelDynamic = newKernelValues[i] as List<dynamic>;
+      Matrix newKernel = kernelDynamic.map((dynamic row) {
+        return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+      }).toList();
 
-  for (int i = 0; i < numSamples; i++) {
-    Matrix patch = [];
-    double oneCount = 0;
-    for (int r = 0; r < kernelSize; r++) {
-      Vector row = [];
-      for (int c = 0; c < kernelSize; c++) {
-        double bit = random.nextInt(2).toDouble();
-        row.add(bit);
-        if (bit == 1.0) {
-          oneCount++;
+      for (int r = 0; r < kernelSize; r++) {
+        for (int c = 0; c < kernelSize; c++) {
+          kernels[i].value[r][c] = newKernel[r][c];
         }
       }
-      patch.add(row);
     }
-    inputs.add(Tensor<Matrix>(patch));
-    targets.add(Tensor<Matrix>([[oneCount]]));
-  }
 
-  Optimizer optimizer = Adam([kernel], learningRate: learningRate);
-
-  print('--- Starting Training ---');
-  for (int epoch = 0; epoch < epochs; epoch++) {
-    double epochLoss = 0;
-    for (int i = 0; i < numSamples; i++) {
-      optimizer.zeroGrad();
-
-      Tensor<Matrix> input = inputs[i];
-      Tensor<Matrix> target = targets[i];
-
-      Tensor<Matrix> output = conv2d(input, kernel);
-      Tensor<Scalar> loss = mseMatrix(output, target);
-
-      loss.backward();
-      optimizer.step();
-
-      epochLoss += loss.value;
-    }
-    if ((epoch + 1) % 10 == 0) {
-      print('Epoch: ${epoch + 1}, Avg Loss: ${epochLoss / numSamples}');
+    for (int i = 0; i < biases.value.length; i++) {
+      biases.value[i] = newBiases[i];
     }
   }
-
-  print('\n--- Training Complete! ---');
-  print('Final Optimized Kernel:\n${kernel.value.map((r) => r.map((v) => v.toStringAsFixed(2)))}');
-  print('Expected Kernel (approx):\n[[1.00, 1.00, 1.00], [1.00, 1.00, 1.00], [1.00, 1.00, 1.00]]');
-
-  print('\n--- Testing the Counting Kernel ---');
-  Tensor<Matrix> testPatch1 = Tensor<Matrix>([[1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]);
-  Tensor<Matrix> testPatch2 = Tensor<Matrix>([[1.0, 1.0, 1.0], [1.0, 0.0, 1.0], [0.0, 1.0, 0.0]]);
-
-  Tensor<Matrix> result1 = conv2d(testPatch1, kernel);
-  Tensor<Matrix> result2 = conv2d(testPatch2, kernel);
-
-  print('Count for patch with 3 ones (Target: 3.0): ${result1.value[0][0].toStringAsFixed(4)}');
-  print('Count for patch with 6 ones (Target: 6.0): ${result2.value[0][0].toStringAsFixed(4)}');
-
-  result1.printGraph();
-}*/
+}

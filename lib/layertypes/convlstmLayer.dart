@@ -9,30 +9,6 @@ import 'denseLayer.dart';
 import 'flattenLayer.dart';
 import 'layer.dart';
 
-/// A Convolutional Long Short-Term Memory (ConvLSTM) layer.
-///
-/// A `ConvLSTMLayer` is designed for spatiotemporal data, such as a sequence
-/// of images (a video). It combines the spatial processing of a `Conv2D` layer
-/// with the temporal memory of an `LSTMLayer`.
-///
-/// Instead of using matrix multiplications, its internal gates use convolutions.
-/// This means its hidden state and cell state are not vectors, but 2D feature
-/// maps that preserve spatial information from one timestep to the next.
-///
-/// - **Input:** A `Tensor<Tensor3D>` representing the sequence, with a shape of
-///   `[sequence_length, height, width]`.
-/// - **Output:** A `Tensor<Matrix>` representing the **final** hidden state, which is a
-///   feature map of shape `[height, width]`.
-///
-/// ### Analogy 🌦️
-/// A `ConvLSTM` is like a meteorologist watching a weather radar loop. It uses
-/// convolutions to see the shape of a storm in each frame and its LSTM logic
-/// to track how that shape moves and changes over time to predict its next location.
-///
-/// ### Example
-/// ```dart
-/// Layer convLstm = ConvLSTMLayer(16, 3); // 16 hidden filters, 3x3 kernel
-/// ```
 class ConvLSTMLayer extends Layer {
   @override
   String name = 'conv_lstm';
@@ -55,7 +31,6 @@ class ConvLSTMLayer extends Layer {
     K_xo, K_ho, b_o,
   ];
 
-  /// Initializes the 8 kernels and 4 biases for the LSTM gates.
   @override
   void build(Tensor<dynamic> input) {
     Tensor3D inputSequence = input.value as Tensor3D;
@@ -76,7 +51,6 @@ class ConvLSTMLayer extends Layer {
       return Tensor<Matrix>(values);
     }
 
-    // Since 'same' padding is used, the bias shape matches the input frame shape.
     Tensor<Matrix> initBias() {
       Matrix biasValues = [];
       for (int i = 0; i < height; i++) {
@@ -103,7 +77,6 @@ class ConvLSTMLayer extends Layer {
     super.build(input);
   }
 
-  /// Performs the forward pass by unrolling the LSTM cell through time.
   @override
   Tensor<Matrix> forward(Tensor<dynamic> input) {
     Tensor3D sequence = (input as Tensor<Tensor3D>).value;
@@ -154,112 +127,55 @@ class ConvLSTMLayer extends Layer {
 
     return h;
   }
-}
-/*void main() {
-  SNetwork network = SNetwork([
-    ConvLSTMLayer(8, 3),
-    FlattenLayer(),
-    DenseLayer(1, activation: Sigmoid()),
-  ]);
 
-  int buildFrameSize = 7;
-  Tensor3D dummySequence = [];
-  for (int t = 0; t < 2; t++) {
-    Matrix frame = [];
-    for (int h = 0; h < buildFrameSize; h++) {
-      frame.add(List<double>.filled(buildFrameSize, 0.0));
-    }
-    dummySequence.add(frame);
+  @override
+  Map<String, dynamic> getWeights() {
+    return {
+      'K_xf': K_xf.value,
+      'K_hf': K_hf.value,
+      'b_f':  b_f.value,
+      'K_xi': K_xi.value,
+      'K_hi': K_hi.value,
+      'b_i':  b_i.value,
+      'K_xc': K_xc.value,
+      'K_hc': K_hc.value,
+      'b_c':  b_c.value,
+      'K_xo': K_xo.value,
+      'K_ho': K_ho.value,
+      'b_o':  b_o.value,
+    };
   }
-  Tensor<Tensor3D> dummyInput = Tensor<Tensor3D>(dummySequence);
-  network.predict(dummyInput);
 
-  network.compile(
-      configuredOptimizer: SGD(network.parameters, learningRate: 0.005)
-  );
+  @override
+  void setWeights(Map<String, dynamic> weightsMap) {
+    void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
+      Matrix newData = newDataDynamic.map((dynamic row) {
+        return (row as List<dynamic>).map((dynamic val) => val as double).toList();
+      }).toList();
 
-  int numSamples = 200;
-  int sequenceLength = 4;
-  int frameSize = 7;
-  List<Tensor3D> inputs = [];
-  List<Vector> targets = [];
-  Random random = Random();
-
-  for (int i = 0; i < numSamples; i++) {
-    bool isVertical = random.nextBool();
-    int startX = random.nextInt(frameSize - sequenceLength);
-    int startY = random.nextInt(frameSize - sequenceLength);
-
-    Tensor3D sequence = [];
-    for (int t = 0; t < sequenceLength; t++) {
-      Matrix frame = [];
-      for (int r = 0; r < frameSize; r++) {
-        frame.add(List<double>.filled(frameSize, 0.0));
+      int height = tensor.value.length;
+      int width = (height > 0) ? tensor.value[0].length : 0;
+      for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+          tensor.value[i][j] = newData[i][j];
+        }
       }
-      int currentX = isVertical ? startX : startX + t;
-      int currentY = isVertical ? startY + t : startY;
-      frame[currentY][currentX] = 1.0;
-      sequence.add(frame);
     }
-    inputs.add(sequence);
-    targets.add([isVertical ? 1.0 : 0.0]);
+
+    copyMatrix(K_xf, weightsMap['K_xf'] as List<dynamic>);
+    copyMatrix(K_hf, weightsMap['K_hf'] as List<dynamic>);
+    copyMatrix(b_f,  weightsMap['b_f']  as List<dynamic>);
+
+    copyMatrix(K_xi, weightsMap['K_xi'] as List<dynamic>);
+    copyMatrix(K_hi, weightsMap['K_hi'] as List<dynamic>);
+    copyMatrix(b_i,  weightsMap['b_i']  as List<dynamic>);
+
+    copyMatrix(K_xc, weightsMap['K_xc'] as List<dynamic>);
+    copyMatrix(K_hc, weightsMap['K_hc'] as List<dynamic>);
+    copyMatrix(b_c,  weightsMap['b_c']  as List<dynamic>);
+
+    copyMatrix(K_xo, weightsMap['K_xo'] as List<dynamic>);
+    copyMatrix(K_ho, weightsMap['K_ho'] as List<dynamic>);
+    copyMatrix(b_o,  weightsMap['b_o']  as List<dynamic>);
   }
-
-  int epochs = 1000;
-  Optimizer optimizer = network.optimizer;
-  Stopwatch stopwatch = Stopwatch()..start();
-
-  for (int epoch = 0; epoch < epochs; epoch++) {
-    double totalLoss = 0;
-    for (int i = 0; i < numSamples; i++) {
-      Tensor<Tensor3D> inputTensor = Tensor<Tensor3D>(inputs[i]);
-      Tensor<Vector> targetTensor = Tensor<Vector>(targets[i]);
-
-      Tensor<Vector> finalOutput = network.predict(inputTensor) as Tensor<Vector>;
-      Tensor<Scalar> loss = mse(finalOutput, targetTensor);
-      totalLoss += loss.value;
-
-      loss.backward();
-      optimizer.step();
-      optimizer.zeroGrad();
-    }
-    if ((epoch + 1) % 40 == 0) {
-      print('Epoch ${epoch + 1}/$epochs, Avg Loss: ${totalLoss / numSamples}');
-    }
-  }
-
-  stopwatch.stop();
-  print('--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
-
-  int correctPredictions = 0;
-  for (int i = 0; i < numSamples; i++) {
-    Tensor<Tensor3D> testInput = Tensor<Tensor3D>(inputs[i]);
-    Tensor<Vector> pred = network.predict(testInput) as Tensor<Vector>;
-    int result = (pred.value[0] > 0.5) ? 1 : 0;
-    if (result == targets[i][0]) {
-      correctPredictions++;
-    }
-  }
-  double accuracy = (correctPredictions / numSamples) * 100;
-  print('Final Model Accuracy: ${accuracy.toStringAsFixed(2)}%');
-
-  print('\n--- TESTING A SPECIFIC SEQUENCE ---');
-  Tensor3D horizontalSequenceData = [];
-  for (int t = 0; t < sequenceLength; t++) {
-    Matrix frame = [];
-    for (int r = 0; r < frameSize; r++) {
-      frame.add(List<double>.filled(frameSize, 0.0));
-    }
-    frame[1][1+t] = 1.0; // Pixel moves horizontally at row 1
-    horizontalSequenceData.add(frame);
-  }
-  Tensor<Tensor3D> horizontalSequence = Tensor<Tensor3D>(horizontalSequenceData);
-  Tensor<Vector> prediction = network.predict(horizontalSequence) as Tensor<Vector>;
-  int finalResult = (prediction.value[0] > 0.5) ? 1 : 0;
-
-  print('Prediction for a horizontal sequence (target=0): $finalResult (Raw: ${prediction.value[0].toStringAsFixed(4)})');
-
-  print('\n--- FINAL COMPUTATIONAL GRAPH ---');
-  prediction.printGraph();
 }
-*/

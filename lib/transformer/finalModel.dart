@@ -9,7 +9,7 @@ import '../nets/snet.dart';
 import 'embeddingLayer.dart';
 import 'globalpoolingLayer.dart';
 
-/*void main() {
+Future<void> main() async {
   Map<String, int> vocabulary = {
     '<pad>': 0, 'i': 1, 'love': 2, 'this': 3, 'movie': 4, 'is': 5, 'great': 6,
     'a': 7, 'bad': 8, 'film': 9, 'hate': 10, 'terrible': 11, 'good': 12,
@@ -52,17 +52,39 @@ import 'globalpoolingLayer.dart';
     DenseLayer(1, activation: Sigmoid()),
   ]);
 
-  sentimentClassifier.predict(Tensor<Vector>([1, 2, 3]));
+  Tensor<Vector> dummyInput = Tensor<Vector>([1, 2, 3]);
+
+  sentimentClassifier.predict(dummyInput);
   sentimentClassifier.compile(
       configuredOptimizer: Adam(sentimentClassifier.parameters, learningRate: 0.01)
   );
 
   sentimentClassifier.fit(inputs, targets, epochs: 100,debug: true);
 
-  print('\n--- FINAL EVALUATION ---');
+  String modelPath = 'sentiment_classifier.json';
+  print('\n--- SAVING MODEL ---');
+  await sentimentClassifier.save(modelPath);
+  print('Model saved to $modelPath');
+
+  print('\n--- FINAL EVALUATION (from original model) ---');
   sentimentClassifier.evaluate(inputs, targets);
 
-  print('\n--- TESTING ON UNSEEN SENTENCES ---');
+  print('\n--- LOADING MODEL ---');
+  SNetwork loadedClassifier = SNetwork([
+    EmbeddingLayer(vocabSize, dModel),
+    PositionalEncoding(maxSequenceLength, dModel),
+    TransformerEncoderBlock(dModel, numHeads, dff),
+    TransformerEncoderBlock(dModel, numHeads, dff),
+    GlobalAveragePooling1D(),
+    DenseLayer(1, activation: Sigmoid()),
+  ]);
+
+  loadedClassifier.predict(dummyInput);
+  await loadedClassifier.load(modelPath);
+  print('Model loaded successfully.');
+
+
+  print('\n--- TESTING ON UNSEEN SENTENCES (from LOADED model) ---');
   List<String> testSentences = [ 'this movie is great', 'i hate that film', 'great movie', ];
   for (String sentence in testSentences) {
     Vector tokenized = [];
@@ -72,12 +94,12 @@ import 'globalpoolingLayer.dart';
       }
     }
     Tensor<Vector> inputTensor = Tensor<Vector>(tokenized);
-    Tensor<Vector> prediction = sentimentClassifier.predict(inputTensor) as Tensor<Vector>;
+
+    Tensor<Vector> prediction = loadedClassifier.predict(inputTensor) as Tensor<Vector>;
     String result = (prediction.value[0] > 0.5) ? "Positive" : "Negative";
     print('Prediction for "$sentence": $result (Raw: ${prediction.value[0].toStringAsFixed(4)})');
     if(sentence==testSentences.last){
       prediction.printGraph();
     }
   }
-
-}*/
+}
