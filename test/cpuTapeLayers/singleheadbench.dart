@@ -1,9 +1,6 @@
 import 'dart:math';
 
-import '../../lib/tensor/tensor.dart';
-import '../../lib/tensor/type_Aliases.dart';
-import '../../lib/cpu_version/layertypes/layer.dart';
-import '../../lib/cpu_version/layertypes/singleHeadAttentionLayer.dart';
+import 'package:flutter_ml/full_library.dart';
 
 Tensor<Matrix> generateMatrix(int rows, int cols) {
   Random random = Random();

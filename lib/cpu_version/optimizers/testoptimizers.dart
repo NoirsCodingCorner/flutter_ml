@@ -1,5 +1,5 @@
 
-import 'optimizer.dart';
+/*import 'optimizer.dart';
 import 'sgdmomentum.dart';
 
 import '../../tensor/tensor.dart';
@@ -103,4 +103,4 @@ Tensor<double> multiplyScalars(Tensor<double> a, Tensor<double> b) {
     opName: 'mul',
   );
   return out;
-}
+}*/

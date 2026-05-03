@@ -12,7 +12,7 @@ import '../optimizers/adam.dart';
 import 'embeddingLayer.dart';
 import 'globalAveragePoolingLayer.dart';
 
-Future<void> main() async {
+/*Future<void> main() async {
   // 1. Dataset Setup
   Map<String, int> vocabulary = {
     '<pad>': 0, 'i': 1, 'love': 2, 'this': 3, 'movie': 4, 'is': 5, 'great': 6,
@@ -126,4 +126,4 @@ Future<void> main() async {
   }
 
   print('\nStress Test Complete.');
-}
+}*/

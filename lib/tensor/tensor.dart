@@ -306,7 +306,7 @@ class Tensor<T> {
       Map<String, dynamic>? extras = currentTensor.creator!.extraParams;
 
       // Check if this node is a portal to the GPU graph
-      if (extras != null && extras.containsKey('gpu_output')) {
+      if (extras.containsKey('gpu_output')) {
         GPUTensor gpuOut = extras['gpu_output'];
         List<GPUTensor> gpuIns = extras['gpu_inputs'];
         List<Tensor> cpuIns = currentTensor.creator!.inputs;
