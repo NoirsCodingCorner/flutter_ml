@@ -3,6 +3,8 @@ import 'dart:math';
 import 'dart:convert';
 
 
+import 'package:flutter_ml/logger.dart';
+
 import '../optimizers/optimizer.dart';
 import '../optimizers/sgd.dart';
 
@@ -60,7 +62,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
   void fit(List<List<double>> inputs, List<List<double>> targets,
       {int epochs = 100, bool averageWeight = false, bool debug = true}) {
     if (debug) {
-      print('--- STARTING TRAINING ---');
+      Logger.log('--- STARTING TRAINING ---');
     }
     Stopwatch stopwatch = Stopwatch();
     stopwatch.start();
@@ -137,13 +139,13 @@ class SNetwork extends Layer<dynamic, dynamic> {
             stdout.write(', Avg Weight Mag: ${avg.toStringAsFixed(4)}');
           }
         }
-        print('');
+        Logger.log('');
       }
     }
 
     stopwatch.stop();
     if (debug) {
-      print('--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
+      Logger.log('--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
     }
   }
 
@@ -198,9 +200,9 @@ class SNetwork extends Layer<dynamic, dynamic> {
 
       File file = File(filePath);
       await file.writeAsString(jsonString);
-      print('Network weights saved to $filePath');
+      Logger.log('Network weights saved to $filePath');
     } catch (e) {
-      print('Error saving network: $e');
+      Logger.log('Error saving network: $e');
     }
   }
 
@@ -209,21 +211,21 @@ class SNetwork extends Layer<dynamic, dynamic> {
       File file = File(filePath);
       bool exists = await file.exists();
       if (!exists) {
-        print('Error loading network: File not found at $filePath');
+        Logger.log('Error loading network: File not found at $filePath');
         return;
       }
       String jsonString = await file.readAsString();
       Map<String, dynamic> networkWeights = jsonDecode(jsonString);
 
       this.setWeights(networkWeights);
-      print('Network weights loaded from $filePath');
+      Logger.log('Network weights loaded from $filePath');
     } catch (e) {
-      print('Error loading network: $e');
+      Logger.log('Error loading network: $e');
     }
   }
 
   void inspectGraph(List<double> inputData, List<double> targetData) {
-    print('\n--- Inspecting Computational Graph ---');
+    Logger.log('\n--- Inspecting Computational Graph ---');
 
     // 1. Convert raw lists to Tensors
     Tensor<Vector> input = Tensor<Vector>(inputData);
@@ -238,7 +240,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
     // 4. Print the graph
     loss.printGraph();
 
-    print('--------------------------------------\n');
+    Logger.log('--------------------------------------\n');
   }
 }
 
@@ -269,13 +271,13 @@ Future<void> main() async {
   model.compile(configuredOptimizer: optimizer);
 
   int epochs = 5000;
-  print('Training ${model.name} for $epochs epochs...');
+  Logger.log('Training ${model.name} for $epochs epochs...');
   model.fit(xorInputs, xorTargets, epochs: epochs, debug: true);
 
   String modelPath = 'xor_model.json';
   await model.save(modelPath);
 
-  print('\n--- Loading weights into new model ---');
+  Logger.log('\n--- Loading weights into new model ---');
 
   List<Layer<dynamic, dynamic>> loadedLayers = [];
   // Ensure the loaded architecture matches exactly
@@ -286,7 +288,7 @@ Future<void> main() async {
   loadedModel.predict(initialInputTensor);
   await loadedModel.load(modelPath);
 
-  print('\n--- Testing Predictions (from LOADED model) ---');
+  Logger.log('\n--- Testing Predictions (from LOADED model) ---');
   int i = 0;
   for (int j = 0; j < xorInputs.length; j = j + 1) {
     Vector input = xorInputs[j];
@@ -298,7 +300,7 @@ Future<void> main() async {
     int predictedClass = (rawOutput > 0.5) ? 1 : 0;
     bool isCorrect = (predictedClass == target);
 
-    print('Input: $input, Target: $target, Output: ${rawOutput.toStringAsFixed(4)}, Predicted: $predictedClass, Correct: $isCorrect');
+    Logger.log('Input: $input, Target: $target, Output: ${rawOutput.toStringAsFixed(4)}, Predicted: $predictedClass, Correct: $isCorrect');
     i = i + 1;
   }
 }

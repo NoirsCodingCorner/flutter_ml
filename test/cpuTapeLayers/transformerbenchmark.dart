@@ -1,16 +1,6 @@
 import 'dart:math';
 
-import '../../lib/cpu_version/layertypes/positionalEncodingLayer.dart';
-import '../../lib/cpu_version/layertypes/transformerEncodingLayer.dart';
-
-import '../../lib/tensor/tensor.dart';
-import '../../lib/tensor/type_Aliases.dart';
-import '../../lib/cpu_version/layertypes/layer.dart';
-import '../../lib/cpu_version/layertypes/embeddingLayer.dart';
-import '../../lib/cpu_version/layertypes/globalAveragePoolingLayer.dart';
-import '../../lib/cpu_version/layertypes/multiHeadAttentionLayer.dart';
-import '../../lib/cpu_version/layertypes/normalizationLayer.dart';
-
+import 'package:flutter_ml/full_library.dart';
 
 Tensor<Vector> generateVector(int size) {
   Random random = Random();

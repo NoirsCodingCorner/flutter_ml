@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter_ml/logger.dart';
+
 import 'tensor_gpu.dart';
 
 class SafetensorsLoader {
@@ -126,9 +128,9 @@ void printSafetensorsStructure(String filePath) {
     List<dynamic> shape = layerInfo['shape'];
     String dtype = layerInfo['dtype'];
 
-    print(key);
-    print(shape);
-    print(dtype);
+    Logger.log(key);
+    Logger.log("$shape");
+    Logger.log(dtype);
   }
 }
 

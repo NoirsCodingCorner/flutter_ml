@@ -1,12 +1,4 @@
-import '../../lib/tensor/tensor.dart';
-import '../../lib/tensor/tensor_math_cpu.dart';
-import '../../lib/tensor/type_Aliases.dart';
-import '../../lib/cpu_version/activationFuncitons/relu.dart';
-import '../../lib/cpu_version/networks/SNetwork.dart';
-import '../../lib/cpu_version/optimizers/sgd.dart';
-import '../../lib/cpu_version/activationFuncitons/sigmoid.dart';
-import '../../lib/cpu_version/layertypes/denseLayer.dart';
-import '../../lib/cpu_version/layertypes/layer.dart';
+import 'package:flutter_ml/full_library.dart';
 
 Future<void> main() async {
   List<Vector> xorInputs = [];

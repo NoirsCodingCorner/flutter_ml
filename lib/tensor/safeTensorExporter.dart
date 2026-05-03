@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter_ml/logger.dart';
+
 import 'tensor_gpu.dart';
 
 class SafetensorsExporter {
@@ -20,7 +22,7 @@ class SafetensorsExporter {
 
   /// Exports the VRAM tensors to a standard Hugging Face .safetensors file
   static void saveModel(Map<String, GPUTensor> modelTensors, String outputPath) {
-    print('Starting export to $outputPath...');
+    Logger.log('Starting export to $outputPath...');
 
     Map<String, dynamic> jsonHeader = <String, dynamic>{};
     BytesBuilder rawBuffer = BytesBuilder();
@@ -56,7 +58,7 @@ class SafetensorsExporter {
       rawBuffer.add(byteData);
       currentOffset = currentOffset + byteLength;
 
-      print('Processed: $tensorName (Shape: ${tensor.shape})');
+      Logger.log('Processed: $tensorName (Shape: ${tensor.shape})');
     }
 
     // Safetensors requires an "__metadata__" block (often used for format info)
@@ -82,6 +84,6 @@ class SafetensorsExporter {
 
     file.writeAsBytesSync(fileBuilder.takeBytes());
 
-    print('Export Complete! Saved successfully to $outputPath');
+    Logger.log('Export Complete! Saved successfully to $outputPath');
   }
 }
