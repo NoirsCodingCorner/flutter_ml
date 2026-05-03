@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/FlutterPackages/flutter_ml_cuda_assisted/cuda_engine/cmake-build-debug/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
