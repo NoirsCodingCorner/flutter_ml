@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'dart:math';
 
-import '../optimizers/sgd.dart';
 
 import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
@@ -59,7 +57,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
     int inputSize = 0;
-    if (inputMatrix.length > 0) {
+    if (inputMatrix.isNotEmpty) {
       inputSize = inputMatrix[0].length;
     }
     Random random = Random();
@@ -131,73 +129,73 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
     Tensor<Vector> hc = Tensor<Vector>(zeroVector); // Higher cell state
 
     for (int i = 0; i < totalSteps; i = i + 1) {
-      Vector timestep_x_list = sequence[i];
-      Tensor<Vector> x_t = Tensor<Vector>(timestep_x_list);
+      Vector timestepXList = sequence[i];
+      Tensor<Vector> xT = Tensor<Vector>(timestepXList);
 
       // --- 1. LOWER TIER UPDATE (runs at every step) ---
 
       // Feedback: Combine lower hidden, HIGHER cell, and current input
-      Tensor<Vector> temp_combined = concatenate(lh, hc);
-      Tensor<Vector> combined_input_lower = concatenate(temp_combined, x_t);
+      Tensor<Vector> tempCombined = concatenate(lh, hc);
+      Tensor<Vector> combinedInputLower = concatenate(tempCombined, xT);
 
       // Forget Gate
-      Tensor<Vector> lf_t_linear = matVecMul(lW_f, combined_input_lower);
-      Tensor<Vector> lf_t_biased = addVector(lf_t_linear, lb_f);
-      Tensor<Vector> lf_t = sigmoid(lf_t_biased);
+      Tensor<Vector> lfTLinear = matVecMul(lW_f, combinedInputLower);
+      Tensor<Vector> lfTBiased = addVector(lfTLinear, lb_f);
+      Tensor<Vector> lfT = sigmoid(lfTBiased);
 
       // Input Gate
-      Tensor<Vector> li_t_linear = matVecMul(lW_i, combined_input_lower);
-      Tensor<Vector> li_t_biased = addVector(li_t_linear, lb_i);
-      Tensor<Vector> li_t = sigmoid(li_t_biased);
+      Tensor<Vector> liTLinear = matVecMul(lW_i, combinedInputLower);
+      Tensor<Vector> liTBiased = addVector(liTLinear, lb_i);
+      Tensor<Vector> liT = sigmoid(liTBiased);
 
-      Tensor<Vector> lc_tilde_t_linear = matVecMul(lW_c, combined_input_lower);
-      Tensor<Vector> lc_tilde_t_biased = addVector(lc_tilde_t_linear, lb_c);
-      Tensor<Vector> lc_tilde_t = vectorTanh(lc_tilde_t_biased);
+      Tensor<Vector> lcTildeTLinear = matVecMul(lW_c, combinedInputLower);
+      Tensor<Vector> lcTildeTBiased = addVector(lcTildeTLinear, lb_c);
+      Tensor<Vector> lcTildeT = vectorTanh(lcTildeTBiased);
 
       // Cell State Update
-      Tensor<Vector> lc_retained = elementWiseMultiply(lf_t, lc);
-      Tensor<Vector> lc_new_info = elementWiseMultiply(li_t, lc_tilde_t);
-      lc = addVector(lc_retained, lc_new_info);
+      Tensor<Vector> lcRetained = elementWiseMultiply(lfT, lc);
+      Tensor<Vector> lcNewInfo = elementWiseMultiply(liT, lcTildeT);
+      lc = addVector(lcRetained, lcNewInfo);
 
       // Output Gate
-      Tensor<Vector> lo_t_linear = matVecMul(lW_o, combined_input_lower);
-      Tensor<Vector> lo_t_biased = addVector(lo_t_linear, lb_o);
-      Tensor<Vector> lo_t = sigmoid(lo_t_biased);
-      Tensor<Vector> lc_activated = vectorTanh(lc);
-      lh = elementWiseMultiply(lo_t, lc_activated);
+      Tensor<Vector> loTLinear = matVecMul(lW_o, combinedInputLower);
+      Tensor<Vector> loTBiased = addVector(loTLinear, lb_o);
+      Tensor<Vector> loT = sigmoid(loTBiased);
+      Tensor<Vector> lcActivated = vectorTanh(lc);
+      lh = elementWiseMultiply(loT, lcActivated);
 
       // --- 2. HIGHER TIER UPDATE (runs periodically) ---
       if (i > 0 && (i + 1) % lowerTierClockCycle == 0) {
 
         // Input to the higher tier is its own last hidden state (hh)
         // and the aggregated info from the lower tier (the current lh).
-        Tensor<Vector> combined_input_higher = concatenate(hh, lh);
+        Tensor<Vector> combinedInputHigher = concatenate(hh, lh);
 
         // Forget Gate
-        Tensor<Vector> hf_t_linear = matVecMul(hW_f, combined_input_higher);
-        Tensor<Vector> hf_t_biased = addVector(hf_t_linear, hb_f);
-        Tensor<Vector> hf_t = sigmoid(hf_t_biased);
+        Tensor<Vector> hfTLinear = matVecMul(hW_f, combinedInputHigher);
+        Tensor<Vector> hfTBiased = addVector(hfTLinear, hb_f);
+        Tensor<Vector> hfT = sigmoid(hfTBiased);
 
         // Input Gate
-        Tensor<Vector> hi_t_linear = matVecMul(hW_i, combined_input_higher);
-        Tensor<Vector> hi_t_biased = addVector(hi_t_linear, hb_i);
-        Tensor<Vector> hi_t = sigmoid(hi_t_biased);
+        Tensor<Vector> hiTLinear = matVecMul(hW_i, combinedInputHigher);
+        Tensor<Vector> hiTBiased = addVector(hiTLinear, hb_i);
+        Tensor<Vector> hiT = sigmoid(hiTBiased);
 
-        Tensor<Vector> hc_tilde_t_linear = matVecMul(hW_c, combined_input_higher);
-        Tensor<Vector> hc_tilde_t_biased = addVector(hc_tilde_t_linear, hb_c);
-        Tensor<Vector> hc_tilde_t = vectorTanh(hc_tilde_t_biased);
+        Tensor<Vector> hcTildeTLinear = matVecMul(hW_c, combinedInputHigher);
+        Tensor<Vector> hcTildeTBiased = addVector(hcTildeTLinear, hb_c);
+        Tensor<Vector> hcTildeT = vectorTanh(hcTildeTBiased);
 
         // Cell State Update
-        Tensor<Vector> hc_retained = elementWiseMultiply(hf_t, hc);
-        Tensor<Vector> hc_new_info = elementWiseMultiply(hi_t, hc_tilde_t);
-        hc = addVector(hc_retained, hc_new_info);
+        Tensor<Vector> hcRetained = elementWiseMultiply(hfT, hc);
+        Tensor<Vector> hcNewInfo = elementWiseMultiply(hiT, hcTildeT);
+        hc = addVector(hcRetained, hcNewInfo);
 
         // Output Gate
-        Tensor<Vector> ho_t_linear = matVecMul(hW_o, combined_input_higher);
-        Tensor<Vector> ho_t_biased = addVector(ho_t_linear, hb_o);
-        Tensor<Vector> ho_t = sigmoid(ho_t_biased);
-        Tensor<Vector> hc_activated = vectorTanh(hc);
-        hh = elementWiseMultiply(ho_t, hc_activated);
+        Tensor<Vector> hoTLinear = matVecMul(hW_o, combinedInputHigher);
+        Tensor<Vector> hoTBiased = addVector(hoTLinear, hb_o);
+        Tensor<Vector> hoT = sigmoid(hoTBiased);
+        Tensor<Vector> hcActivated = vectorTanh(hc);
+        hh = elementWiseMultiply(hoT, hcActivated);
       }
     }
 
@@ -230,7 +228,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
 
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
-    void _copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
+    void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
       int idx = 0;
       for (int i = 0; i < newDataDynamic.length; i = i + 1) {
         List<dynamic> rowDynamic = newDataDynamic[i] as List<dynamic>;
@@ -241,29 +239,29 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
       }
     }
 
-    void _copyVector(Tensor<Vector> tensor, List<dynamic> newDataDynamic) {
+    void copyVector(Tensor<Vector> tensor, List<dynamic> newDataDynamic) {
       for (int i = 0; i < newDataDynamic.length; i = i + 1) {
         tensor.data[i] = newDataDynamic[i] as double;
       }
     }
 
-    _copyMatrix(lW_f, weightsMap['lW_f'] as List<dynamic>);
-    _copyMatrix(lW_i, weightsMap['lW_i'] as List<dynamic>);
-    _copyMatrix(lW_c, weightsMap['lW_c'] as List<dynamic>);
-    _copyMatrix(lW_o, weightsMap['lW_o'] as List<dynamic>);
-    _copyVector(lb_f, weightsMap['lb_f'] as List<dynamic>);
-    _copyVector(lb_i, weightsMap['lb_i'] as List<dynamic>);
-    _copyVector(lb_c, weightsMap['lb_c'] as List<dynamic>);
-    _copyVector(lb_o, weightsMap['lb_o'] as List<dynamic>);
+    copyMatrix(lW_f, weightsMap['lW_f'] as List<dynamic>);
+    copyMatrix(lW_i, weightsMap['lW_i'] as List<dynamic>);
+    copyMatrix(lW_c, weightsMap['lW_c'] as List<dynamic>);
+    copyMatrix(lW_o, weightsMap['lW_o'] as List<dynamic>);
+    copyVector(lb_f, weightsMap['lb_f'] as List<dynamic>);
+    copyVector(lb_i, weightsMap['lb_i'] as List<dynamic>);
+    copyVector(lb_c, weightsMap['lb_c'] as List<dynamic>);
+    copyVector(lb_o, weightsMap['lb_o'] as List<dynamic>);
 
-    _copyMatrix(hW_f, weightsMap['hW_f'] as List<dynamic>);
-    _copyMatrix(hW_i, weightsMap['hW_i'] as List<dynamic>);
-    _copyMatrix(hW_c, weightsMap['hW_c'] as List<dynamic>);
-    _copyMatrix(hW_o, weightsMap['hW_o'] as List<dynamic>);
-    _copyVector(hb_f, weightsMap['hb_f'] as List<dynamic>);
-    _copyVector(hb_i, weightsMap['hb_i'] as List<dynamic>);
-    _copyVector(hb_c, weightsMap['hb_c'] as List<dynamic>);
-    _copyVector(hb_o, weightsMap['hb_o'] as List<dynamic>);
+    copyMatrix(hW_f, weightsMap['hW_f'] as List<dynamic>);
+    copyMatrix(hW_i, weightsMap['hW_i'] as List<dynamic>);
+    copyMatrix(hW_c, weightsMap['hW_c'] as List<dynamic>);
+    copyMatrix(hW_o, weightsMap['hW_o'] as List<dynamic>);
+    copyVector(hb_f, weightsMap['hb_f'] as List<dynamic>);
+    copyVector(hb_i, weightsMap['hb_i'] as List<dynamic>);
+    copyVector(hb_c, weightsMap['hb_c'] as List<dynamic>);
+    copyVector(hb_o, weightsMap['hb_o'] as List<dynamic>);
   }
 }
 

@@ -72,17 +72,17 @@ class MultiHeadAttentionTL extends TapeLayer {
   Map<String, GPUTensor> getNamedParameters(String prefix) {
     Map<String, GPUTensor> map = <String, GPUTensor>{};
     if (built) {
-      map[prefix + '.self.query.weight'] = Wq;
-      map[prefix + '.self.query.bias'] = bq;
+      map['$prefix.self.query.weight'] = Wq;
+      map['$prefix.self.query.bias'] = bq;
 
-      map[prefix + '.self.key.weight'] = Wk;
-      map[prefix + '.self.key.bias'] = bk;
+      map['$prefix.self.key.weight'] = Wk;
+      map['$prefix.self.key.bias'] = bk;
 
-      map[prefix + '.self.value.weight'] = Wv;
-      map[prefix + '.self.value.bias'] = bv;
+      map['$prefix.self.value.weight'] = Wv;
+      map['$prefix.self.value.bias'] = bv;
 
-      map[prefix + '.output.dense.weight'] = Wo;
-      map[prefix + '.output.dense.bias'] = bo;
+      map['$prefix.output.dense.weight'] = Wo;
+      map['$prefix.output.dense.bias'] = bo;
     }
     return map;
   }

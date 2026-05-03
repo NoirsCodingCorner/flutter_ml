@@ -111,74 +111,74 @@ class DualLSTMTL extends TapeLayer {
 
     for (int i = 0; i < totalSteps; i = i + 1) {
       // 1. Safely slice the vector and reshape it into a [1, InputSize] Row Matrix
-      GPUTensor<Vector> x_vec = selectRowGPU(typedInput, i, tape);
-      GPUTensor<Matrix> x_t = reshapeVectorToMatrixGPU(x_vec, 1, inputSize, tape);
-      intermediates.addAll(<GPUTensor>[x_vec, x_t]);
+      GPUTensor<Vector> xVec = selectRowGPU(typedInput, i, tape);
+      GPUTensor<Matrix> xT = reshapeVectorToMatrixGPU(xVec, 1, inputSize, tape);
+      intermediates.addAll(<GPUTensor>[xVec, xT]);
 
       // --- LOWER TIER ---
       // [1, H] + [1, H] + [1, I] = [1, C]
-      GPUTensor<Matrix> comb_low = concatenateMatricesByColumnGPU(<GPUTensor<Matrix>>[lh, hc, x_t], tape);
-      intermediates.add(comb_low);
+      GPUTensor<Matrix> combLow = concatenateMatricesByColumnGPU(<GPUTensor<Matrix>>[lh, hc, xT], tape);
+      intermediates.add(combLow);
 
       // [1, C] * [C, H] = [1, H] (Perfect Matrix Multiplication!)
-      GPUTensor<Matrix> lf_linear = matMulGPU(comb_low, lW_f, tape);
-      GPUTensor<Matrix> lf_biased = addMatrixGPU(lf_linear, lb_f, tape);
-      GPUTensor<Matrix> lf_t = sigmoidMatrixGPU(lf_biased, tape);
-      intermediates.addAll(<GPUTensor>[lf_linear, lf_biased, lf_t]);
+      GPUTensor<Matrix> lfLinear = matMulGPU(combLow, lW_f, tape);
+      GPUTensor<Matrix> lfBiased = addMatrixGPU(lfLinear, lb_f, tape);
+      GPUTensor<Matrix> lfT = sigmoidMatrixGPU(lfBiased, tape);
+      intermediates.addAll(<GPUTensor>[lfLinear, lfBiased, lfT]);
 
-      GPUTensor<Matrix> li_linear = matMulGPU(comb_low, lW_i, tape);
-      GPUTensor<Matrix> li_biased = addMatrixGPU(li_linear, lb_i, tape);
-      GPUTensor<Matrix> li_t = sigmoidMatrixGPU(li_biased, tape);
-      intermediates.addAll(<GPUTensor>[li_linear, li_biased, li_t]);
+      GPUTensor<Matrix> liLinear = matMulGPU(combLow, lW_i, tape);
+      GPUTensor<Matrix> liBiased = addMatrixGPU(liLinear, lb_i, tape);
+      GPUTensor<Matrix> liT = sigmoidMatrixGPU(liBiased, tape);
+      intermediates.addAll(<GPUTensor>[liLinear, liBiased, liT]);
 
-      GPUTensor<Matrix> lc_tilde_linear = matMulGPU(comb_low, lW_c, tape);
-      GPUTensor<Matrix> lc_tilde_biased = addMatrixGPU(lc_tilde_linear, lb_c, tape);
-      GPUTensor<Matrix> lc_tilde = tanhMatrixGPU(lc_tilde_biased, tape);
-      intermediates.addAll(<GPUTensor>[lc_tilde_linear, lc_tilde_biased, lc_tilde]);
+      GPUTensor<Matrix> lcTildeLinear = matMulGPU(combLow, lW_c, tape);
+      GPUTensor<Matrix> lcTildeBiased = addMatrixGPU(lcTildeLinear, lb_c, tape);
+      GPUTensor<Matrix> lcTilde = tanhMatrixGPU(lcTildeBiased, tape);
+      intermediates.addAll(<GPUTensor>[lcTildeLinear, lcTildeBiased, lcTilde]);
 
-      GPUTensor<Matrix> lc_retained = elementWiseMultiplyMatrixGPU(lf_t, lc, tape);
-      GPUTensor<Matrix> lc_new_info = elementWiseMultiplyMatrixGPU(li_t, lc_tilde, tape);
-      lc = addMatrixGPU(lc_retained, lc_new_info, tape);
-      intermediates.addAll(<GPUTensor>[lc_retained, lc_new_info, lc]);
+      GPUTensor<Matrix> lcRetained = elementWiseMultiplyMatrixGPU(lfT, lc, tape);
+      GPUTensor<Matrix> lcNewInfo = elementWiseMultiplyMatrixGPU(liT, lcTilde, tape);
+      lc = addMatrixGPU(lcRetained, lcNewInfo, tape);
+      intermediates.addAll(<GPUTensor>[lcRetained, lcNewInfo, lc]);
 
-      GPUTensor<Matrix> lo_linear = matMulGPU(comb_low, lW_o, tape);
-      GPUTensor<Matrix> lo_biased = addMatrixGPU(lo_linear, lb_o, tape);
-      GPUTensor<Matrix> lo_t = sigmoidMatrixGPU(lo_biased, tape);
-      GPUTensor<Matrix> lc_activated = tanhMatrixGPU(lc, tape);
-      lh = elementWiseMultiplyMatrixGPU(lo_t, lc_activated, tape);
-      intermediates.addAll(<GPUTensor>[lo_linear, lo_biased, lo_t, lc_activated, lh]);
+      GPUTensor<Matrix> loLinear = matMulGPU(combLow, lW_o, tape);
+      GPUTensor<Matrix> loBiased = addMatrixGPU(loLinear, lb_o, tape);
+      GPUTensor<Matrix> loT = sigmoidMatrixGPU(loBiased, tape);
+      GPUTensor<Matrix> lcActivated = tanhMatrixGPU(lc, tape);
+      lh = elementWiseMultiplyMatrixGPU(loT, lcActivated, tape);
+      intermediates.addAll(<GPUTensor>[loLinear, loBiased, loT, lcActivated, lh]);
 
       // --- HIGHER TIER ---
       if (i > 0 && (i + 1) % lowerTierClockCycle == 0) {
-        GPUTensor<Matrix> comb_high = concatenateMatricesByColumnGPU(<GPUTensor<Matrix>>[hh, lh], tape);
-        intermediates.add(comb_high);
+        GPUTensor<Matrix> combHigh = concatenateMatricesByColumnGPU(<GPUTensor<Matrix>>[hh, lh], tape);
+        intermediates.add(combHigh);
 
-        GPUTensor<Matrix> hf_linear = matMulGPU(comb_high, hW_f, tape);
-        GPUTensor<Matrix> hf_biased = addMatrixGPU(hf_linear, hb_f, tape);
-        GPUTensor<Matrix> hf_t = sigmoidMatrixGPU(hf_biased, tape);
-        intermediates.addAll(<GPUTensor>[hf_linear, hf_biased, hf_t]);
+        GPUTensor<Matrix> hfLinear = matMulGPU(combHigh, hW_f, tape);
+        GPUTensor<Matrix> hfBiased = addMatrixGPU(hfLinear, hb_f, tape);
+        GPUTensor<Matrix> hfT = sigmoidMatrixGPU(hfBiased, tape);
+        intermediates.addAll(<GPUTensor>[hfLinear, hfBiased, hfT]);
 
-        GPUTensor<Matrix> hi_linear = matMulGPU(comb_high, hW_i, tape);
-        GPUTensor<Matrix> hi_biased = addMatrixGPU(hi_linear, hb_i, tape);
-        GPUTensor<Matrix> hi_t = sigmoidMatrixGPU(hi_biased, tape);
-        intermediates.addAll(<GPUTensor>[hi_linear, hi_biased, hi_t]);
+        GPUTensor<Matrix> hiLinear = matMulGPU(combHigh, hW_i, tape);
+        GPUTensor<Matrix> hiBiased = addMatrixGPU(hiLinear, hb_i, tape);
+        GPUTensor<Matrix> hiT = sigmoidMatrixGPU(hiBiased, tape);
+        intermediates.addAll(<GPUTensor>[hiLinear, hiBiased, hiT]);
 
-        GPUTensor<Matrix> hc_tilde_linear = matMulGPU(comb_high, hW_c, tape);
-        GPUTensor<Matrix> hc_tilde_biased = addMatrixGPU(hc_tilde_linear, hb_c, tape);
-        GPUTensor<Matrix> hc_tilde = tanhMatrixGPU(hc_tilde_biased, tape);
-        intermediates.addAll(<GPUTensor>[hc_tilde_linear, hc_tilde_biased, hc_tilde]);
+        GPUTensor<Matrix> hcTildeLinear = matMulGPU(combHigh, hW_c, tape);
+        GPUTensor<Matrix> hcTildeBiased = addMatrixGPU(hcTildeLinear, hb_c, tape);
+        GPUTensor<Matrix> hcTilde = tanhMatrixGPU(hcTildeBiased, tape);
+        intermediates.addAll(<GPUTensor>[hcTildeLinear, hcTildeBiased, hcTilde]);
 
-        GPUTensor<Matrix> hc_retained = elementWiseMultiplyMatrixGPU(hf_t, hc, tape);
-        GPUTensor<Matrix> hc_new_info = elementWiseMultiplyMatrixGPU(hi_t, hc_tilde, tape);
-        hc = addMatrixGPU(hc_retained, hc_new_info, tape);
-        intermediates.addAll(<GPUTensor>[hc_retained, hc_new_info, hc]);
+        GPUTensor<Matrix> hcRetained = elementWiseMultiplyMatrixGPU(hfT, hc, tape);
+        GPUTensor<Matrix> hcNewInfo = elementWiseMultiplyMatrixGPU(hiT, hcTilde, tape);
+        hc = addMatrixGPU(hcRetained, hcNewInfo, tape);
+        intermediates.addAll(<GPUTensor>[hcRetained, hcNewInfo, hc]);
 
-        GPUTensor<Matrix> ho_linear = matMulGPU(comb_high, hW_o, tape);
-        GPUTensor<Matrix> ho_biased = addMatrixGPU(ho_linear, hb_o, tape);
-        GPUTensor<Matrix> ho_t = sigmoidMatrixGPU(ho_biased, tape);
-        GPUTensor<Matrix> hc_activated = tanhMatrixGPU(hc, tape);
-        hh = elementWiseMultiplyMatrixGPU(ho_t, hc_activated, tape);
-        intermediates.addAll(<GPUTensor>[ho_linear, ho_biased, ho_t, hc_activated, hh]);
+        GPUTensor<Matrix> hoLinear = matMulGPU(combHigh, hW_o, tape);
+        GPUTensor<Matrix> hoBiased = addMatrixGPU(hoLinear, hb_o, tape);
+        GPUTensor<Matrix> hoT = sigmoidMatrixGPU(hoBiased, tape);
+        GPUTensor<Matrix> hcActivated = tanhMatrixGPU(hc, tape);
+        hh = elementWiseMultiplyMatrixGPU(hoT, hcActivated, tape);
+        intermediates.addAll(<GPUTensor>[hoLinear, hoBiased, hoT, hcActivated, hh]);
       }
     }
 

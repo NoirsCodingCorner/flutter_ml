@@ -4,10 +4,6 @@ import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import '../layertypes/layer.dart';
-import '../layertypes/denseLayer.dart';
-import '../layertypes/lstmLayer.dart';
-import '../networks/SNetwork.dart';
-import '../optimizers/sgd.dart';
 
 class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
   @override
@@ -59,7 +55,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
     int inputSize = 0;
-    if (inputMatrix.length > 0) {
+    if (inputMatrix.isNotEmpty) {
       inputSize = inputMatrix[0].length;
     }
     Random random = Random();
@@ -115,8 +111,8 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     Matrix sequence = input.value;
     int totalSteps = sequence.length;
 
-    List<Tensor<Vector>> h_states = [];
-    List<Tensor<Vector>> c_states = [];
+    List<Tensor<Vector>> hStates = [];
+    List<Tensor<Vector>> cStates = [];
 
     for (int i = 0; i < numTiers; i = i + 1) {
       Vector zeroVectorH = [];
@@ -125,59 +121,59 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
         zeroVectorH.add(0.0);
         zeroVectorC.add(0.0);
       }
-      h_states.add(Tensor<Vector>(zeroVectorH));
-      c_states.add(Tensor<Vector>(zeroVectorC));
+      hStates.add(Tensor<Vector>(zeroVectorH));
+      cStates.add(Tensor<Vector>(zeroVectorC));
     }
 
     for (int globalStep = 0; globalStep < totalSteps; globalStep = globalStep + 1) {
-      Tensor<Vector> x_t = Tensor<Vector>(sequence[globalStep]);
+      Tensor<Vector> xT = Tensor<Vector>(sequence[globalStep]);
 
       Tensor<Vector> contextFromHigherTiers;
       if (numTiers > 1) {
         List<Tensor<Vector>> sublist = [];
-        for (int j = 1; j < c_states.length; j = j + 1) {
-          sublist.add(c_states[j]);
+        for (int j = 1; j < cStates.length; j = j + 1) {
+          sublist.add(cStates[j]);
         }
         contextFromHigherTiers = concatenateAll(sublist);
       } else {
         contextFromHigherTiers = Tensor<Vector>([]);
       }
 
-      Tensor<Vector> temp_combined = concatenate(h_states[0], contextFromHigherTiers);
-      Tensor<Vector> combined_input_lower = concatenate(temp_combined, x_t);
+      Tensor<Vector> tempCombined = concatenate(hStates[0], contextFromHigherTiers);
+      Tensor<Vector> combinedInputLower = concatenate(tempCombined, xT);
 
-      Map<String, Tensor<Vector>> updatedStates = _lstmStep(combined_input_lower, h_states[0], c_states[0], 0);
-      h_states[0] = updatedStates['h']!;
-      c_states[0] = updatedStates['c']!;
+      Map<String, Tensor<Vector>> updatedStates = _lstmStep(combinedInputLower, hStates[0], cStates[0], 0);
+      hStates[0] = updatedStates['h']!;
+      cStates[0] = updatedStates['c']!;
 
       for (int i = 1; i < numTiers; i = i + 1) {
         if ((globalStep + 1) % cumulativeClockCycles[i - 1] == 0) {
-          Tensor<Vector> combined_input_higher = concatenate(h_states[i], h_states[i - 1]);
+          Tensor<Vector> combinedInputHigher = concatenate(hStates[i], hStates[i - 1]);
 
-          Map<String, Tensor<Vector>> updatedHigherStates = _lstmStep(combined_input_higher, h_states[i], c_states[i], i);
-          h_states[i] = updatedHigherStates['h']!;
-          c_states[i] = updatedHigherStates['c']!;
+          Map<String, Tensor<Vector>> updatedHigherStates = _lstmStep(combinedInputHigher, hStates[i], cStates[i], i);
+          hStates[i] = updatedHigherStates['h']!;
+          cStates[i] = updatedHigherStates['c']!;
         }
       }
     }
 
-    return h_states[0];
+    return hStates[0];
   }
 
   Map<String, Tensor<Vector>> _lstmStep(
-      Tensor<Vector> combined_input,
-      Tensor<Vector> h_prev,
-      Tensor<Vector> c_prev,
+      Tensor<Vector> combinedInput,
+      Tensor<Vector> hPrev,
+      Tensor<Vector> cPrev,
       int tierIndex
       ) {
-    Tensor<Vector> f_t = sigmoid(addVector(matVecMul(W_f_tiers[tierIndex], combined_input), b_f_tiers[tierIndex]));
-    Tensor<Vector> i_t = sigmoid(addVector(matVecMul(W_i_tiers[tierIndex], combined_input), b_i_tiers[tierIndex]));
-    Tensor<Vector> c_tilde_t = vectorTanh(addVector(matVecMul(W_c_tiers[tierIndex], combined_input), b_c_tiers[tierIndex]));
-    Tensor<Vector> c_next = addVector(elementWiseMultiply(f_t, c_prev), elementWiseMultiply(i_t, c_tilde_t));
-    Tensor<Vector> o_t = sigmoid(addVector(matVecMul(W_o_tiers[tierIndex], combined_input), b_o_tiers[tierIndex]));
-    Tensor<Vector> h_next = elementWiseMultiply(o_t, vectorTanh(c_next));
+    Tensor<Vector> fT = sigmoid(addVector(matVecMul(W_f_tiers[tierIndex], combinedInput), b_f_tiers[tierIndex]));
+    Tensor<Vector> iT = sigmoid(addVector(matVecMul(W_i_tiers[tierIndex], combinedInput), b_i_tiers[tierIndex]));
+    Tensor<Vector> cTildeT = vectorTanh(addVector(matVecMul(W_c_tiers[tierIndex], combinedInput), b_c_tiers[tierIndex]));
+    Tensor<Vector> cNext = addVector(elementWiseMultiply(fT, cPrev), elementWiseMultiply(iT, cTildeT));
+    Tensor<Vector> oT = sigmoid(addVector(matVecMul(W_o_tiers[tierIndex], combinedInput), b_o_tiers[tierIndex]));
+    Tensor<Vector> hNext = elementWiseMultiply(oT, vectorTanh(cNext));
 
-    return {'h': h_next, 'c': c_next};
+    return {'h': hNext, 'c': cNext};
   }
 
   Tensor<Vector> concatenateAll(List<Tensor<Vector>> tensors) {
@@ -231,7 +227,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
 
-    void _copyMatrixList(List<Tensor<Matrix>> tensorList, List<dynamic> newDataList) {
+    void copyMatrixList(List<Tensor<Matrix>> tensorList, List<dynamic> newDataList) {
       for (int i = 0; i < tensorList.length; i = i + 1) {
         List<dynamic> newMatrixDynamic = newDataList[i] as List<dynamic>;
         Tensor<Matrix> tensor = tensorList[i];
@@ -247,7 +243,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
       }
     }
 
-    void _copyVectorList(List<Tensor<Vector>> tensorList, List<dynamic> newDataList) {
+    void copyVectorList(List<Tensor<Vector>> tensorList, List<dynamic> newDataList) {
       for (int i = 0; i < tensorList.length; i = i + 1) {
         List<dynamic> newVectorDynamic = newDataList[i] as List<dynamic>;
         Tensor<Vector> tensor = tensorList[i];
@@ -258,15 +254,15 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
       }
     }
 
-    _copyMatrixList(W_f_tiers, weightsMap['W_f_tiers'] as List<dynamic>);
-    _copyMatrixList(W_i_tiers, weightsMap['W_i_tiers'] as List<dynamic>);
-    _copyMatrixList(W_c_tiers, weightsMap['W_c_tiers'] as List<dynamic>);
-    _copyMatrixList(W_o_tiers, weightsMap['W_o_tiers'] as List<dynamic>);
+    copyMatrixList(W_f_tiers, weightsMap['W_f_tiers'] as List<dynamic>);
+    copyMatrixList(W_i_tiers, weightsMap['W_i_tiers'] as List<dynamic>);
+    copyMatrixList(W_c_tiers, weightsMap['W_c_tiers'] as List<dynamic>);
+    copyMatrixList(W_o_tiers, weightsMap['W_o_tiers'] as List<dynamic>);
 
-    _copyVectorList(b_f_tiers, weightsMap['b_f_tiers'] as List<dynamic>);
-    _copyVectorList(b_i_tiers, weightsMap['b_i_tiers'] as List<dynamic>);
-    _copyVectorList(b_c_tiers, weightsMap['b_c_tiers'] as List<dynamic>);
-    _copyVectorList(b_o_tiers, weightsMap['b_o_tiers'] as List<dynamic>);
+    copyVectorList(b_f_tiers, weightsMap['b_f_tiers'] as List<dynamic>);
+    copyVectorList(b_i_tiers, weightsMap['b_i_tiers'] as List<dynamic>);
+    copyVectorList(b_c_tiers, weightsMap['b_c_tiers'] as List<dynamic>);
+    copyVectorList(b_o_tiers, weightsMap['b_o_tiers'] as List<dynamic>);
   }
 }
 

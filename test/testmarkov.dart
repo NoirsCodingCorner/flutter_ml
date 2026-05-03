@@ -7,8 +7,8 @@ import 'package:flutter_ml/tensor/tensor_math_gpu.dart';
 import 'package:flutter_ml/tensor/type_Aliases.dart';
 
 
-void main() {
-  CudaEngine.initialize(debug: false);
+void main() async{
+  await CudaEngine.initialize(debug: false);
 
   // 1. Our Training Corpus
   String text = "i love programming in dart and i love running code on the gpu because the gpu is very fast and i love fast code";

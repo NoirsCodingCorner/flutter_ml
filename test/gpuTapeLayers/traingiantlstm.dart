@@ -69,10 +69,10 @@ void main() {
     <GPUTensor>[output, target],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MSE_LOSS_BACKWARD);
-      bTape.putString(output.id + '_grad'); // 1. Grad Out (Prediction Gradient to write into)
+      bTape.putString('${output.id}_grad'); // 1. Grad Out (Prediction Gradient to write into)
       bTape.putString(output.id);           // 2. Prediction
       bTape.putString(target.id);           // 3. Target
-      bTape.putString(loss.id + '_grad');   // 4. Grad In (Loss Gradient to read from)
+      bTape.putString('${loss.id}_grad');   // 4. Grad In (Loss Gradient to read from)
     },
     opName: 'mse_loss_manual',
   );
@@ -89,16 +89,16 @@ void main() {
   optimizer.zeroGrad(bTape);
   for (int i = 0; i < intermediates.length; i = i + 1) {
     bTape.putInt(OP_ZERO_GRAD);
-    bTape.putString(intermediates[i].id + '_grad');
+    bTape.putString('${intermediates[i].id}_grad');
   }
   bTape.putInt(OP_ZERO_GRAD);
-  bTape.putString(input.id + '_grad');
+  bTape.putString('${input.id}_grad');
   bTape.putInt(OP_ZERO_GRAD);
-  bTape.putString(output.id + '_grad');
+  bTape.putString('${output.id}_grad');
 
   // Inject 1.0 into the loss gradient to kickstart the chain rule
   bTape.putInt(OP_FILL);
-  bTape.putString(loss.id + '_grad');
+  bTape.putString('${loss.id}_grad');
   bTape.putFloat(1.0);
 
   // Recursively writes all OP_..._BACKWARD instructions to the tape

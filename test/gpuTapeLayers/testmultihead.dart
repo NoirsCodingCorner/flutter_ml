@@ -83,10 +83,10 @@ void main() {
         <GPUTensor>[output, target],
             (CommandBuffer bTape) {
           bTape.putInt(OP_MSE_LOSS_BACKWARD);
-          bTape.putString(output.id + '_grad');
+          bTape.putString('${output.id}_grad');
           bTape.putString(output.id);
           bTape.putString(target.id);
-          bTape.putString(loss.id + '_grad');
+          bTape.putString('${loss.id}_grad');
         },
         opName: 'mse_loss_manual',
       );
@@ -102,15 +102,15 @@ void main() {
       optimizer.zeroGrad(bTape);
       for (int i = 0; i < intermediates.length; i = i + 1) {
         bTape.putInt(OP_ZERO_GRAD);
-        bTape.putString(intermediates[i].id + '_grad');
+        bTape.putString('${intermediates[i].id}_grad');
       }
       bTape.putInt(OP_ZERO_GRAD);
-      bTape.putString(input.id + '_grad');
+      bTape.putString('${input.id}_grad');
       bTape.putInt(OP_ZERO_GRAD);
-      bTape.putString(output.id + '_grad');
+      bTape.putString('${output.id}_grad');
 
       bTape.putInt(OP_FILL);
-      bTape.putString(loss.id + '_grad');
+      bTape.putString('${loss.id}_grad');
       bTape.putFloat(1.0);
 
       loss.backward(bTape);

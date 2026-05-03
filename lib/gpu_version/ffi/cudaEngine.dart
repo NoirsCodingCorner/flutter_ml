@@ -1,9 +1,9 @@
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
-import 'commandBuffer.dart';
 
 typedef NativeCreate   = Int64 Function(Bool);
 typedef DartCreate     = int Function(bool);
@@ -50,12 +50,26 @@ class CudaEngine {
   static late DartAddPointers _addPointers;
   static late DartInitRandom _initRandom;
 
-  static void initialize({bool debug = false}) {
-    String path = Platform.isWindows
-        ? 'cuda_engine/cmake-build-debug/cuda_executor.dll'
-        : './libcuda_executor.so';
+  static Future<void> initialize({bool debug = false}) async {
+    String libName = Platform.isWindows ? 'cuda_executor.dll' : 'libcuda_executor.so';
 
-    DynamicLibrary dylib = DynamicLibrary.open(path);
+    final uri = await Isolate.resolvePackageUri(
+        Uri.parse('package:flutter_ml/gpu_version/ffi/cudafiles/$libName')
+    );
+
+    if (uri == null) {
+      throw Exception("\n[CRITICAL ERROR] Could not locate $libName inside the flutter_ml package.");
+    }
+
+    String absolutePath = uri.toFilePath();
+    DynamicLibrary dylib;
+
+    try {
+      dylib = DynamicLibrary.open(absolutePath);
+    } catch (e) {
+      print("CRITICAL FFI ERROR: Failed to open library at $absolutePath.");
+      rethrow;
+    }
 
     _create         = dylib.lookupFunction<NativeCreate, DartCreate>('create_executor');
     _free           = dylib.lookupFunction<NativeFree, DartFree>('free_executor');
@@ -66,9 +80,9 @@ class CudaEngine {
     _getTensorNames = dylib.lookupFunction<NativeGetNames, DartGetNames>('get_tensor_names');
     _freeString     = dylib.lookupFunction<NativeFreeStr, DartFreeStr>('free_string');
 
-    // NEW: Bind the native memory addition function
     _addPointers    = dylib.lookupFunction<NativeAddPointers, DartAddPointers>('add_pointers');
     _initRandom     = dylib.lookupFunction<NativeInitRandom, DartInitRandom>('init_random_uniform');
+
     handle = _create(debug);
   }
 

@@ -55,9 +55,7 @@ void testAbs() {
 
   print("--- ABS Results ---");
   for (int i = 0; i < dataIn.length; i = i + 1) {
-    print("In: " + tIn.data[i].toString() +
-        " | Out: " + tOut.data[i].toString() +
-        " | Grad: " + tIn.grad[i].toString());
+    print("In: ${tIn.data[i]} | Out: ${tOut.data[i]} | Grad: ${tIn.grad[i]}");
   }
 
   print("[ABS] Freeing VRAM...");
@@ -96,9 +94,7 @@ void testSqrt() {
 
   print("--- SQRT Results ---");
   for (int i = 0; i < dataIn.length; i = i + 1) {
-    print("In: " + tIn.data[i].toString() +
-        " | Out: " + tOut.data[i].toString() +
-        " | Grad: " + tIn.grad[i].toString());
+    print("In: ${tIn.data[i]} | Out: ${tOut.data[i]} | Grad: ${tIn.grad[i]}");
   }
 
   print("[SQRT] Freeing VRAM...");
@@ -137,9 +133,7 @@ void testLog() {
 
   print("--- LOG Results ---");
   for (int i = 0; i < dataIn.length; i = i + 1) {
-    print("In: " + tIn.data[i].toString() +
-        " | Out: " + tOut.data[i].toString() +
-        " | Grad: " + tIn.grad[i].toString());
+    print("In: ${tIn.data[i]} | Out: ${tOut.data[i]} | Grad: ${tIn.grad[i]}");
   }
 
   print("[LOG] Freeing VRAM...");
@@ -177,11 +171,9 @@ void testPow() {
   tIn.toCpu();
   tOut.toCpu();
 
-  print("--- POW Results (Exponent: " + exponent.toString() + ") ---");
+  print("--- POW Results (Exponent: $exponent) ---");
   for (int i = 0; i < dataIn.length; i = i + 1) {
-    print("In: " + tIn.data[i].toString() +
-        " | Out: " + tOut.data[i].toString() +
-        " | Grad: " + tIn.grad[i].toString());
+    print("In: ${tIn.data[i]} | Out: ${tOut.data[i]} | Grad: ${tIn.grad[i]}");
   }
 
   print("[POW] Freeing VRAM...");
@@ -220,11 +212,9 @@ void testClamp() {
   tIn.toCpu();
   tOut.toCpu();
 
-  print("--- CLAMP Results (Min: " + minVal.toString() + " | Max: " + maxVal.toString() + ") ---");
+  print("--- CLAMP Results (Min: $minVal | Max: $maxVal) ---");
   for (int i = 0; i < dataIn.length; i = i + 1) {
-    print("In: " + tIn.data[i].toString() +
-        " | Out: " + tOut.data[i].toString() +
-        " | Grad: " + tIn.grad[i].toString());
+    print("In: ${tIn.data[i]} | Out: ${tOut.data[i]} | Grad: ${tIn.grad[i]}");
   }
 
   print("[CLAMP] Freeing VRAM...");

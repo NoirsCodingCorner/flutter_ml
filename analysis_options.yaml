@@ -2,7 +2,14 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
+  exclude:
+    - "test/**"
+    - "examples/**"
   errors:
-    unused_local_variable: ignore
-    unused_import: ignore
+    non_constant_identifier_names: ignore
+    avoid_print: ignore
+    prefer_interpolation_to_compose_strings: ignore
+    curly_braces_in_flow_control_structures: ignore
+    # ADD THESE TWO:
     file_names: ignore
+    unused_local_variable: ignore

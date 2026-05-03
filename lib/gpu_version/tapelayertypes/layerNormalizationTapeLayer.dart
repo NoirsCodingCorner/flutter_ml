@@ -49,8 +49,8 @@ class LayerNormalizationTL extends TapeLayer {
     Map<String, GPUTensor> map = <String, GPUTensor>{};
     if (built) {
       // FIXED: Safetensors uses .weight and .bias instead of .gamma and .beta
-      map[prefix + '.weight'] = gamma;
-      map[prefix + '.bias'] = beta;
+      map['$prefix.weight'] = gamma;
+      map['$prefix.bias'] = beta;
     }
     return map;
   }

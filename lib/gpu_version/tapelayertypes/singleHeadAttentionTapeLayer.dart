@@ -74,10 +74,10 @@ class SingleHeadAttentionTL extends TapeLayer {
     intermediates.add(k);
     intermediates.add(v);
 
-    GPUTensor<Matrix> k_t = transposeGPU(k, tape);
-    GPUTensor<Matrix> scores = matMulGPU(q, k_t, tape);
+    GPUTensor<Matrix> kT = transposeGPU(k, tape);
+    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape);
 
-    intermediates.add(k_t);
+    intermediates.add(kT);
     intermediates.add(scores);
 
     double scaleFactor = 1.0 / sqrt(dK);

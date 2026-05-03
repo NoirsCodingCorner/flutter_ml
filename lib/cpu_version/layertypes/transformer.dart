@@ -1,16 +1,4 @@
-import 'dart:math';
-import '../activationFuncitons/sigmoid.dart';
-import 'denseLayer.dart';
-import 'positionalEncodingLayer.dart';
-import 'transformerEncodingLayer.dart';
 
-import '../../tensor/tensor.dart';
-import '../../tensor/tensor_math_cpu.dart';
-import '../../tensor/type_Aliases.dart';
-import '../networks/SNetwork.dart';
-import '../optimizers/adam.dart';
-import 'embeddingLayer.dart';
-import 'globalAveragePoolingLayer.dart';
 
 /*Future<void> main() async {
   // 1. Dataset Setup

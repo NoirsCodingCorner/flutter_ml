@@ -53,7 +53,9 @@ class LSTMTL extends TapeLayer {
     List<List<double>> initBias() {
       List<List<double>> values = <List<double>>[];
       List<double> row = <double>[];
-      for (int i = 0; i < hiddenSize; i = i + 1) row.add(0.0);
+      for (int i = 0; i < hiddenSize; i = i + 1) {
+        row.add(0.0);
+      }
       values.add(row);
       return values;
     }
@@ -87,8 +89,8 @@ class LSTMTL extends TapeLayer {
       <GPUTensor>[sequence],
           (CommandBuffer bTape) {
         bTape.putInt(OP_SLICE_ROW_BACKWARD);
-        bTape.putString(out.id + '_grad');
-        bTape.putString(sequence.id + '_grad');
+        bTape.putString('${out.id}_grad');
+        bTape.putString('${sequence.id}_grad');
         bTape.putInt(rowIdx);
       },
       opName: 'slice_row_matrix_gpu',
@@ -103,7 +105,9 @@ class LSTMTL extends TapeLayer {
 
     List<List<double>> zeroMatrix = <List<double>>[];
     List<double> zeroRow = <double>[];
-    for (int i = 0; i < hiddenSize; i = i + 1) zeroRow.add(0.0);
+    for (int i = 0; i < hiddenSize; i = i + 1) {
+      zeroRow.add(0.0);
+    }
     zeroMatrix.add(zeroRow);
 
     GPUTensor<Matrix> h = GPUTensor<Matrix>(zeroMatrix);
@@ -113,58 +117,58 @@ class LSTMTL extends TapeLayer {
     intermediates.add(c);
 
     for (int t = 0; t < seqLength; t = t + 1) {
-      GPUTensor<Matrix> x_t = _sliceRowToMatrix(sequence, t, tape);
-      intermediates.add(x_t);
+      GPUTensor<Matrix> xT = _sliceRowToMatrix(sequence, t, tape);
+      intermediates.add(xT);
 
       // Forget Gate
-      GPUTensor<Matrix> f_t_x = matMulGPU(x_t, W_xf, tape);
-      GPUTensor<Matrix> f_t_h = matMulGPU(h, W_hf, tape);
-      GPUTensor<Matrix> f_t_sum = addMatrixGPU(f_t_x, f_t_h, tape);
-      GPUTensor<Matrix> f_t_biased = addMatrixGPU(f_t_sum, b_f, tape);
-      GPUTensor<Matrix> f_t = sigmoidMatrixGPU(f_t_biased, tape);
+      GPUTensor<Matrix> fTX = matMulGPU(xT, W_xf, tape);
+      GPUTensor<Matrix> fTH = matMulGPU(h, W_hf, tape);
+      GPUTensor<Matrix> fTSum = addMatrixGPU(fTX, fTH, tape);
+      GPUTensor<Matrix> fTBiased = addMatrixGPU(fTSum, b_f, tape);
+      GPUTensor<Matrix> fT = sigmoidMatrixGPU(fTBiased, tape);
 
-      intermediates.addAll([f_t_x, f_t_h, f_t_sum, f_t_biased, f_t]);
+      intermediates.addAll([fTX, fTH, fTSum, fTBiased, fT]);
 
       // Input Gate
-      GPUTensor<Matrix> i_t_x = matMulGPU(x_t, W_xi, tape);
-      GPUTensor<Matrix> i_t_h = matMulGPU(h, W_hi, tape);
-      GPUTensor<Matrix> i_t_sum = addMatrixGPU(i_t_x, i_t_h, tape);
-      GPUTensor<Matrix> i_t_biased = addMatrixGPU(i_t_sum, b_i, tape);
-      GPUTensor<Matrix> i_t = sigmoidMatrixGPU(i_t_biased, tape);
+      GPUTensor<Matrix> iTX = matMulGPU(xT, W_xi, tape);
+      GPUTensor<Matrix> iTH = matMulGPU(h, W_hi, tape);
+      GPUTensor<Matrix> iTSum = addMatrixGPU(iTX, iTH, tape);
+      GPUTensor<Matrix> iTBiased = addMatrixGPU(iTSum, b_i, tape);
+      GPUTensor<Matrix> iT = sigmoidMatrixGPU(iTBiased, tape);
 
-      intermediates.addAll([i_t_x, i_t_h, i_t_sum, i_t_biased, i_t]);
+      intermediates.addAll([iTX, iTH, iTSum, iTBiased, iT]);
 
       // Cell Candidate
-      GPUTensor<Matrix> c_tilde_t_x = matMulGPU(x_t, W_xc, tape);
-      GPUTensor<Matrix> c_tilde_t_h = matMulGPU(h, W_hc, tape);
-      GPUTensor<Matrix> c_tilde_t_sum = addMatrixGPU(c_tilde_t_x, c_tilde_t_h, tape);
-      GPUTensor<Matrix> c_tilde_t_biased = addMatrixGPU(c_tilde_t_sum, b_c, tape);
-      GPUTensor<Matrix> c_tilde_t = tanhMatrixGPU(c_tilde_t_biased, tape);
+      GPUTensor<Matrix> cTildeTX = matMulGPU(xT, W_xc, tape);
+      GPUTensor<Matrix> cTildeTH = matMulGPU(h, W_hc, tape);
+      GPUTensor<Matrix> cTildeTSum = addMatrixGPU(cTildeTX, cTildeTH, tape);
+      GPUTensor<Matrix> cTildeTBiased = addMatrixGPU(cTildeTSum, b_c, tape);
+      GPUTensor<Matrix> cTildeT = tanhMatrixGPU(cTildeTBiased, tape);
 
-      intermediates.addAll([c_tilde_t_x, c_tilde_t_h, c_tilde_t_sum, c_tilde_t_biased, c_tilde_t]);
+      intermediates.addAll([cTildeTX, cTildeTH, cTildeTSum, cTildeTBiased, cTildeT]);
 
       // Cell State Update
-      GPUTensor<Matrix> c_retained = elementWiseMultiplyMatrixGPU(f_t, c, tape);
-      GPUTensor<Matrix> c_new_info = elementWiseMultiplyMatrixGPU(i_t, c_tilde_t, tape);
-      c = addMatrixGPU(c_retained, c_new_info, tape);
+      GPUTensor<Matrix> cRetained = elementWiseMultiplyMatrixGPU(fT, c, tape);
+      GPUTensor<Matrix> cNewInfo = elementWiseMultiplyMatrixGPU(iT, cTildeT, tape);
+      c = addMatrixGPU(cRetained, cNewInfo, tape);
 
-      intermediates.addAll([c_retained, c_new_info]);
+      intermediates.addAll([cRetained, cNewInfo]);
       if (t < seqLength - 1) intermediates.add(c);
 
       // Output Gate
-      GPUTensor<Matrix> o_t_x = matMulGPU(x_t, W_xo, tape);
-      GPUTensor<Matrix> o_t_h = matMulGPU(h, W_ho, tape);
-      GPUTensor<Matrix> o_t_sum = addMatrixGPU(o_t_x, o_t_h, tape);
-      GPUTensor<Matrix> o_t_biased = addMatrixGPU(o_t_sum, b_o, tape);
-      GPUTensor<Matrix> o_t = sigmoidMatrixGPU(o_t_biased, tape);
+      GPUTensor<Matrix> oTX = matMulGPU(xT, W_xo, tape);
+      GPUTensor<Matrix> oTH = matMulGPU(h, W_ho, tape);
+      GPUTensor<Matrix> oTSum = addMatrixGPU(oTX, oTH, tape);
+      GPUTensor<Matrix> oTBiased = addMatrixGPU(oTSum, b_o, tape);
+      GPUTensor<Matrix> oT = sigmoidMatrixGPU(oTBiased, tape);
 
-      intermediates.addAll([o_t_x, o_t_h, o_t_sum, o_t_biased, o_t]);
+      intermediates.addAll([oTX, oTH, oTSum, oTBiased, oT]);
 
       // Hidden State Update
-      GPUTensor<Matrix> c_activated = tanhMatrixGPU(c, tape);
-      h = elementWiseMultiplyMatrixGPU(o_t, c_activated, tape);
+      GPUTensor<Matrix> cActivated = tanhMatrixGPU(c, tape);
+      h = elementWiseMultiplyMatrixGPU(oT, cActivated, tape);
 
-      intermediates.add(c_activated);
+      intermediates.add(cActivated);
       if (t < seqLength - 1) intermediates.add(h);
     }
 
@@ -175,7 +179,7 @@ class LSTMTL extends TapeLayer {
         originalBackward(bTape);
         for (int p = 0; p < parameters.length; p = p + 1) {
           bTape.putInt(OP_CLIP_GRAD_VALUE);
-          bTape.putString(parameters[p].id + '_grad');
+          bTape.putString('${parameters[p].id}_grad');
           bTape.putFloat(gradClipValue);
         }
       };
@@ -187,7 +191,9 @@ class LSTMTL extends TapeLayer {
   @override
   void free() {
     if (built) {
-      for (int p = 0; p < parameters.length; p = p + 1) parameters[p].free();
+      for (int p = 0; p < parameters.length; p = p + 1) {
+        parameters[p].free();
+      }
     }
   }
 

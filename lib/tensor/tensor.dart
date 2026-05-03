@@ -40,7 +40,7 @@ class Tensor<T> {
   // ─────────────────────────────────────────────────────── //
 
   Tensor(dynamic initialValue, {this.creator}) {
-    id = 't_${_idCounter}';
+    id = 't_$_idCounter';
     _idCounter = _idCounter + 1;
 
     if (initialValue is double) {
@@ -280,9 +280,9 @@ class Tensor<T> {
     String branchPrefix = prefix;
 
     if (isLast) {
-      branchPrefix = branchPrefix + '└── ';
+      branchPrefix = '$branchPrefix└── ';
     } else {
-      branchPrefix = branchPrefix + '├── ';
+      branchPrefix = '$branchPrefix├── ';
     }
 
     if (visited.contains(tId)) {
@@ -318,9 +318,9 @@ class Tensor<T> {
 
         String nextPrefix = prefix;
         if (isLast) {
-          nextPrefix = nextPrefix + '    ';
+          nextPrefix = '$nextPrefix    ';
         } else {
-          nextPrefix = nextPrefix + '│   ';
+          nextPrefix = '$nextPrefix│   ';
         }
 
         _buildGPUGraphString(gpuOut, nextPrefix, true, visited, boundaryMap);
@@ -335,9 +335,9 @@ class Tensor<T> {
 
           String nextPrefix = prefix;
           if (isLast) {
-            nextPrefix = nextPrefix + '    ';
+            nextPrefix = '$nextPrefix    ';
           } else {
-            nextPrefix = nextPrefix + '│   ';
+            nextPrefix = '$nextPrefix│   ';
           }
 
           _buildGraphString(inputs[i], nextPrefix, isLastChild, visited, false);
@@ -357,9 +357,9 @@ class Tensor<T> {
     String branchPrefix = prefix;
 
     if (isLast) {
-      branchPrefix = branchPrefix + '└── ';
+      branchPrefix = '$branchPrefix└── ';
     } else {
-      branchPrefix = branchPrefix + '├── ';
+      branchPrefix = '$branchPrefix├── ';
     }
 
     if (visited.contains(tId)) {
@@ -373,10 +373,10 @@ class Tensor<T> {
     for (int i = 0; i < currentTensor.shape.length; i = i + 1) {
       shapeStr = shapeStr + currentTensor.shape[i].toString();
       if (i < currentTensor.shape.length - 1) {
-        shapeStr = shapeStr + ', ';
+        shapeStr = '$shapeStr, ';
       }
     }
-    shapeStr = shapeStr + ']';
+    shapeStr = '$shapeStr]';
 
     if (currentTensor.creator == null) {
       Logger.green('$tId $shapeStr [GPU] (Leaf: VRAM Input)', prefix: branchPrefix);
@@ -386,9 +386,9 @@ class Tensor<T> {
         Tensor cpuSource = boundaryMap[tId]!;
         String nextPrefix = prefix;
         if (isLast) {
-          nextPrefix = nextPrefix + '    ';
+          nextPrefix = '$nextPrefix    ';
         } else {
-          nextPrefix = nextPrefix + '│   ';
+          nextPrefix = '$nextPrefix│   ';
         }
         _buildGraphString(cpuSource, nextPrefix, true, visited, false);
       }
@@ -405,9 +405,9 @@ class Tensor<T> {
 
         String nextPrefix = prefix;
         if (isLast) {
-          nextPrefix = nextPrefix + '    ';
+          nextPrefix = '$nextPrefix    ';
         } else {
-          nextPrefix = nextPrefix + '│   ';
+          nextPrefix = '$nextPrefix│   ';
         }
 
         _buildGPUGraphString(inputs[i], nextPrefix, isLastChild, visited, boundaryMap);

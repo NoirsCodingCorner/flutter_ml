@@ -3,8 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter_ml/full_library.dart';
 
-void main() {
-  CudaEngine.initialize(debug: false);
+void main() async{
+  await CudaEngine.initialize(debug: false);
   Random random = Random();
 
   int numHeads = 8;

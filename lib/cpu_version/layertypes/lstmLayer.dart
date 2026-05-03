@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import '../optimizers/sgd.dart';
 import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
@@ -40,7 +39,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
     int inputSize = 0;
-    if (inputMatrix.length > 0) {
+    if (inputMatrix.isNotEmpty) {
       inputSize = inputMatrix[0].length;
     }
     int combinedSize = hiddenSize + inputSize;
@@ -94,32 +93,32 @@ class LSTMLayer extends Layer<Matrix, Vector> {
     Tensor<Vector> c = Tensor<Vector>(zeroVector);
 
     for (int i = 0; i < totalSteps; i = i + 1) {
-      Vector timestep_x_list = sequence[i];
-      Tensor<Vector> x_t = Tensor<Vector>(timestep_x_list);
-      Tensor<Vector> combined_input = concatenate(h, x_t);
+      Vector timestepXList = sequence[i];
+      Tensor<Vector> xT = Tensor<Vector>(timestepXList);
+      Tensor<Vector> combinedInput = concatenate(h, xT);
 
-      Tensor<Vector> f_t_linear = matVecMul(W_f, combined_input);
-      Tensor<Vector> f_t_biased = addVector(f_t_linear, b_f);
-      Tensor<Vector> f_t = sigmoid(f_t_biased);
+      Tensor<Vector> fTLinear = matVecMul(W_f, combinedInput);
+      Tensor<Vector> fTBiased = addVector(fTLinear, b_f);
+      Tensor<Vector> fT = sigmoid(fTBiased);
 
-      Tensor<Vector> i_t_linear = matVecMul(W_i, combined_input);
-      Tensor<Vector> i_t_biased = addVector(i_t_linear, b_i);
-      Tensor<Vector> i_t = sigmoid(i_t_biased);
+      Tensor<Vector> iTLinear = matVecMul(W_i, combinedInput);
+      Tensor<Vector> iTBiased = addVector(iTLinear, b_i);
+      Tensor<Vector> iT = sigmoid(iTBiased);
 
-      Tensor<Vector> c_tilde_t_linear = matVecMul(W_c, combined_input);
-      Tensor<Vector> c_tilde_t_biased = addVector(c_tilde_t_linear, b_c);
-      Tensor<Vector> c_tilde_t = vectorTanh(c_tilde_t_biased);
+      Tensor<Vector> cTildeTLinear = matVecMul(W_c, combinedInput);
+      Tensor<Vector> cTildeTBiased = addVector(cTildeTLinear, b_c);
+      Tensor<Vector> cTildeT = vectorTanh(cTildeTBiased);
 
-      Tensor<Vector> c_retained = elementWiseMultiply(f_t, c);
-      Tensor<Vector> c_new_info = elementWiseMultiply(i_t, c_tilde_t);
-      c = addVector(c_retained, c_new_info);
+      Tensor<Vector> cRetained = elementWiseMultiply(fT, c);
+      Tensor<Vector> cNewInfo = elementWiseMultiply(iT, cTildeT);
+      c = addVector(cRetained, cNewInfo);
 
-      Tensor<Vector> o_t_linear = matVecMul(W_o, combined_input);
-      Tensor<Vector> o_t_biased = addVector(o_t_linear, b_o);
-      Tensor<Vector> o_t = sigmoid(o_t_biased);
+      Tensor<Vector> oTLinear = matVecMul(W_o, combinedInput);
+      Tensor<Vector> oTBiased = addVector(oTLinear, b_o);
+      Tensor<Vector> oT = sigmoid(oTBiased);
 
-      Tensor<Vector> c_activated = vectorTanh(c);
-      h = elementWiseMultiply(o_t, c_activated);
+      Tensor<Vector> cActivated = vectorTanh(c);
+      h = elementWiseMultiply(oT, cActivated);
     }
 
     return h;
@@ -141,7 +140,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
 
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
-    void _copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
+    void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
       int idx = 0;
       for (int i = 0; i < newDataDynamic.length; i = i + 1) {
         List<dynamic> rowDynamic = newDataDynamic[i] as List<dynamic>;
@@ -152,23 +151,23 @@ class LSTMLayer extends Layer<Matrix, Vector> {
       }
     }
 
-    void _copyVector(Tensor<Vector> tensor, List<dynamic> newDataDynamic) {
+    void copyVector(Tensor<Vector> tensor, List<dynamic> newDataDynamic) {
       for (int i = 0; i < newDataDynamic.length; i = i + 1) {
         tensor.data[i] = newDataDynamic[i] as double;
       }
     }
 
-    _copyMatrix(W_f, weightsMap['W_f'] as List<dynamic>);
-    _copyVector(b_f, weightsMap['b_f'] as List<dynamic>);
+    copyMatrix(W_f, weightsMap['W_f'] as List<dynamic>);
+    copyVector(b_f, weightsMap['b_f'] as List<dynamic>);
 
-    _copyMatrix(W_i, weightsMap['W_i'] as List<dynamic>);
-    _copyVector(b_i, weightsMap['b_i'] as List<dynamic>);
+    copyMatrix(W_i, weightsMap['W_i'] as List<dynamic>);
+    copyVector(b_i, weightsMap['b_i'] as List<dynamic>);
 
-    _copyMatrix(W_c, weightsMap['W_c'] as List<dynamic>);
-    _copyVector(b_c, weightsMap['b_c'] as List<dynamic>);
+    copyMatrix(W_c, weightsMap['W_c'] as List<dynamic>);
+    copyVector(b_c, weightsMap['b_c'] as List<dynamic>);
 
-    _copyMatrix(W_o, weightsMap['W_o'] as List<dynamic>);
-    _copyVector(b_o, weightsMap['b_o'] as List<dynamic>);
+    copyMatrix(W_o, weightsMap['W_o'] as List<dynamic>);
+    copyVector(b_o, weightsMap['b_o'] as List<dynamic>);
   }
 }
 

@@ -40,14 +40,14 @@ Tensor<T> encapsulateGPUGraph<T>(
         CommandBuffer zeroTape = CommandBuffer();
         for (int i = 0; i < allGpuNodes.length; i = i + 1) {
           zeroTape.putInt(OP_ZERO_GRAD);
-          zeroTape.putString(allGpuNodes[i].id + '_grad');
+          zeroTape.putString('${allGpuNodes[i].id}_grad');
         }
 
         // Fixed: Use .bytes() instead of .buffer
         CudaEngine.run(zeroTape.bytes());
 
         // Step 2: Push the "starting" gradient for the output back to GPU
-        CudaEngine.load(gpuOutput.id + '_grad', out.gradPtr, gpuOutput.shape);
+        CudaEngine.load('${gpuOutput.id}_grad', out.gradPtr, gpuOutput.shape);
 
         // Step 3: Run the GPU backward tape
         CudaEngine.run(backwardTape);
@@ -61,7 +61,7 @@ Tensor<T> encapsulateGPUGraph<T>(
           }
 
           Pointer<Float> tempGradPtr = calloc<Float>(numElements);
-          CudaEngine.retrieve(allGpuNodes[i].id + '_grad', tempGradPtr);
+          CudaEngine.retrieve('${allGpuNodes[i].id}_grad', tempGradPtr);
           Float32List tempGradView = tempGradPtr.asTypedList(numElements);
 
           for (int k = 0; k < numElements; k = k + 1) {
@@ -121,12 +121,12 @@ Tensor<T> executeGPUGraph<T>(
       CommandBuffer zeroTape = CommandBuffer();
       for (int i = 0; i < gpuInputs.length; i = i + 1) {
         zeroTape.putInt(OP_ZERO_GRAD);
-        zeroTape.putString(gpuInputs[i].id + '_grad');
+        zeroTape.putString('${gpuInputs[i].id}_grad');
       }
       CudaEngine.run(zeroTape.bytes());
 
       // B. Push the accumulated CPU output gradient into the GPU graph
-      CudaEngine.load(gpuOutput.id + '_grad', out.gradPtr, gpuOutput.shape);
+      CudaEngine.load('${gpuOutput.id}_grad', out.gradPtr, gpuOutput.shape);
 
       // C. Execute the pre-compiled Backward Tape
       CudaEngine.run(backwardTape.bytes());
@@ -140,7 +140,7 @@ Tensor<T> executeGPUGraph<T>(
         }
 
         Pointer<Float> tempGradPtr = calloc<Float>(numElements);
-        CudaEngine.retrieve(gpuInputs[i].id + '_grad', tempGradPtr);
+        CudaEngine.retrieve('${gpuInputs[i].id}_grad', tempGradPtr);
 
         // INSTANT NATIVE ADDITION (Bypasses Dart GC and Loop entirely)
         CudaEngine.addPointers(cpuInputs[i].gradPtr, tempGradPtr, numElements);

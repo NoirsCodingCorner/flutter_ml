@@ -5,7 +5,7 @@ import 'OpCodes.dart';
 
 class TapeDecoder {
   Uint8List tape;
-  ByteData _reader;
+  final ByteData _reader;
   int _offset = 0;
 
   TapeDecoder(this.tape) : _reader = ByteData.sublistView(tape);
@@ -139,15 +139,15 @@ class TapeDecoder {
 
       // --- Matrix Operations ---
         case OP_MATMUL:
-          String nameA_MM = _readString();
-          String nameB_MM = _readString();
-          String nameC_MM = _readString();
+          String nameaMm = _readString();
+          String namebMm = _readString();
+          String namecMm = _readString();
           bool transA = _readBool();
           bool transB = _readBool();
           double alpha = _readFloat();
           double beta = _readFloat();
           bool tCores = _readBool();
-          Logger.cyan('$opName: $nameC_MM = matmul($nameA_MM, $nameB_MM) transA:$transA transB:$transB');
+          Logger.cyan('$opName: $namecMm = matmul($nameaMm, $namebMm) transA:$transA transB:$transB');
           break;
         case OP_TRANSPOSE:
           String nameInTr = _readString();
@@ -304,19 +304,19 @@ class TapeDecoder {
           Logger.blue('$opName: bw_stack($gradOutStack -> ${namesGradIn.length} tensors, axis: $axisBw)');
           break;
         case OP_CONCATENATE:
-          String nameA_cat = _readString();
-          String nameB_cat = _readString();
+          String nameaCat = _readString();
+          String namebCat = _readString();
           String nameOutCat = _readString();
           int axisCat = _readInt();
-          Logger.cyan('$opName: $nameOutCat = concat($nameA_cat, $nameB_cat, axis: $axisCat)');
+          Logger.cyan('$opName: $nameOutCat = concat($nameaCat, $namebCat, axis: $axisCat)');
           break;
         case OP_CONCATENATE_BACKWARD:
           String gradOutCat = _readString();
-          String gradInA_cat = _readString();
-          String gradInB_cat = _readString();
+          String gradinaCat = _readString();
+          String gradinbCat = _readString();
           int axisCatBw = _readInt();
           int split = _readInt();
-          Logger.blue('$opName: bw_concat($gradOutCat -> $gradInA_cat, $gradInB_cat, split: $split)');
+          Logger.blue('$opName: bw_concat($gradOutCat -> $gradinaCat, $gradinbCat, split: $split)');
           break;
         case OP_PAD2D:
         case OP_PAD2D_BACKWARD:
@@ -333,10 +333,10 @@ class TapeDecoder {
         case OP_MATMUL_BIAS_RELU_FORWARD:
           String nameX = _readString();
           String nameW = _readString();
-          String nameB_matmul = _readString();
+          String namebMatmul = _readString();
           String nameReluOut = _readString();
           String namePreROut = _readString();
-          Logger.cyan('$opName: $nameReluOut = matmul_bias_relu($nameX, $nameW, $nameB_matmul)');
+          Logger.cyan('$opName: $nameReluOut = matmul_bias_relu($nameX, $nameW, $namebMatmul)');
           break;
         case OP_LAYER_NORM_FORWARD:
           String nameInNorm = _readString();

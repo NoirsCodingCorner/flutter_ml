@@ -134,69 +134,69 @@ class ConvLSTMTL extends TapeLayer {
     intermediates.add(c);
 
     for (int t = 0; t < seqLength; t = t + 1) {
-      GPUTensor<Matrix> x_t = selectMatrixFrom3DGPU(sequence, t, tape);
-      intermediates.add(x_t);
+      GPUTensor<Matrix> xT = selectMatrixFrom3DGPU(sequence, t, tape);
+      intermediates.add(xT);
 
       // Forget Gate
-      GPUTensor<Tensor3D> f_x = conv2dMultiChannelGPU(x_t, K_xf, b_f, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> f_h = conv2dMultiChannelGPU(h, K_hf, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> f_sum = add3DGPU(f_x, f_h, tape);
-      GPUTensor<Tensor3D> f_t = sigmoid3DGPU(f_sum, tape);
+      GPUTensor<Tensor3D> fX = conv2dMultiChannelGPU(xT, K_xf, b_f, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> fH = conv2dMultiChannelGPU(h, K_hf, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> fSum = add3DGPU(fX, fH, tape);
+      GPUTensor<Tensor3D> fT = sigmoid3DGPU(fSum, tape);
 
-      intermediates.add(f_x);
-      intermediates.add(f_h);
-      intermediates.add(f_sum);
-      intermediates.add(f_t);
+      intermediates.add(fX);
+      intermediates.add(fH);
+      intermediates.add(fSum);
+      intermediates.add(fT);
 
       // Input Gate
-      GPUTensor<Tensor3D> i_x = conv2dMultiChannelGPU(x_t, K_xi, b_i, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> i_h = conv2dMultiChannelGPU(h, K_hi, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> i_sum = add3DGPU(i_x, i_h, tape);
-      GPUTensor<Tensor3D> i_t = sigmoid3DGPU(i_sum, tape);
+      GPUTensor<Tensor3D> iX = conv2dMultiChannelGPU(xT, K_xi, b_i, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> iH = conv2dMultiChannelGPU(h, K_hi, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> iSum = add3DGPU(iX, iH, tape);
+      GPUTensor<Tensor3D> iT = sigmoid3DGPU(iSum, tape);
 
-      intermediates.add(i_x);
-      intermediates.add(i_h);
-      intermediates.add(i_sum);
-      intermediates.add(i_t);
+      intermediates.add(iX);
+      intermediates.add(iH);
+      intermediates.add(iSum);
+      intermediates.add(iT);
 
       // Cell Candidate
-      GPUTensor<Tensor3D> c_x = conv2dMultiChannelGPU(x_t, K_xc, b_c, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> c_h = conv2dMultiChannelGPU(h, K_hc, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> c_sum = add3DGPU(c_x, c_h, tape);
-      GPUTensor<Tensor3D> c_tilde_t = tanh3DGPU(c_sum, tape);
+      GPUTensor<Tensor3D> cX = conv2dMultiChannelGPU(xT, K_xc, b_c, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> cH = conv2dMultiChannelGPU(h, K_hc, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> cSum = add3DGPU(cX, cH, tape);
+      GPUTensor<Tensor3D> cTildeT = tanh3DGPU(cSum, tape);
 
-      intermediates.add(c_x);
-      intermediates.add(c_h);
-      intermediates.add(c_sum);
-      intermediates.add(c_tilde_t);
+      intermediates.add(cX);
+      intermediates.add(cH);
+      intermediates.add(cSum);
+      intermediates.add(cTildeT);
 
       // Cell State Update
-      GPUTensor<Tensor3D> c_retained = elementWiseMultiply3DGPU(f_t, c, tape);
-      GPUTensor<Tensor3D> c_new_info = elementWiseMultiply3DGPU(i_t, c_tilde_t, tape);
-      c = add3DGPU(c_retained, c_new_info, tape);
+      GPUTensor<Tensor3D> cRetained = elementWiseMultiply3DGPU(fT, c, tape);
+      GPUTensor<Tensor3D> cNewInfo = elementWiseMultiply3DGPU(iT, cTildeT, tape);
+      c = add3DGPU(cRetained, cNewInfo, tape);
 
-      intermediates.add(c_retained);
-      intermediates.add(c_new_info);
+      intermediates.add(cRetained);
+      intermediates.add(cNewInfo);
       if (t < seqLength - 1) {
         intermediates.add(c);
       }
 
       // Output Gate
-      GPUTensor<Tensor3D> o_x = conv2dMultiChannelGPU(x_t, K_xo, b_o, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> o_h = conv2dMultiChannelGPU(h, K_ho, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
-      GPUTensor<Tensor3D> o_sum = add3DGPU(o_x, o_h, tape);
-      GPUTensor<Tensor3D> o_t = sigmoid3DGPU(o_sum, tape);
+      GPUTensor<Tensor3D> oX = conv2dMultiChannelGPU(xT, K_xo, b_o, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> oH = conv2dMultiChannelGPU(h, K_ho, zeroBiasInput, kernelSize, kernelSize, tape, padding: 'same');
+      GPUTensor<Tensor3D> oSum = add3DGPU(oX, oH, tape);
+      GPUTensor<Tensor3D> oT = sigmoid3DGPU(oSum, tape);
 
-      intermediates.add(o_x);
-      intermediates.add(o_h);
-      intermediates.add(o_sum);
-      intermediates.add(o_t);
+      intermediates.add(oX);
+      intermediates.add(oH);
+      intermediates.add(oSum);
+      intermediates.add(oT);
 
       // Hidden State Update
-      GPUTensor<Tensor3D> c_activated = tanh3DGPU(c, tape);
-      h = elementWiseMultiply3DGPU(o_t, c_activated, tape);
+      GPUTensor<Tensor3D> cActivated = tanh3DGPU(c, tape);
+      h = elementWiseMultiply3DGPU(oT, cActivated, tape);
 
-      intermediates.add(c_activated);
+      intermediates.add(cActivated);
       if (t < seqLength - 1) {
         intermediates.add(h);
       }
@@ -209,7 +209,7 @@ class ConvLSTMTL extends TapeLayer {
         List<GPUTensor> params = parameters;
         for (int i = 0; i < params.length; i = i + 1) {
           bTape.putInt(OP_CLIP_GRAD_VALUE);
-          bTape.putString(params[i].id + '_grad');
+          bTape.putString('${params[i].id}_grad');
           bTape.putFloat(gradClipValue);
         }
         originalBackward(bTape);

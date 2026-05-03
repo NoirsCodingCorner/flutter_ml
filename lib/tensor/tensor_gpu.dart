@@ -103,7 +103,7 @@ class GPUTensor<T> {
     Pointer<Float> emptyGrad = calloc<Float>(count);
 
     CudaEngine.load(id, emptyData, shape);
-    CudaEngine.load(id + '_grad', emptyGrad, shape);
+    CudaEngine.load('${id}_grad', emptyGrad, shape);
 
     calloc.free(emptyData);
     calloc.free(emptyGrad);
@@ -209,7 +209,7 @@ class GPUTensor<T> {
     Pointer<Float> pGrad = calloc<Float>(count);
 
     CudaEngine.retrieve(id, pData);
-    CudaEngine.retrieve(id + '_grad', pGrad);
+    CudaEngine.retrieve('${id}_grad', pGrad);
 
     Float32List dataView = pData.asTypedList(count);
     Float32List gradView = pGrad.asTypedList(count);
@@ -243,7 +243,7 @@ class GPUTensor<T> {
   void backward(CommandBuffer backwardTape, {bool fillOnes = true}) {
     if (fillOnes == true) {
       backwardTape.putInt(OP_FILL);
-      backwardTape.putString(id + '_grad');
+      backwardTape.putString('${id}_grad');
       backwardTape.putFloat(1.0);
     }
 
@@ -273,7 +273,7 @@ class GPUTensor<T> {
 
   void free() {
     CudaEngine.free(id);
-    CudaEngine.free(id + '_grad');
+    CudaEngine.free('${id}_grad');
   }
 
   // ─────────────────────────────────────────────────────── //
@@ -287,7 +287,7 @@ class GPUTensor<T> {
   }
 
   void _buildGPUGraphString(GPUTensor current, String prefix, bool isLast, Set<String> visited) {
-    String branchPrefix = isLast ? prefix + '└── ' : prefix + '├── ';
+    String branchPrefix = isLast ? '$prefix└── ' : '$prefix├── ';
 
     if (visited.contains(current.id)) {
       Logger.red('(Seen again: ${current.id}) [GPU]', prefix: branchPrefix);
@@ -304,7 +304,7 @@ class GPUTensor<T> {
 
       List<GPUTensor> inputs = current.creator!.inputs;
       for (int i = 0; i < inputs.length; i = i + 1) {
-        String nextPrefix = isLast ? prefix + '    ' : prefix + '│   ';
+        String nextPrefix = isLast ? '$prefix    ' : '$prefix│   ';
         _buildGPUGraphString(inputs[i], nextPrefix, i == inputs.length - 1, visited);
       }
     }
@@ -334,7 +334,7 @@ class GPUTensor<T> {
 
   void zeroGrad(CommandBuffer tape) {
     tape.putInt(OP_ZERO_GRAD);
-    tape.putString(id + '_grad');
+    tape.putString('${id}_grad');
   }
 
   void zeroGraphGrads(CommandBuffer tape) {

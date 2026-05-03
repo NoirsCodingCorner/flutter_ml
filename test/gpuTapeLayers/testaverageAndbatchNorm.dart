@@ -143,7 +143,7 @@ void main() {
     double flops = (16 * n).toDouble();
     double bytes = ((4 * n + 12 * c) * 4).toDouble();
 
-    runBenchmarkGPU('C: $c, HxW: ${s}x${s}', bn2, input, iterations, flops, bytes);
+    runBenchmarkGPU('C: $c, HxW: ${s}x$s', bn2, input, iterations, flops, bytes);
 
     bn2.free();
     input.free();
@@ -166,7 +166,7 @@ void main() {
     // Memory traffic: read in, write out, read gradOut, read/write gradIn
     double bytes = ((3 * inElements + 2 * outElements) * 4).toDouble();
 
-    runBenchmarkGPU('Input: ${s}x${s}, Pool: 2', avgPool, input, iterations, flops, bytes);
+    runBenchmarkGPU('Input: ${s}x$s, Pool: 2', avgPool, input, iterations, flops, bytes);
 
     avgPool.free();
     input.free();

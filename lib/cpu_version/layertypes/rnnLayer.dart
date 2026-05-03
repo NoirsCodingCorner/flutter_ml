@@ -32,7 +32,7 @@ class RNN extends Layer<Matrix, Vector> {
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
     int inputSize = 0;
-    if (inputMatrix.length > 0) {
+    if (inputMatrix.isNotEmpty) {
       inputSize = inputMatrix[0].length;
     }
     Random random = Random();
@@ -85,9 +85,9 @@ class RNN extends Layer<Matrix, Vector> {
     Tensor<Vector> h = Tensor<Vector>(hValues);
 
     for (int i = 0; i < totalSteps; i = i + 1) {
-      Tensor<Vector> x_t = Tensor<Vector>(sequence[i]);
+      Tensor<Vector> xT = Tensor<Vector>(sequence[i]);
 
-      Tensor<Vector> inputPart = matVecMul(W_xh, x_t);
+      Tensor<Vector> inputPart = matVecMul(W_xh, xT);
       Tensor<Vector> hiddenPart = matVecMul(W_hh, h);
       Tensor<Vector> combined = addVector(addVector(inputPart, hiddenPart), b_h);
 
@@ -108,7 +108,7 @@ class RNN extends Layer<Matrix, Vector> {
 
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
-    void _copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
+    void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
       int idx = 0;
       for (int i = 0; i < newDataDynamic.length; i = i + 1) {
         List<dynamic> rowDynamic = newDataDynamic[i] as List<dynamic>;
@@ -119,14 +119,14 @@ class RNN extends Layer<Matrix, Vector> {
       }
     }
 
-    void _copyVector(Tensor<Vector> tensor, List<dynamic> newDataDynamic) {
+    void copyVector(Tensor<Vector> tensor, List<dynamic> newDataDynamic) {
       for (int i = 0; i < newDataDynamic.length; i = i + 1) {
         tensor.data[i] = newDataDynamic[i] as double;
       }
     }
 
-    _copyMatrix(W_xh, weightsMap['W_xh'] as List<dynamic>);
-    _copyMatrix(W_hh, weightsMap['W_hh'] as List<dynamic>);
-    _copyVector(b_h, weightsMap['b_h'] as List<dynamic>);
+    copyMatrix(W_xh, weightsMap['W_xh'] as List<dynamic>);
+    copyMatrix(W_hh, weightsMap['W_hh'] as List<dynamic>);
+    copyVector(b_h, weightsMap['b_h'] as List<dynamic>);
   }
 }

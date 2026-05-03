@@ -78,17 +78,17 @@ void main() {
       optimizer.zeroGrad(bTape);
       for (int i = 0; i < intermediates.length; i = i + 1) {
         bTape.putInt(OP_ZERO_GRAD);
-        bTape.putString(intermediates[i].id + '_grad');
+        bTape.putString('${intermediates[i].id}_grad');
       }
       bTape.putInt(OP_ZERO_GRAD);
-      bTape.putString(input.id + '_grad');
+      bTape.putString('${input.id}_grad');
 
       loss.backward(bTape);
 
       List<GPUTensor> params = rnn.parameters;
       for (int i = 0; i < params.length; i = i + 1) {
         bTape.putInt(OP_CLIP_GRAD_VALUE);
-        bTape.putString(params[i].id + '_grad');
+        bTape.putString('${params[i].id}_grad');
         bTape.putFloat(1.0);
       }
 

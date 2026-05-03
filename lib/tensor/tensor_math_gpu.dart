@@ -275,12 +275,12 @@ GPUTensor<T> subtractGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape) 
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(a.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${a.id}_grad');
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(b.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${b.id}_grad');
     },
     opName: 'subtractVectorGPU',
     cost: length,
@@ -303,12 +303,12 @@ GPUTensor<Matrix> subtractMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, Co
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(a.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${a.id}_grad');
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(b.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${b.id}_grad');
     },
     opName: 'subtractMatrixGPU',
     cost: numRows * numCols,
@@ -332,12 +332,12 @@ GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b, 
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(a.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${a.id}_grad');
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(b.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${b.id}_grad');
     },
     opName: 'subtract3DGPU',
     cost: depth * height * width,
@@ -528,9 +528,9 @@ GPUTensor<T> divideGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape) {
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(a.id + '_grad');
-      bTape.putString(b.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${a.id}_grad');
+      bTape.putString('${b.id}_grad');
     },
     opName: 'divideVectorGPU',
     cost: length,
@@ -555,9 +555,9 @@ GPUTensor<Matrix> divideMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, Comm
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(a.id + '_grad');
-      bTape.putString(b.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${a.id}_grad');
+      bTape.putString('${b.id}_grad');
     },
     opName: 'divideMatrixGPU',
     cost: numRows * numCols,
@@ -583,9 +583,9 @@ GPUTensor<Tensor3D> divide3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b, Co
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString(out.id + '_grad');
-      bTape.putString(a.id + '_grad');
-      bTape.putString(b.id + '_grad');
+      bTape.putString('${out.id}_grad');
+      bTape.putString('${a.id}_grad');
+      bTape.putString('${b.id}_grad');
     },
     opName: 'divide3DGPU',
     cost: depth * height * width,

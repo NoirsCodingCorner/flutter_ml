@@ -1,5 +1,4 @@
 import '../optimizer/optimizer.dart';
-import '/tensor/tensor_gpu.dart';
 
 import '../ffi/OpCodes.dart';
 import '../ffi/commandBuffer.dart';
@@ -9,14 +8,14 @@ import '../ffi/commandBuffer.dart';
 class SGDGPU extends OptimizerGPU {
   double learningRate;
 
-  SGDGPU(List<GPUTensor> parameters, this.learningRate) : super(parameters);
+  SGDGPU(super.parameters, this.learningRate);
 
   @override
   void step(CommandBuffer tape) {
     for (int i = 0; i < parameters.length; i = i + 1) {
       tape.putInt(OP_SGD_UPDATE);
       tape.putString(parameters[i].id);               // The weights
-      tape.putString(parameters[i].id + '_grad');     // The gradients
+      tape.putString('${parameters[i].id}_grad');     // The gradients
       tape.putFloat(learningRate);
     }
   }
@@ -25,7 +24,7 @@ class SGDGPU extends OptimizerGPU {
   void zeroGrad(CommandBuffer tape) {
     for (int i = 0; i < parameters.length; i = i + 1) {
       tape.putInt(OP_ZERO_GRAD);
-      tape.putString(parameters[i].id + '_grad');
+      tape.putString('${parameters[i].id}_grad');
     }
   }
 }

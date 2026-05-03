@@ -1101,16 +1101,16 @@ Tensor<Matrix> softmaxMatrix(Tensor<Matrix> m) {
           double dotProduct = 0.0;
           for (int c = 0; c < numCols; c = c + 1) {
             int flatIndex = r * numCols + c;
-            double y_c = out.data[flatIndex];
-            double dy_c = out.grad[flatIndex];
-            dotProduct = dotProduct + (dy_c * y_c);
+            double yC = out.data[flatIndex];
+            double dyC = out.grad[flatIndex];
+            dotProduct = dotProduct + (dyC * yC);
           }
 
           for (int c = 0; c < numCols; c = c + 1) {
             int flatIndex = r * numCols + c;
-            double y_c = out.data[flatIndex];
-            double dy_c = out.grad[flatIndex];
-            m.grad[flatIndex] = m.grad[flatIndex] + (y_c * (dy_c - dotProduct));
+            double yC = out.data[flatIndex];
+            double dyC = out.grad[flatIndex];
+            m.grad[flatIndex] = m.grad[flatIndex] + (yC * (dyC - dotProduct));
           }
         }
       },

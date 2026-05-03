@@ -7,8 +7,8 @@ import 'package:flutter_ml/tensor/tensor_gpu.dart';
 import 'package:flutter_ml/tensor/type_Aliases.dart';
 
 
-void main() {
-  CudaEngine.initialize(debug: false);
+void main() async{
+  await CudaEngine.initialize(debug: false);
 
   int height = 256;
   int width = 256;
@@ -16,7 +16,7 @@ void main() {
   int kernelSize = 3;
 
   print('Starting ConvLSTM FORWARD Benchmark (HEAVY LOAD - MANUAL RUN)');
-  print('Config: [${height}x${width}], Filters=$hiddenFilters, Kernel=$kernelSize');
+  print('Config: [${height}x$width], Filters=$hiddenFilters, Kernel=$kernelSize');
   print('---------------------------------------------------------------------------------------------------------');
   print('Seq Len\t| Predict Avg (ms)\t| Throughput (S/sec)\t| Compute (TFLOPS)\t| Bandwidth (GB/s)');
   print('---------------------------------------------------------------------------------------------------------');

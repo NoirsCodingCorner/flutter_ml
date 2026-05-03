@@ -439,9 +439,9 @@ Those Layers can be used individually to allow easier tape build or with the use
 The SNetworkGPU works as illustrated in the following example for a simple Fully Connected Neural Network:
 
 ```dart
-void main() {
+void main() async{
   //  Initialise Cuda engine
-  CudaEngine.initialize(debug: false);
+  await CudaEngine.initialize(debug: false);
 
   //  Example dataset for a simple XOr
   List<double> rawX = <double>[
@@ -612,9 +612,9 @@ most of which are similar to the corresponding cpu functions.
 ```dart
 import 'package:flutter_ml/full_library.dart';
 
-void main(){
+void main() async{
   //  Initialize Cuda Engine and an Execution Tape
-  CudaEngine.initialize(debug: false);
+  await CudaEngine.initialize(debug: false);
   CommandBuffer tape=CommandBuffer();
   
   //  Initialize GPUTensors

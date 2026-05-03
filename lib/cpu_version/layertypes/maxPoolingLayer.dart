@@ -49,12 +49,12 @@ class MaxPooling2DLayer extends Layer<Matrix, Matrix> {
 
         for (int py = 0; py < poolSize; py = py + 1) {
           for (int px = 0; px < poolSize; px = px + 1) {
-            int current_y = y * stride + py;
-            int current_x = x * stride + px;
-            if (inputMatrix[current_y][current_x] > maxVal) {
-              maxVal = inputMatrix[current_y][current_x];
+            int currentY = y * stride + py;
+            int currentX = x * stride + px;
+            if (inputMatrix[currentY][currentX] > maxVal) {
+              maxVal = inputMatrix[currentY][currentX];
               // Calculate the 1D flat index for the gradient array
-              maxFlatIndex = current_y * inputWidth + current_x;
+              maxFlatIndex = currentY * inputWidth + currentX;
             }
           }
         }
@@ -130,17 +130,17 @@ class MaxPooling1DLayer extends Layer<Vector, Vector> {
 
     for (int i = 0; i < outputSize; i = i + 1) {
       double maxVal = -double.infinity;
-      int max_i = -1;
+      int maxI = -1;
 
       for (int p = 0; p < poolSize; p = p + 1) {
         int currentIndex = i * stride + p;
         if (inputValue[currentIndex] > maxVal) {
           maxVal = inputValue[currentIndex];
-          max_i = currentIndex;
+          maxI = currentIndex;
         }
       }
       outputValue.add(maxVal);
-      maxIndices.add(max_i);
+      maxIndices.add(maxI);
     }
 
     Tensor<Vector> out = Tensor<Vector>(outputValue);
@@ -148,8 +148,8 @@ class MaxPooling1DLayer extends Layer<Vector, Vector> {
       [input],
           () {
         for (int i = 0; i < outputSize; i = i + 1) {
-          int max_i = maxIndices[i];
-          input.grad[max_i] = input.grad[max_i] + out.grad[i];
+          int maxI = maxIndices[i];
+          input.grad[maxI] = input.grad[maxI] + out.grad[i];
         }
       },
       opName: 'max_pool_1d',

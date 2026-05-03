@@ -4,8 +4,7 @@ import '../../tensor/tensor.dart';
 
 /// Implements the Stochastic Gradient Descent (SGD) optimizer.
 class SGD extends Optimizer {
-  SGD(List<Tensor<dynamic>> parameters, {required double learningRate})
-      : super(parameters, learningRate: learningRate);
+  SGD(super.parameters, {required super.learningRate});
 
   @override
   void step() {
