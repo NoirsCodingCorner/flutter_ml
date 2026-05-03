@@ -1,6 +1,5 @@
 import 'dart:math';
 
-import '../optimizers/sgd.dart';
 
 import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
@@ -87,7 +86,7 @@ class SingleHeadAttention extends Layer<Matrix, Matrix> {
 
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
-    void _copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
+    void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
       int idx = 0;
       for (int r = 0; r < newDataDynamic.length; r = r + 1) {
         List<dynamic> rowDynamic = newDataDynamic[r] as List<dynamic>;
@@ -98,9 +97,9 @@ class SingleHeadAttention extends Layer<Matrix, Matrix> {
       }
     }
 
-    _copyMatrix(Wq, weightsMap['Wq'] as List<dynamic>);
-    _copyMatrix(Wk, weightsMap['Wk'] as List<dynamic>);
-    _copyMatrix(Wv, weightsMap['Wv'] as List<dynamic>);
+    copyMatrix(Wq, weightsMap['Wq'] as List<dynamic>);
+    copyMatrix(Wk, weightsMap['Wk'] as List<dynamic>);
+    copyMatrix(Wv, weightsMap['Wv'] as List<dynamic>);
   }
 }
 /*void main() {

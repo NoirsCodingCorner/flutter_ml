@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter_ml/full_library.dart';
 
 
-void main() {
-  CudaEngine.initialize(debug: false);
+void main() async{
+  await CudaEngine.initialize(debug: false);
 
   int seqLength = 4;
   int dModel = 4;
@@ -69,10 +69,10 @@ void main() {
     <GPUTensor>[out1, target],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MSE_LOSS_BACKWARD);
-      bTape.putString(out1.id + '_grad');
+      bTape.putString('${out1.id}_grad');
       bTape.putString(out1.id);
       bTape.putString(target.id);
-      bTape.putString(loss.id + '_grad');
+      bTape.putString('${loss.id}_grad');
     },
     opName: 'mse_loss_manual',
   );
@@ -85,22 +85,22 @@ void main() {
   optimizer.zeroGrad(bTape);
   for (int i = 0; i < intermediates.length; i = i + 1) {
     bTape.putInt(OP_ZERO_GRAD);
-    bTape.putString(intermediates[i].id + '_grad');
+    bTape.putString('${intermediates[i].id}_grad');
   }
   bTape.putInt(OP_ZERO_GRAD);
-  bTape.putString(input.id + '_grad');
+  bTape.putString('${input.id}_grad');
   bTape.putInt(OP_ZERO_GRAD);
-  bTape.putString(out1.id + '_grad');
+  bTape.putString('${out1.id}_grad');
 
   bTape.putInt(OP_FILL);
-  bTape.putString(loss.id + '_grad');
+  bTape.putString('${loss.id}_grad');
   bTape.putFloat(1.0);
 
   loss.backward(bTape);
 
   for (int i = 0; i < allParams.length; i = i + 1) {
     bTape.putInt(OP_CLIP_GRAD_VALUE);
-    bTape.putString(allParams[i].id + '_grad');
+    bTape.putString('${allParams[i].id}_grad');
     bTape.putFloat(1.0);
   }
 

@@ -52,10 +52,6 @@ class GlobalAveragePoolingLayer extends Layer<Matrix, Vector> {
     return params;
   }
 
-  @override
-  void build(Tensor<Matrix> input) {
-    super.build(input);
-  }
 
   @override
   Tensor<Vector> forward(Tensor<Matrix> input) {

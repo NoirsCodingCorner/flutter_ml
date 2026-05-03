@@ -116,40 +116,40 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
     Tensor<Matrix> c = Tensor<Matrix>(zeroMatrixC);
 
     for (int t = 0; t < seqLength; t = t + 1) {
-      Tensor<Matrix> x_t = Tensor<Matrix>(sequence[t]);
+      Tensor<Matrix> xT = Tensor<Matrix>(sequence[t]);
 
       // Note: Swapped the order of arguments for conv2d here to match
       // the signature from tensor_math_cpu.dart: conv2d(input, kernel)
-      Tensor<Matrix> f_t_inputConv = conv2d(x_t, K_xf, padding: 'same');
-      Tensor<Matrix> f_t_hiddenConv = conv2d(h, K_hf, padding: 'same');
-      Tensor<Matrix> f_t_sum = addMatrix(f_t_inputConv, f_t_hiddenConv);
-      Tensor<Matrix> f_t_biased = addMatrix(f_t_sum, b_f);
-      Tensor<Matrix> f_t = sigmoidMatrix(f_t_biased);
+      Tensor<Matrix> fTInputconv = conv2d(xT, K_xf, padding: 'same');
+      Tensor<Matrix> fTHiddenconv = conv2d(h, K_hf, padding: 'same');
+      Tensor<Matrix> fTSum = addMatrix(fTInputconv, fTHiddenconv);
+      Tensor<Matrix> fTBiased = addMatrix(fTSum, b_f);
+      Tensor<Matrix> fT = sigmoidMatrix(fTBiased);
 
-      Tensor<Matrix> i_t_inputConv = conv2d(x_t, K_xi, padding: 'same');
-      Tensor<Matrix> i_t_hiddenConv = conv2d(h, K_hi, padding: 'same');
-      Tensor<Matrix> i_t_sum = addMatrix(i_t_inputConv, i_t_hiddenConv);
-      Tensor<Matrix> i_t_biased = addMatrix(i_t_sum, b_i);
-      Tensor<Matrix> i_t = sigmoidMatrix(i_t_biased);
+      Tensor<Matrix> iTInputconv = conv2d(xT, K_xi, padding: 'same');
+      Tensor<Matrix> iTHiddenconv = conv2d(h, K_hi, padding: 'same');
+      Tensor<Matrix> iTSum = addMatrix(iTInputconv, iTHiddenconv);
+      Tensor<Matrix> iTBiased = addMatrix(iTSum, b_i);
+      Tensor<Matrix> iT = sigmoidMatrix(iTBiased);
 
-      Tensor<Matrix> c_tilde_t_inputConv = conv2d(x_t, K_xc, padding: 'same');
-      Tensor<Matrix> c_tilde_t_hiddenConv = conv2d(h, K_hc, padding: 'same');
-      Tensor<Matrix> c_tilde_t_sum = addMatrix(c_tilde_t_inputConv, c_tilde_t_hiddenConv);
-      Tensor<Matrix> c_tilde_t_biased = addMatrix(c_tilde_t_sum, b_c);
-      Tensor<Matrix> c_tilde_t = tanhMatrix(c_tilde_t_biased);
+      Tensor<Matrix> cTildeTInputconv = conv2d(xT, K_xc, padding: 'same');
+      Tensor<Matrix> cTildeTHiddenconv = conv2d(h, K_hc, padding: 'same');
+      Tensor<Matrix> cTildeTSum = addMatrix(cTildeTInputconv, cTildeTHiddenconv);
+      Tensor<Matrix> cTildeTBiased = addMatrix(cTildeTSum, b_c);
+      Tensor<Matrix> cTildeT = tanhMatrix(cTildeTBiased);
 
-      Tensor<Matrix> c_retained = elementWiseMultiplyMatrix(f_t, c);
-      Tensor<Matrix> c_new_info = elementWiseMultiplyMatrix(i_t, c_tilde_t);
-      c = addMatrix(c_retained, c_new_info);
+      Tensor<Matrix> cRetained = elementWiseMultiplyMatrix(fT, c);
+      Tensor<Matrix> cNewInfo = elementWiseMultiplyMatrix(iT, cTildeT);
+      c = addMatrix(cRetained, cNewInfo);
 
-      Tensor<Matrix> o_t_inputConv = conv2d(x_t, K_xo, padding: 'same');
-      Tensor<Matrix> o_t_hiddenConv = conv2d(h, K_ho, padding: 'same');
-      Tensor<Matrix> o_t_sum = addMatrix(o_t_inputConv, o_t_hiddenConv);
-      Tensor<Matrix> o_t_biased = addMatrix(o_t_sum, b_o);
-      Tensor<Matrix> o_t = sigmoidMatrix(o_t_biased);
+      Tensor<Matrix> oTInputconv = conv2d(xT, K_xo, padding: 'same');
+      Tensor<Matrix> oTHiddenconv = conv2d(h, K_ho, padding: 'same');
+      Tensor<Matrix> oTSum = addMatrix(oTInputconv, oTHiddenconv);
+      Tensor<Matrix> oTBiased = addMatrix(oTSum, b_o);
+      Tensor<Matrix> oT = sigmoidMatrix(oTBiased);
 
-      Tensor<Matrix> c_activated = tanhMatrix(c);
-      h = elementWiseMultiplyMatrix(o_t, c_activated);
+      Tensor<Matrix> cActivated = tanhMatrix(c);
+      h = elementWiseMultiplyMatrix(oT, cActivated);
     }
 
     return h;

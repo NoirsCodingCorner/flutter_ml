@@ -5,9 +5,6 @@ import '../../tensor/type_Aliases.dart';
 import '../activationFuncitons/relu.dart';
 import '../layertypes/layer.dart';
 import '../networks/SNetwork.dart';
-import 'denseLayer.dart';
-import 'multiHeadAttentionLayer.dart';
-import 'normalizationLayer.dart';
 
 class TransformerEncoderBlock extends Layer<Matrix, Matrix> {
   @override

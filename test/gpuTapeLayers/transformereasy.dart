@@ -1,8 +1,8 @@
 import 'package:flutter_ml/full_library.dart';
 import 'package:flutter_ml/gpu_version/SNetworkGPU.dart'; // Adjust to your actual import path
 
-void main() {
-  CudaEngine.initialize(debug: false);
+void main() async{
+  await CudaEngine.initialize(debug: false);
 
   List<double> rawX = <double>[
     0.0, 0.0,

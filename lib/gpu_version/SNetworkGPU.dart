@@ -75,20 +75,20 @@ class SNetworkGPU {
     optimizer.zeroGrad(bCommand);
     for (int i = 0; i < intermediates.length; i = i + 1) {
       bCommand.putInt(OP_ZERO_GRAD);
-      bCommand.putString(intermediates[i].id + '_grad');
+      bCommand.putString('${intermediates[i].id}_grad');
     }
 
     bCommand.putInt(OP_ZERO_GRAD);
-    bCommand.putString(inputRef.id + '_grad');
+    bCommand.putString('${inputRef.id}_grad');
     bCommand.putInt(OP_ZERO_GRAD);
-    bCommand.putString(outputRef.id + '_grad');
+    bCommand.putString('${outputRef.id}_grad');
 
     // Triggers backpropagation and automatically fills loss grad with 1.0
     lossRef.backward(bCommand, fillOnes: true);
 
     for (int i = 0; i < allParams.length; i = i + 1) {
       bCommand.putInt(OP_CLIP_GRAD_VALUE);
-      bCommand.putString(allParams[i].id + '_grad');
+      bCommand.putString('${allParams[i].id}_grad');
       bCommand.putFloat(1.0);
     }
     bTape = bCommand.bytes();

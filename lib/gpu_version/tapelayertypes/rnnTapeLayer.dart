@@ -96,10 +96,10 @@ class RNNTL extends TapeLayer {
       GPUTensor<Matrix> hPrev = h;
 
       // Extract time step as a strict [InputSize, 1] Matrix
-      GPUTensor<Matrix> x_t = sliceColumnGPU(transposedInput, i, i + 1, tape);
-      intermediates.add(x_t);
+      GPUTensor<Matrix> xT = sliceColumnGPU(transposedInput, i, i + 1, tape);
+      intermediates.add(xT);
 
-      GPUTensor<Matrix> inputPart = matMulGPU(W_xh, x_t, tape);
+      GPUTensor<Matrix> inputPart = matMulGPU(W_xh, xT, tape);
       intermediates.add(inputPart);
 
       GPUTensor<Matrix> hiddenPart = matMulGPU(W_hh, hPrev, tape);

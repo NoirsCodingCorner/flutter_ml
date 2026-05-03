@@ -72,12 +72,11 @@ void runBenchmarkIsolated({
   String allocStr = (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
   String freeStr = (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
 
-  print("[BENCHMARK] " + name.padRight(10) +
-      " | Time: " + timeStr + " ms | Bandwidth: " + gbStr + " GB/s | Compute: " + tflopsStr + " TFLOPs" + " Overhead  | Alloc/Tape: " + allocStr + " ms | Free: " + freeStr + " ms");
+  print("[BENCHMARK] ${name.padRight(10)} | Time: $timeStr ms | Bandwidth: $gbStr GB/s | Compute: $tflopsStr TFLOPs Overhead  | Alloc/Tape: $allocStr ms | Free: $freeStr ms");
 }
 
-void main() {
-  CudaEngine.initialize(debug: false);
+void main() async{
+  await CudaEngine.initialize(debug: false);
 
   int N = 67108864*2;
   List<int> vecShape = <int>[N];
@@ -90,9 +89,9 @@ void main() {
   print("\n==================================================================");
   print("                 CUDA ENGINE PERFORMANCE BENCHMARK                ");
   print("==================================================================");
-  print("Vector Size: " + N.toString() + " elements (~" + (N * 4 / 1000000).toStringAsFixed(0) + " MB)");
-  print("Matrix Size: " + M.toString() + "x" + M.toString() + " elements");
-  print("Iterations:  " + iterations.toString());
+  print("Vector Size: $N elements (~${(N * 4 / 1000000).toStringAsFixed(0)} MB)");
+  print("Matrix Size: ${M}x$M elements");
+  print("Iterations:  $iterations");
   print("Note: VRAM is aggressively wiped and reallocated between each run to test loading speeds of different operations. ");
   print("------------------------------------------------------------------\n");
 
@@ -1240,7 +1239,9 @@ void main() {
           return tape;
         },
         freeAll: () {
-          for (var m in matrices!) m.free();
+          for (var m in matrices!) {
+            m.free();
+          }
           outStack!.free();
         });
   }
@@ -1278,7 +1279,9 @@ void main() {
           return tape;
         },
         freeAll: () {
-          for (var h in heads!) h.free();
+          for (var h in heads!) {
+            h.free();
+          }
           outScatter!.free();
         });
   }

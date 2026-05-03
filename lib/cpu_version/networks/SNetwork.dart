@@ -6,7 +6,6 @@ import 'dart:convert';
 import 'package:flutter_ml/logger.dart';
 
 import '../optimizers/optimizer.dart';
-import '../optimizers/sgd.dart';
 
 import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
@@ -14,7 +13,6 @@ import '../../tensor/type_Aliases.dart';
 import '../activationFuncitons/relu.dart';
 import '../activationFuncitons/sigmoid.dart';
 import '../layertypes/layer.dart';
-import '../layertypes/denseLayer.dart';
 
 /// A sequential model that stacks layers linearly.
 ///
@@ -90,11 +88,11 @@ class SNetwork extends Layer<dynamic, dynamic> {
 
           String bar = '';
           for (int b = 0; b < completed; b = b + 1) {
-            bar = bar + '=';
+            bar = '$bar=';
           }
-          bar = bar + '>';
+          bar = '$bar>';
           for (int b = 0; b < (barWidth - completed); b = b + 1) {
-            bar = bar + ' ';
+            bar = '$bar ';
           }
 
           int percent = (progress * 100).round();
@@ -194,8 +192,8 @@ class SNetwork extends Layer<dynamic, dynamic> {
 
   Future<void> save(String filePath) async {
     try {
-      Map<String, dynamic> networkWeights = this.getWeights();
-      JsonEncoder encoder = JsonEncoder.withIndent('  ');
+      Map<String, dynamic> networkWeights = getWeights();
+      JsonEncoder encoder = const JsonEncoder.withIndent('  ');
       String jsonString = encoder.convert(networkWeights);
 
       File file = File(filePath);
@@ -217,7 +215,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
       String jsonString = await file.readAsString();
       Map<String, dynamic> networkWeights = jsonDecode(jsonString);
 
-      this.setWeights(networkWeights);
+      setWeights(networkWeights);
       Logger.log('Network weights loaded from $filePath');
     } catch (e) {
       Logger.log('Error loading network: $e');

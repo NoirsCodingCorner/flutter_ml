@@ -5,7 +5,6 @@ import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_Aliases.dart';
 
 import '../ffi/commandBuffer.dart';
-import 'multiHeadAttentionTapeLayer.dart';
 import 'tapeLayer.dart';
 
 class TransformerEncoderBlockTapeLayer extends TapeLayer {
@@ -71,14 +70,14 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer {
     Map<String, GPUTensor> map = <String, GPUTensor>{};
     if (built) {
       // Prefix is usually 'bert.encoder.layer.0'
-      map.addAll(mha.getNamedParameters(prefix + '.attention'));
-      map.addAll(norm1.getNamedParameters(prefix + '.attention.output.LayerNorm'));
-      map.addAll(norm2.getNamedParameters(prefix + '.output.LayerNorm'));
+      map.addAll(mha.getNamedParameters('$prefix.attention'));
+      map.addAll(norm1.getNamedParameters('$prefix.attention.output.LayerNorm'));
+      map.addAll(norm2.getNamedParameters('$prefix.output.LayerNorm'));
 
-      map[prefix + '.intermediate.dense.weight'] = W1;
-      map[prefix + '.intermediate.dense.bias'] = b1;
-      map[prefix + '.output.dense.weight'] = W2;
-      map[prefix + '.output.dense.bias'] = b2;
+      map['$prefix.intermediate.dense.weight'] = W1;
+      map['$prefix.intermediate.dense.bias'] = b1;
+      map['$prefix.output.dense.weight'] = W2;
+      map['$prefix.output.dense.bias'] = b2;
     }
     return map;
   }
