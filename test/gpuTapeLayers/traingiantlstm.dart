@@ -119,7 +119,7 @@ void main() {
   // ===================================================================
   // EXECUTION LOOP
   // ===================================================================
-  int epochs = 100;
+  int epochs = 1000;
   Stopwatch sw = Stopwatch();
 
   print("Tape Length: ${forwardBytes.length}");
