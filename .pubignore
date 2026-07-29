@@ -1,0 +1,17 @@
+# Ignore all C++ build caches and intermediate files
+cuda_engine/cmake-build-debug/
+cuda_engine/.cmake/
+CMakeCache.txt
+CMakeFiles/
+
+# Ignore heavy Windows debug symbols and linking files
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.exe
+*.obj
+
+# Ignore heavy local JSON weight files
+language_model_epoch_1.json
+sentiment_classifier.json

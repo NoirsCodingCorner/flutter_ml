@@ -19,9 +19,15 @@ class Node {
         this.extraParams = const {},
       });
 }
-
 class Tensor<T> {
   static int _idCounter = 0;
+
+  static final Finalizer<(Pointer<Float>, Pointer<Float>)> _finalizer =
+  Finalizer((ptrs) {
+    calloc.free(ptrs.$1); // Free dataPtr
+    calloc.free(ptrs.$2); // Free gradPtr
+  });
+
 
   late String id;
 
@@ -67,6 +73,8 @@ class Tensor<T> {
     gradPtr = calloc<Float>(numElements);
     grad    = gradPtr.asTypedList(numElements);
 
+    _finalizer.attach(this, (dataPtr, gradPtr), detach: this);
+
     if (initialValue is double) {
       data[0] = initialValue;
     } else if (initialValue is List<double>) {
@@ -108,7 +116,9 @@ class Tensor<T> {
     calloc.free(dataPtr);
     calloc.free(gradPtr);
 
+    _finalizer.detach(this);
     _freed = true;
+
   }
 
   // ─────────────────────────────────────────────────────── //
