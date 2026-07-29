@@ -1,6 +1,6 @@
 name: flutter_ml
 description: A deep learning framework in pure Dart with a dynamic autograd engine. Designed for education, research, and understanding the core mechanics of AI.
-version: 2.0.0
+version: 2.0.1
 homepage: https://github.com/NoirsCodingCorner/flutter_ml
 repository: https://github.com/NoirsCodingCorner/flutter_ml
 license: Apache-2.0
