@@ -12,6 +12,7 @@ void fillTensorGPU(GPUTensor tensor, double value, CommandBuffer tape) {
   tape.putInt(OP_FILL);
   tape.putString(tensor.id);
   tape.putFloat(value);
+
 }
 
 void runBenchmarkIsolated({
