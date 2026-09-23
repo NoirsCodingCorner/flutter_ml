@@ -1,0 +1,2 @@
+#pragma code_page(65001)
+2 /* CREATEPROCESS_MANIFEST_RESOURCE_ID */ 24 /* RT_MANIFEST */ "D:/FlutterPackages/flutter_ml_cuda_assisted/cuda_engine/cmake-build-debug/CMakeFiles/cuda_engine.dir/embed.manifest"

@@ -1,4 +1,15 @@
+# This file goes in the root of your project
 include: package:flutter_lints/flutter.yaml
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+analyzer:
+  exclude:
+    - "test/**"
+    - "examples/**"
+  errors:
+    non_constant_identifier_names: ignore
+    avoid_print: ignore
+    prefer_interpolation_to_compose_strings: ignore
+    curly_braces_in_flow_control_structures: ignore
+    # ADD THESE TWO:
+    file_names: ignore
+    unused_local_variable: ignore

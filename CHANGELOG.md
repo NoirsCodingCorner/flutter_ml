@@ -1,3 +1,13 @@
-## 0.0.1
+## 1.0.0
 
-* TODO: Describe initial release.
+Initial release with all layers, activation functions, and optimizers.
+
+## 2.0.0
+
+Added Cuda support to allow for significantly faster runtimes on desktop machines
+as well as swiching over to continous memory allocation in the pure dart version to
+all faster speeds and fast saving.
+
+## 2.0.1
+
+Fix of adding Finalizer support to prevent accidental memory leaks. 
