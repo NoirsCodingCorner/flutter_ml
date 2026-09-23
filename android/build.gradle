@@ -1,0 +1,110 @@
+group = "com.example.flutter_ml"
+version = "1.0-SNAPSHOT"
+
+buildscript {
+    ext.kotlin_version = "1.8.22"
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.7.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
+
+android {
+    namespace = "com.example.flutter_ml"
+
+    compileSdk = 35
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+        test.java.srcDirs += "src/test/kotlin"
+    }
+
+    defaultConfig {
+        minSdk = 21
+    }
+
+    dependencies {
+        testImplementation("org.jetbrains.kotlin:kotlin-test")
+        testImplementation("org.mockito:mockito-core:5.0.0")
+    }
+
+    testOptions {
+        unitTests.all {
+            useJUnitPlatform()
+
+            testLogging {
+                events "passed", "skipped", "failed", "standardOut", "standardError"
+                outputs.upToDateWhen {false}
+                showStandardStreams = true
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------
+// GITHUB BINARY DOWNLOADER
+// ----------------------------------------------------------------------
+
+// REPLACE THIS with the direct link to your uploaded zip file
+String downloadUrl = "https://github.com/NoirsCodingCorner/flutter_ml/releases/download/v3.0.0/android_jniLibs.zip"
+
+File jniLibsDir = new File(project.projectDir, "src/main/jniLibs")
+File zipFile = new File(project.projectDir, "android_jniLibs.zip")
+
+task downloadMLBinaries {
+    doLast {
+        File targetFile = new File(jniLibsDir, "arm64-v8a/libandroid_arm64.so")
+
+        if (targetFile.exists() == false) {
+            println("Downloading ML binaries from GitHub...")
+
+            jniLibsDir.mkdirs()
+
+            // Ant's get task is native to Gradle and handles GitHub redirects
+            ant.get(src: downloadUrl, dest: zipFile)
+
+            println("Extracting ML binaries...")
+
+            copy {
+                from zipTree(zipFile)
+                into jniLibsDir
+            }
+
+            zipFile.delete()
+            println("ML binaries installed successfully.")
+        } else {
+            println("ML binaries already exist. Skipping download.")
+        }
+    }
+}
+
+// Attach to the earliest build step using modern configuration avoidance
+tasks.configureEach { Task task ->
+    if (task.name == "preBuild") {
+        task.dependsOn(downloadMLBinaries)
+    }
+}
