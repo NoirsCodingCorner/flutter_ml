@@ -6,8 +6,7 @@ import 'package:flutter_ml/gpu_version/ffi/cudaEngine.dart';
 import 'package:flutter_ml/speedtest.dart';
 
 import 'full_library.dart';
-import 'gpu_version/SNetworkGPU.dart'; // Passe den Pfad an, falls nötig
-
+/*
 void main() {
   runApp(MaterialApp(home: SimpleGPUApp()));
 }
@@ -1432,4 +1431,314 @@ class SimpleGPUApp extends StatelessWidget {
   }
 
 
+}
+*/
+
+
+import 'gpu_version/SeqModel.dart';
+import 'gpu_version/optimizer/adam.dart';
+import 'logger.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GPUEngine.initialize(target: Target.android_x86_64);
+  runApp(MaterialApp(home: BenchmarkScreen()));
+}
+
+class BenchmarkScreen extends StatefulWidget {
+  @override
+  State<BenchmarkScreen> createState() => _BenchmarkScreenState();
+}
+
+class _BenchmarkScreenState extends State<BenchmarkScreen> {
+  String status = 'Ready to benchmark';
+  bool isRunning = false;
+
+  void runBenchmarkSuite() async {
+    setState(() {
+      isRunning = true;
+      status = 'Running benchmarks...';
+    });
+
+    await Future<void>.delayed(Duration(milliseconds: 100));
+
+    // 1. Training and Static Prediction
+    print('--- Test 1: Training and Static Prediction ---');
+    GPUTensor<Matrix> trainInput1 = GPUTensor<Matrix>(<List<double>>[
+      <double>[1.0, 1.0],
+      <double>[2.0, 2.0]
+    ]);
+
+    GPUTensor<Matrix> trainTarget1 = GPUTensor<Matrix>(<List<double>>[
+      <double>[2.0, 2.0],
+      <double>[4.0, 4.0]
+    ]);
+
+    SeqModel<Matrix, Matrix> model1 = SeqModel<Matrix, Matrix>(
+      <TapeLayer>[DenseTL(2)],
+      trainInput1,
+      target: trainTarget1,
+      lossFunction: mseMatrixGPU,
+      optimizerBuilder: (List<GPUTensor> params) {
+        return SGDGPU(params, 0.01);
+      },
+    );
+
+    model1.compile();
+
+    int epochs1 = 1000;
+    for (int i = 0; i < epochs1; i = i + 1) {
+      model1.runTraining();
+    }
+
+    model1.loss?.toCpu();
+    print('Final Training Loss: ${model1.loss?.value}');
+
+    GPUTensor<Matrix> inferInput1 = GPUTensor<Matrix>(<List<double>>[
+      <double>[3.0, 3.0]
+    ]);
+
+    GPUTensor<Matrix> inferResult1 = model1.predict(inferInput1);
+
+    model1.runForward();
+    inferResult1.toCpu();
+    print('Prediction for [3.0, 3.0]: ${inferResult1.value}');
+
+    List<double> newInferData = <double>[4.0, 4.0];
+    model1.runForward(inputData: newInferData);
+    inferResult1.toCpu();
+    print('Prediction for [4.0, 4.0]: ${inferResult1.value}');
+
+    model1.free();
+
+    // 2. GPU Engine Benchmark - Deep Network Static Unrolling
+    print('--- Test 2: Deep Network Static Unrolling ---');
+    int batchSize2 = 1024;
+    int inputFeatures2 = 64 * 64;
+    int outputFeatures2 = 16;
+
+    Random rnd2 = Random(42);
+
+    List<List<double>> rawInput2 = <List<double>>[];
+    List<List<double>> rawTarget2 = <List<double>>[];
+
+    for (int i = 0; i < batchSize2; i = i + 1) {
+      List<double> inRow = <double>[];
+      for (int j = 0; j < inputFeatures2; j = j + 1) {
+        inRow.add(rnd2.nextDouble());
+      }
+      rawInput2.add(inRow);
+
+      List<double> outRow = <double>[];
+      for (int j = 0; j < outputFeatures2; j = j + 1) {
+        outRow.add(rnd2.nextDouble());
+      }
+      rawTarget2.add(outRow);
+    }
+
+    GPUTensor<Matrix> trainInput2 = GPUTensor<Matrix>(rawInput2);
+    GPUTensor<Matrix> trainTarget2 = GPUTensor<Matrix>(rawTarget2);
+
+    SeqModel<Matrix, Matrix> model2 = SeqModel<Matrix, Matrix>(
+      <TapeLayer>[
+        DenseTL(128),
+        GeluLayerMatrixTL(),
+        DenseTL(64),
+        GeluLayerMatrixTL(),
+        DenseTL(outputFeatures2)
+      ],
+      trainInput2,
+      target: trainTarget2,
+      lossFunction: mseMatrixGPU,
+      optimizerBuilder: (List<GPUTensor> params) {
+        return AdamGPU(params, 0.001);
+      },
+    );
+
+    Stopwatch timer2 = Stopwatch();
+
+    print('Compiling static tapes...');
+    timer2.start();
+    model2.compile();
+    timer2.stop();
+    print('Compilation took: ${timer2.elapsedMilliseconds} ms');
+
+    print('Starting high-speed training loop (20 seconds max) for Batch Size $batchSize2...');
+    timer2.reset();
+    timer2.start();
+
+    int actualEpochs2 = 0;
+
+    while (timer2.elapsedMilliseconds < 20000) {
+      model2.runTraining();
+      actualEpochs2 = actualEpochs2 + 1;
+    }
+
+    timer2.stop();
+    model2.loss?.toCpu();
+
+    double seconds2 = timer2.elapsedMilliseconds / 1000.0;
+    double epochsPerSec2 = actualEpochs2 / seconds2;
+
+    double dense1Flops2 = batchSize2 * 128 * inputFeatures2 * 2.0;
+    double dense2Flops2 = batchSize2 * 64 * 128 * 2.0;
+    double dense3Flops2 = batchSize2 * outputFeatures2 * 64 * 2.0;
+
+    double forwardFlops2 = dense1Flops2 + dense2Flops2 + dense3Flops2;
+    double totalFlopsPerEpoch2 = forwardFlops2 * 3.0;
+
+    double totalFlopsAchieved2 = totalFlopsPerEpoch2 * actualEpochs2;
+    double flopsPerSecond2 = totalFlopsAchieved2 / seconds2;
+
+    double gflops2 = flopsPerSecond2 / 1000000000.0;
+    double tflops2 = gflops2 / 1000.0;
+
+    print('Final Training Loss: ${model2.loss?.value}');
+    print('Completed $actualEpochs2 epochs in ${seconds2.toStringAsFixed(2)} seconds');
+    print('Engine Performance: ${epochsPerSec2.toStringAsFixed(2)} Epochs/sec');
+    print('Compute Performance: ${gflops2.toStringAsFixed(2)} GFLOPS (${tflops2.toStringAsFixed(4)} TFLOPS)');
+
+    model2.free();
+
+    // 3. GPU Engine Benchmark - Pure MatMul Isolated
+    print('--- Test 3: Pure MatMul Isolated ---');
+    int m3 = 2048;
+    int k3 = 2048;
+    int n3 = 2048;
+
+    Random rnd3 = Random(42);
+
+    List<List<double>> rawA3 = <List<double>>[];
+    for (int i = 0; i < m3; i = i + 1) {
+      List<double> row = <double>[];
+      for (int j = 0; j < k3; j = j + 1) {
+        row.add(rnd3.nextDouble());
+      }
+      rawA3.add(row);
+    }
+
+    List<List<double>> rawB3 = <List<double>>[];
+    for (int i = 0; i < k3; i = i + 1) {
+      List<double> row = <double>[];
+      for (int j = 0; j < n3; j = j + 1) {
+        row.add(rnd3.nextDouble());
+      }
+      rawB3.add(row);
+    }
+
+    GPUTensor<Matrix> tensorA3 = GPUTensor<Matrix>(rawA3);
+    GPUTensor<Matrix> tensorB3 = GPUTensor<Matrix>(rawB3);
+    GPUTensor<Matrix> tensorC3 = GPUTensor<Matrix>.empty(<int>[m3, n3]);
+
+    CommandBuffer tape3 = CommandBuffer();
+    matMulGPU(tensorA3, tensorB3, tape3, outTensor: tensorC3);
+
+    Stopwatch timer3 = Stopwatch();
+    print('Starting high-speed pure MatMul loop (20 seconds max)...');
+    timer3.start();
+
+    int actualSteps3 = 0;
+
+    while (timer3.elapsedMilliseconds < 20000) {
+      GPUEngine.run(tape3.bytes());
+      actualSteps3 = actualSteps3 + 1;
+    }
+
+    timer3.stop();
+    double seconds3 = timer3.elapsedMilliseconds / 1000.0;
+
+    double flopsPerStep3 = 2.0 * m3 * k3 * n3;
+    double totalFlopsAchieved3 = flopsPerStep3 * actualSteps3;
+    double flopsPerSecond3 = totalFlopsAchieved3 / seconds3;
+
+    double gflops3 = flopsPerSecond3 / 1000000000.0;
+    double tflops3 = gflops3 / 1000.0;
+
+    print('Completed $actualSteps3 MatMul steps in ${seconds3.toStringAsFixed(2)} seconds');
+    print('Compute Performance: ${gflops3.toStringAsFixed(2)} GFLOPS (${tflops3.toStringAsFixed(4)} TFLOPS)');
+
+    tensorA3.free();
+    tensorB3.free();
+    tensorC3.free();
+
+    // 4. GPU Engine Benchmark - Absolute VRAM Saturation MatMul
+    print('--- Test 4: Scaled VRAM Saturation MatMul ---');
+    int m4 = 2048;
+    int k4 = 2048;
+    int n4 = 2048;
+
+    GPUTensor<Matrix> tensorA4 = GPUTensor<Matrix>.empty(<int>[m4, k4]);
+    GPUTensor<Matrix> tensorB4 = GPUTensor<Matrix>.empty(<int>[k4, n4]);
+    GPUTensor<Matrix> tensorC4 = GPUTensor<Matrix>.empty(<int>[m4, n4]);
+
+    CommandBuffer tape4 = CommandBuffer();
+    matMulGPU(tensorA4, tensorB4, tape4, outTensor: tensorC4);
+
+    int steps4 = 5;
+
+    print('Starting VRAM saturation test for $steps4 steps...');
+    Stopwatch timer4 = Stopwatch();
+    timer4.start();
+
+    for (int i = 0; i < steps4; i = i + 1) {
+      GPUEngine.run(tape4.bytes());
+    }
+
+    timer4.stop();
+    double seconds4 = timer4.elapsedMilliseconds / 1000.0;
+
+    double flopsPerStep4 = 2.0 * m4 * k4 * n4;
+    double totalFlopsAchieved4 = flopsPerStep4 * steps4;
+    double flopsPerSecond4 = totalFlopsAchieved4 / seconds4;
+
+    double gflops4 = flopsPerSecond4 / 1000000000.0;
+    double tflops4 = gflops4 / 1000.0;
+
+    print('Completed $steps4 massive MatMul steps in ${seconds4.toStringAsFixed(2)} seconds');
+    print('Compute Performance: ${gflops4.toStringAsFixed(2)} GFLOPS (${tflops4.toStringAsFixed(4)} TFLOPS)');
+
+    tensorA4.free();
+    tensorB4.free();
+    tensorC4.free();
+
+    setState(() {
+      isRunning = false;
+      status = 'All benchmarks completed. Check logcat/console.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('GPU Engine Benchmark'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text(
+                status,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18.0),
+              ),
+              SizedBox(height: 32.0),
+              ElevatedButton(
+                onPressed: isRunning ? null : runBenchmarkSuite,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                  child: Text(
+                    isRunning ? 'Running...' : 'Run Benchmarks',
+                    style: TextStyle(fontSize: 16.0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

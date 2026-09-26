@@ -7,28 +7,37 @@ import '/tensor/type_Aliases.dart';
 import '../ffi/commandBuffer.dart';
 import 'tapeLayer.dart';
 
-class PositionalEncodingTL extends TapeLayer {
+/// Injects spatial/sequential context into tokens. Because self-attention is permutation-invariant,
+/// this layer adds fixed sine and cosine waves of different frequencies to the embeddings,
+/// allowing the model to perceive the absolute and relative positions of words in a sequence.
+class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
+  @override
+  String get name => 'PositionalEncodingTapeLayer';
+
   int maxLength;
   int dModel;
 
+  /// A non-trainable matrix storing the pre-calculated sine and cosine waves.
+  /// Stored transposed to optimize memory access during slicing.
   late GPUTensor<Matrix> encodingMatrixTransposed;
 
+  /// Persistent Cache for Static Unrolling
+  int cacheSeqLength = -1;
+  final List<GPUTensor<Matrix>> stepCache = <GPUTensor<Matrix>>[];
+
+  /// Requires the maximum possible sequence length [maxLength] and the embedding dimension [dModel].
   PositionalEncodingTL(this.maxLength, this.dModel);
 
-  @override
-  String get name {
-    return 'PositionalEncodingTapeLayer';
-  }
-
+  /// This layer has no learnable parameters.
   @override
   List<GPUTensor> get parameters {
     return <GPUTensor>[];
   }
 
+  /// Pre-calculates the static positional encoding matrix up to [maxLength] and uploads it to VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<Matrix> input) {
     List<List<double>> peValuesTransposed = <List<double>>[];
-
     for (int i = 0; i < dModel; i = i + 1) {
       List<double> row = <double>[];
       for (int pos = 0; pos < maxLength; pos = pos + 1) {
@@ -46,29 +55,70 @@ class PositionalEncodingTL extends TapeLayer {
     built = true;
   }
 
+  /// Appends the positional encoding addition to the [tape].
+  /// Slices the pre-calculated matrix dynamically based on the current batch's sequence length.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
-    GPUTensor<Matrix> typedInput = input as GPUTensor<Matrix>;
-    int sequenceLength = typedInput.shape[0];
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+    int sequenceLength = input.shape[0];
 
-    GPUTensor<Matrix> slicedTransposed = sliceColumnGPU(encodingMatrixTransposed, 0, sequenceLength, tape);
-    intermediates.add(slicedTransposed);
+    bool useCache = (cacheSeqLength == sequenceLength);
 
-    GPUTensor<Matrix> positionalTensor = transposeGPU(slicedTransposed, tape);
-    intermediates.add(positionalTensor);
+    if (!useCache) {
+      for (int i = 0; i < stepCache.length; i = i + 1) {
+        stepCache[i].free();
+      }
+      stepCache.clear();
+      cacheSeqLength = sequenceLength;
+    }
 
-    GPUTensor<Matrix> out = addMatrixGPU(typedInput, positionalTensor, tape);
+    int cIdx = 0;
 
-    // ⚡ FIXED: Register final PE output
-    intermediates.add(out);
+    T? getCached<T>() {
+      if (useCache) {
+        T cached = stepCache[cIdx] as T;
+        cIdx = cIdx + 1;
+        return cached;
+      }
+      return null;
+    }
+
+    void saveCached(GPUTensor<Matrix> tensor) {
+      if (!useCache) {
+        stepCache.add(tensor);
+      }
+    }
+
+    GPUTensor<Matrix> slicedTransposed = sliceColumnGPU(encodingMatrixTransposed, 0, sequenceLength, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(slicedTransposed);
+
+    GPUTensor<Matrix> positionalTensor = transposeGPU(slicedTransposed, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(positionalTensor);
+
+    GPUTensor<Matrix> out = addMatrixGPU(input, positionalTensor, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(out);
 
     return out;
   }
 
+  /// Clears the gradients of all persistently cached intermediate tensors.
+  @override
+  void zeroStates(CommandBuffer tape) {
+    for (int i = 0; i < stepCache.length; i = i + 1) {
+      stepCache[i].zeroGrad(tape);
+    }
+  }
+
+  /// Frees VRAM for the pre-calculated encoding matrix and persistently cached intermediate tensors.
   @override
   void free() {
     if (built) {
       encodingMatrixTransposed.free();
+
+      for (int i = 0; i < stepCache.length; i = i + 1) {
+        stepCache[i].free();
+      }
+      stepCache.clear();
+      cacheSeqLength = -1;
     }
   }
 

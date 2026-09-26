@@ -76,6 +76,9 @@ class GPUTensor<T> {
   /// Unoptimised List of the retrieved last gradient of the GPUTensor.
   List<double> grad = [];
 
+  /// Map to capture the sub GPUTensors that may have been allocate during creation.
+  Map<String,GPUTensor>subMap={};
+
 
   /// Creates a [GPUTensor] object storing and managing the value [initialValue] given. Supported types for GPUTensors are:
   /// [Scalar],[Vector],[Matrix] and [Tensor3D]. Short versions of those types are [Sc],[Vec],[Mat] and [T3D].
@@ -263,6 +266,10 @@ class GPUTensor<T> {
 
   /// Frees the allocated GPU Memory for both value and gradient.
   void free() {
+    for(GPUTensor tensor in subMap.values){
+      tensor.free();
+    }
+
     GPUEngine.free(id);
     GPUEngine.free('${id}_grad');
   }

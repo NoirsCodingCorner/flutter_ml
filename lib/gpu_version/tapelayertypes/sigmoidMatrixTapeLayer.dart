@@ -4,29 +4,64 @@ import '../../tensor/tensor_math_gpu.dart';
 import '../../tensor/type_Aliases.dart';
 import '../ffi/commandBuffer.dart';
 
-class SigmoidMatrixTL extends TapeLayer {
+/// Applies the Sigmoid-function to each element in a matrix.
+class SigmoidMatrixTL extends TapeLayer<Matrix, Matrix> {
   @override
   String get name => 'SigmoidMatrixTapeLayer';
 
+  /// --- Persistent Cache for Static Unrolling ---
+  int cacheBatchSize = -1;
+  GPUTensor<Matrix>? cachedOut;
+
+  /// This layer has no parameters to adjust.
   @override
   List<GPUTensor> get parameters => <GPUTensor>[];
 
+  /// Does not allocate additional VRAM.
   @override
   void build(GPUTensor<dynamic> input) {
     built = true;
   }
 
+  /// Writes the [sigmoidMatrixGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
+  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
-    GPUTensor<Matrix> typedInput = input as GPUTensor<Matrix>;
-    GPUTensor<Matrix> out = sigmoidMatrixGPU(typedInput, tape);
-    intermediates.add(out);
-    return out;
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+    int currentBatchSize = input.shape[0];
+
+    if (cacheBatchSize != currentBatchSize) {
+      if (cachedOut != null) {
+        cachedOut!.free();
+      }
+      cachedOut = null;
+      cacheBatchSize = currentBatchSize;
+    }
+
+    cachedOut = sigmoidMatrixGPU(input, tape, outTensor: cachedOut);
+    return cachedOut!;
   }
 
+  /// Clears the gradients of the statically cached output tensor.
+  @override
+  void zeroStates(CommandBuffer tape) {
+    if (cachedOut != null) {
+      cachedOut!.zeroGrad(tape);
+    }
+  }
+
+  /// Frees the cached output tensor.
+  @override
+  void free() {
+    if (cachedOut != null) {
+      cachedOut!.free();
+    }
+  }
+
+  /// This layer has no weights to return.
   @override
   Map<String, List<dynamic>> getWeights() => <String, List<dynamic>>{};
 
+  /// This layer has no weights to set.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {}
 }

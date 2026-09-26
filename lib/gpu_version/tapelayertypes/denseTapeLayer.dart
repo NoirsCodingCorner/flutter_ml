@@ -3,24 +3,30 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_Aliases.dart';
 
+import '../ffi/OpCodes.dart';
 import '../ffi/commandBuffer.dart';
 import 'tapeLayer.dart';
 
-// Assuming your TapeLayer abstract class is imported here
+/// Represents a standard fully connected layer of a neural network.
+/// It performs a matrix multiplication and adds a bias vector to the result.
+class DenseTL extends TapeLayer<Matrix, Matrix> {
+  @override
+  String get name => 'DenseLayer';
 
-class DenseTL extends TapeLayer {
   int outputSize;
 
   late GPUTensor<Matrix> weights;
   late GPUTensor<Vector> bias;
 
+  /// Stores the batch size of the last batch to see if the allocated memory is fitting
+  int cacheBatchSize = -1;
+  GPUTensor<Matrix>? matMulResult;
+  GPUTensor<Matrix>? cachedOut;
+
+  /// Requires the [outputSize] which determines the amount of neurons in this layer.
   DenseTL(this.outputSize);
 
-  @override
-  String get name {
-    return 'DenseLayer';
-  }
-
+  /// Returns the trainable [weights] and [bias].
   @override
   List<GPUTensor> get parameters {
     List<GPUTensor> params = <GPUTensor>[];
@@ -31,9 +37,10 @@ class DenseTL extends TapeLayer {
     return params;
   }
 
+  /// Allocates VRAM for weights and biases using a standard Xavier initialization.
   @override
-  void build(GPUTensor<dynamic> input) {
-    int inputSize = input.shape[1]; //
+  void build(GPUTensor<Matrix> input) {
+    int inputSize = input.shape[1];
 
     Random rnd = Random();
     List<List<double>> wData = <List<double>>[];
@@ -54,34 +61,57 @@ class DenseTL extends TapeLayer {
       bData.add(0.0);
     }
 
-    weights = GPUTensor<Matrix>(wData); //
-    bias = GPUTensor<Vector>(bData); //
+    weights = GPUTensor<Matrix>(wData);
+    bias = GPUTensor<Vector>(bData);
 
     built = true;
   }
 
+  /// Appends the matrix multiplication and bias addition to the [tape].
+  /// Persistently caches the intermediate multiplication result for static unrolling.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
-    GPUTensor<Matrix> typedInput = input as GPUTensor<Matrix>;
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+    int currentBatchSize = input.shape[0];
 
-    // Capture the intermediate matrix multiplication result in the trash list.
-    // This ensures its VRAM can be released after the tape has finished executing.
-    GPUTensor<Matrix> mulResult = matMulGPU(typedInput, weights, tape); //
-    intermediates.add(mulResult);
+    if (cacheBatchSize != currentBatchSize) {
+      if (matMulResult != null) matMulResult!.free();
+      if (cachedOut != null) cachedOut!.free();
 
-    GPUTensor<Matrix> out = addMatrixAndVectorGPU(mulResult, bias, tape);
+      matMulResult = null;
+      cachedOut = null;
+      cacheBatchSize = currentBatchSize;
+    }
 
-    return out;
+    matMulResult = matMulGPU(input, weights, tape, outTensor: matMulResult);
+    cachedOut = addMatrixAndVectorGPU(matMulResult!, bias, tape, outTensor: cachedOut);
+
+    return cachedOut!;
   }
 
-  @override
-  void free() {
-    if (built) {
-      weights.free(); //
-      bias.free(); //
+  /// Clears the gradients of all statically cached intermediate tensors to prevent infinite accumulation.
+  void zeroStates(CommandBuffer tape) {
+    if (matMulResult != null) {
+      tape.putInt(OP_ZERO_GRAD);
+      tape.putString('${matMulResult!.id}_grad');
+    }
+    if (cachedOut != null) {
+      tape.putInt(OP_ZERO_GRAD);
+      tape.putString('${cachedOut!.id}_grad');
     }
   }
 
+  /// Frees VRAM for weights, biases, and the internally cached intermediate tensors.
+  @override
+  void free() {
+    if (built) {
+      weights.free();
+      bias.free();
+    }
+    if (matMulResult != null) matMulResult!.free();
+    if (cachedOut != null) cachedOut!.free();
+  }
+
+  /// Returns [weights] and [bias] as a map.
   @override
   Map<String, List<dynamic>> getWeights() {
     Map<String, List<dynamic>> wMap = <String, List<dynamic>>{};
@@ -99,11 +129,12 @@ class DenseTL extends TapeLayer {
     return wMap;
   }
 
+  /// Sets [weights] and [bias] from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
     if (built) {
-      weights.free(); //
-      bias.free(); //
+      weights.free();
+      bias.free();
     }
 
     List<List<double>> wData = <List<double>>[];
@@ -123,26 +154,31 @@ class DenseTL extends TapeLayer {
       bData.add(rawB[i] as double);
     }
 
-    // Instantiating the GPUTensor automatically pushes this data to VRAM
     weights = GPUTensor<Matrix>(wData);
     bias = GPUTensor<Vector>(bData);
     built = true;
   }
 }
 
-class DenseReluTL extends TapeLayer {
+/// Represents a standard fully connected layer followed by a ReLU activation function.
+/// Utilizes a fused GPU kernel to perform matrix multiplication, bias broadcasting,
+/// and ReLU activation in a single optimized pass.
+class DenseReluTL extends TapeLayer<Matrix, Matrix> {
+  @override
+  String get name => 'DenseReluLayer';
+
   int outputSize;
 
   late GPUTensor<Matrix> weights;
   late GPUTensor<Vector> bias;
 
+  GPUTensor<Matrix>? cachedOut;
+  GPUTensor<Matrix>? cachedPreRelu;
+
+  /// Requires the [outputSize] which determines the amount of neurons in this layer.
   DenseReluTL(this.outputSize);
 
-  @override
-  String get name {
-    return 'DenseReluLayer';
-  }
-
+  /// Returns the trainable [weights] and [bias].
   @override
   List<GPUTensor> get parameters {
     List<GPUTensor> params = <GPUTensor>[];
@@ -153,8 +189,9 @@ class DenseReluTL extends TapeLayer {
     return params;
   }
 
+  /// Allocates VRAM for weights and biases using a standard Xavier initialization.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<Matrix> input) {
     int inputSize = input.shape[1];
 
     Random rnd = Random();
@@ -181,27 +218,50 @@ class DenseReluTL extends TapeLayer {
     built = true;
   }
 
+  /// Appends the fused matrix multiplication, bias addition, and ReLU operation to the [tape].
+  /// The fused kernel automatically registers its intermediates.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
-    GPUTensor<Matrix> typedInput = input as GPUTensor<Matrix>;
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+    // Because the fused kernel allocates internally without an outTensor,
+    // we must free the old allocations if forward is called dynamically multiple times.
+    if (cachedOut != null) cachedOut!.free();
+    if (cachedPreRelu != null) cachedPreRelu!.free();
 
-    GPUTensor<Matrix> mulResult = matMulGPU(typedInput, weights, tape);
-    intermediates.add(mulResult);
+    List<GPUTensor> localIntermediates = <GPUTensor>[];
+    cachedOut = matMulBiasReluGPU(input, weights, bias, tape, localIntermediates);
 
-    GPUTensor<Matrix> out = addMatrixAndVectorGPU(mulResult, bias, tape);
-    intermediates.add(out); // <--- FEHLTE! Extrem wichtig für Zero-Grad!
+    if (localIntermediates.isNotEmpty) {
+      cachedPreRelu = localIntermediates[0] as GPUTensor<Matrix>;
+      intermediates.add(cachedPreRelu!);
+    }
 
-    return out;
+    return cachedOut!;
   }
 
+  /// Clears the gradients of all statically cached intermediate tensors to prevent infinite accumulation.
+  void zeroStates(CommandBuffer tape) {
+    if (cachedOut != null) {
+      tape.putInt(OP_ZERO_GRAD);
+      tape.putString('${cachedOut!.id}_grad');
+    }
+    if (cachedPreRelu != null) {
+      tape.putInt(OP_ZERO_GRAD);
+      tape.putString('${cachedPreRelu!.id}_grad');
+    }
+  }
+
+  /// Frees VRAM for weights, biases, and intermediate tensors.
   @override
   void free() {
     if (built) {
       weights.free();
       bias.free();
     }
+    if (cachedOut != null) cachedOut!.free();
+    if (cachedPreRelu != null) cachedPreRelu!.free();
   }
 
+  /// Returns [weights] and [bias] as a map.
   @override
   Map<String, List<dynamic>> getWeights() {
     Map<String, List<dynamic>> wMap = <String, List<dynamic>>{};
@@ -218,6 +278,7 @@ class DenseReluTL extends TapeLayer {
     return wMap;
   }
 
+  /// Sets [weights] and [bias] from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
     if (built) {

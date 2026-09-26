@@ -7,26 +7,38 @@ import '/tensor/type_Aliases.dart';
 import '../ffi/commandBuffer.dart';
 import 'tapeLayer.dart';
 
-class SingleHeadAttentionTL extends TapeLayer {
+/// Applies Scaled Dot-Product Attention over a sequence.
+/// Projects the input into Query, Key, and Value matrices to determine contextual relationships
+/// between tokens before re-combining them based on the calculated attention scores.
+class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   @override
-  String get name {
-    return 'SingleHeadAttentionTapeLayer';
-  }
+  String get name => 'SingleHeadAttentionTapeLayer';
 
   int dModel;
   int dK;
   int dV;
 
+  /// Learnable weight matrix to project the input into Queries.
   late GPUTensor<Matrix> Wq;
+  /// Learnable weight matrix to project the input into Keys.
   late GPUTensor<Matrix> Wk;
+  /// Learnable weight matrix to project the input into Values.
   late GPUTensor<Matrix> Wv;
 
+  /// A reference to the attention probabilities from the most recent forward pass.
   GPUTensor<Matrix>? lastAttentionWeights;
 
+  /// --- Persistent Cache for Static Unrolling ---
+  int cacheSeqLength = -1;
+  List<GPUTensor<dynamic>> stepCache = <GPUTensor<dynamic>>[];
+
+  /// Requires the model dimension [dModel]. Optionally accepts custom dimensions
+  /// for the keys/queries [dK] and values [dV]. If omitted, they default to [dModel].
   SingleHeadAttentionTL(this.dModel, {int? dK, int? dV})
       : dK = dK ?? dModel,
         dV = dV ?? dModel;
 
+  /// Returns the trainable projection matrices.
   @override
   List<GPUTensor> get parameters {
     List<GPUTensor> params = <GPUTensor>[];
@@ -38,8 +50,9 @@ class SingleHeadAttentionTL extends TapeLayer {
     return params;
   }
 
+  /// Allocates VRAM for the Query, Key, and Value projection matrices.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<Matrix> input) {
     Random random = Random();
 
     List<List<double>> initWeights(int rows, int cols) {
@@ -62,46 +75,88 @@ class SingleHeadAttentionTL extends TapeLayer {
     built = true;
   }
 
+  /// Appends the single-head attention operations to the [tape].
+  /// Persistently caches all intermediates to guarantee static unroll-ability.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
-    GPUTensor<Matrix> x = input as GPUTensor<Matrix>;
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+    int seqLength = input.shape[0];
+    bool useCache = (cacheSeqLength == seqLength);
 
-    GPUTensor<Matrix> q = matMulGPU(x, Wq, tape);
-    GPUTensor<Matrix> k = matMulGPU(x, Wk, tape);
-    GPUTensor<Matrix> v = matMulGPU(x, Wv, tape);
+    if (!useCache) {
+      for (int i = 0; i < stepCache.length; i = i + 1) {
+        stepCache[i].free();
+      }
+      stepCache.clear();
+      cacheSeqLength = seqLength;
+    }
 
-    intermediates.add(q);
-    intermediates.add(k);
-    intermediates.add(v);
+    int cIdx = 0;
 
-    GPUTensor<Matrix> kT = transposeGPU(k, tape);
-    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape);
+    T? getCached<T>() {
+      if (useCache) {
+        T cached = stepCache[cIdx] as T;
+        cIdx = cIdx + 1;
+        return cached;
+      }
+      return null;
+    }
 
-    intermediates.add(kT);
-    intermediates.add(scores);
+    void saveCached(GPUTensor<dynamic> tensor) {
+      if (!useCache) {
+        stepCache.add(tensor);
+      }
+    }
+
+    GPUTensor<Matrix> q = matMulGPU(input, Wq, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(q);
+
+    GPUTensor<Matrix> k = matMulGPU(input, Wk, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(k);
+
+    GPUTensor<Matrix> v = matMulGPU(input, Wv, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(v);
+
+    GPUTensor<Matrix> kT = transposeGPU(k, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(kT);
+
+    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(scores);
 
     double scaleFactor = 1.0 / sqrt(dK);
-    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(scores, scaleFactor, tape);
-    intermediates.add(scaledScores);
+    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(scores, scaleFactor, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(scaledScores);
 
-    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(scaledScores, tape);
+    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(scaledScores, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(attentionWeights);
     lastAttentionWeights = attentionWeights;
-    intermediates.add(attentionWeights);
 
-    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape);
-
-    // ⚡ FIXED: Ensure the final output is registered for zeroing
-    intermediates.add(output);
+    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    saveCached(output);
 
     return output;
   }
 
+  /// Clears the gradients of all persistently cached intermediate tensors.
+  @override
+  void zeroStates(CommandBuffer tape) {
+    for (int i = 0; i < stepCache.length; i = i + 1) {
+      stepCache[i].zeroGrad(tape);
+    }
+  }
+
+  /// Frees VRAM for all parameters and persistently cached intermediate tensors.
   @override
   void free() {
     if (built) {
       Wq.free();
       Wk.free();
       Wv.free();
+
+      for (int i = 0; i < stepCache.length; i = i + 1) {
+        stepCache[i].free();
+      }
+      stepCache.clear();
+      cacheSeqLength = -1;
     }
   }
 
