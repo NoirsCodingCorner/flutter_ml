@@ -5,7 +5,7 @@ import '../gpu_version/ffi/commandBuffer.dart';
 import '../tensor/tensor_gpu.dart';
 import '../tensor/tensor_math_gpu.dart';
 import '../tensor/type_Aliases.dart';
-import 'gpu_version/ffi/cudaEngine.dart';
+import 'gpu_version/ffi/GPUEngine.dart';
 
 
 void fillTensorGPU(GPUTensor tensor, double value, CommandBuffer tape) {

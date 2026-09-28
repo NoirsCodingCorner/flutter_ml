@@ -3,6 +3,6 @@
 library ffi_engine;
 
 export 'commandBuffer.dart';
-export 'cudaEngine.dart';
+export 'GPUEngine.dart';
 export 'OpCodes.dart';
 export 'tapeDecoder.dart';

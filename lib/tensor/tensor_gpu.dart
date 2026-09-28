@@ -2,7 +2,7 @@ import 'dart:ffi';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
-import 'package:flutter_ml/full_library.dart';
+import '/full_library.dart';
 import '../logger.dart';
 
 
@@ -64,6 +64,7 @@ class GPUTensor<T> {
   /// Global identifier to find and query tensors. [id] is set to "t_gpu_[_idCounter] by default. It is recommended NOT to set this value manually outside of creation.
   /// Uniqueness is to be handled manually when setting the name.
   late String id;
+  String get gradId => '${id}_grad';
 
   /// Stores as which shape the GPUTensors value should be interpreted as. 0-3 dimensions are supported currently (2026-09).
   late List<int> shape;
@@ -128,10 +129,8 @@ class GPUTensor<T> {
   /// The raw [grad] can be accessed via [.grad]. To return a structured value [.gradValue] converts it via [shape] into [T].
   /// Both require [toCpu] to be called directly before that if the value is to be pulled from VRAM.
   ///
-  GPUTensor(dynamic initialValue, {this.creator, this.id="EMPTY"}) {
-    if(id=="EMPTY"){
-      id = _generateId();
-    }
+  GPUTensor(T initialValue, {this.creator, String? id}) {
+    this.id = id ?? _generateId();
     // 1. Determine Shape
     if (initialValue is double) {
       shape = [];
@@ -147,7 +146,10 @@ class GPUTensor<T> {
       int width = height > 0 ? initialValue[0][0].length : 0;
       shape = [depth, height, width];
     } else {
-      throw Exception("Unsupported GPUTensor initialization type: ${initialValue.runtimeType}");
+      throw ArgumentError(
+          "Invalid initialization for GPUTensor<$T>. "
+              "Expected Scalar, Vector, Matrix, or Tensor3D, got: ${initialValue.runtimeType}"
+      );
     }
 
     // 2. Allocate VRAM
@@ -156,6 +158,46 @@ class GPUTensor<T> {
     // 3. Push Initial Data if provided
     _pushInitialValue(initialValue);
   }
+  GPUTensor.scalar(Scalar? initialValue,{this.creator, this.id="EMPTY"}){
+    if(id=="EMPTY"){
+      id = _generateId();
+    }
+    shape = [];
+    _allocateEmptyInVram();
+    _pushInitialValue(initialValue);
+  }
+  GPUTensor.vector(Vector initialValue,{this.creator, this.id="EMPTY"}){
+    if(id=="EMPTY"){
+      id = _generateId();
+    }
+    shape = [initialValue.length];
+    _allocateEmptyInVram();
+    _pushInitialValue(initialValue);
+  }
+  GPUTensor.matrix(Matrix initialValue,{this.creator, this.id="EMPTY"}){
+    if(id=="EMPTY"){
+      id = _generateId();
+    }
+    int rows = initialValue.length;
+    int cols = rows > 0 ? initialValue[0].length : 0;
+    shape = [rows, cols];
+    _allocateEmptyInVram();
+    _pushInitialValue(initialValue);
+  }
+  GPUTensor.tensor3D(Tensor3D initialValue,{this.creator, this.id="EMPTY"}){
+    if(id=="EMPTY"){
+      id = _generateId();
+    }
+    int depth = initialValue.length;
+    int height = depth > 0 ? initialValue[0].length : 0;
+    int width = height > 0 ? initialValue[0][0].length : 0;
+    shape = [depth, height, width];
+    _allocateEmptyInVram();
+    _pushInitialValue(initialValue);
+  }
+
+
+
 
   /// Create a GPUTensor with the given shape and fills the GPUTensor with 0.0.
   /// Additionally the [creator] GPUNode can be set.
@@ -195,39 +237,37 @@ class GPUTensor<T> {
   /// Retrieves the current state of the GPUTensor from VRAM and writes it to the [data] and [grad] buffers.
   void toCpu() {
     int count = _getElementCount();
-    Pointer<Float> pData = calloc<Float>(count);
-    Pointer<Float> pGrad = calloc<Float>(count);
 
-    GPUEngine.retrieve(id, pData);
-    GPUEngine.retrieve('${id}_grad', pGrad);
+    using((Arena arena) {
+      Pointer<Float> pData = arena<Float>(count);
+      Pointer<Float> pGrad = arena<Float>(count);
 
-    Float32List dataView = pData.asTypedList(count);
-    Float32List gradView = pGrad.asTypedList(count);
+      GPUEngine.retrieve(id, pData);
+      GPUEngine.retrieve('${id}_grad', pGrad);
 
-    data.clear();
-    grad.clear();
+      Float32List dataView = pData.asTypedList(count);
+      Float32List gradView = pGrad.asTypedList(count);
 
-    for (int i = 0; i < count; i = i + 1) {
-      data.add(dataView[i]);
-      grad.add(gradView[i]);
-    }
+      data.clear();
+      grad.clear();
 
-    calloc.free(pData);
-    calloc.free(pGrad);
+      data.addAll(dataView);
+      grad.addAll(gradView);
+    });
   }
 
   /// Manually pushes values to overwrite the GPUTensors values in VRAM.
   void pushData(List<double> values) {
     int count = values.length;
-    Pointer<Float> ptr = calloc<Float>(count);
-    Float32List view = ptr.asTypedList(count);
 
-    for (int i = 0; i < count; i = i + 1) {
-      view[i] = values[i];
-    }
+    using((Arena arena) {
+      Pointer<Float> ptr = arena<Float>(count);
+      Float32List view = ptr.asTypedList(count);
 
-    GPUEngine.load(id, ptr, shape);
-    calloc.free(ptr);
+      view.setAll(0, values);
+
+      GPUEngine.load(id, ptr, shape);
+    });
   }
 
   /// Staring point of gradient calculation. The network of GPUNodes and GPUTensors traverses in topological oder over all GPUTensors writing their given commands to calculate the gradients to [backwardsTape].
@@ -427,48 +467,47 @@ class GPUTensor<T> {
 
   void _allocateEmptyInVram() {
     int count = _getElementCount();
-    Pointer<Float> emptyData = calloc<Float>(count);
-    Pointer<Float> emptyGrad = calloc<Float>(count);
 
-    GPUEngine.load(id, emptyData, shape);
-    GPUEngine.load('${id}_grad', emptyGrad, shape);
+    using((Arena arena) {
+      Pointer<Float> emptyData = arena<Float>(count);
+      Pointer<Float> emptyGrad = arena<Float>(count);
 
-    calloc.free(emptyData);
-    calloc.free(emptyGrad);
+      GPUEngine.load(id, emptyData, shape);
+      GPUEngine.load('${id}_grad', emptyGrad, shape);
+    });
   }
 
   void _pushInitialValue(dynamic initialValue) {
     int count = _getElementCount();
-    Pointer<Float> ptr = calloc<Float>(count);
-    Float32List view = ptr.asTypedList(count);
 
-    if (initialValue is double) {
-      view[0] = initialValue;
-    } else if (initialValue is List<double>) {
-      for (int i = 0; i < initialValue.length; i = i + 1) {
-        view[i] = initialValue[i];
-      }
-    } else if (initialValue is List<List<double>>) {
-      int cols = shape[1];
-      for (int i = 0; i < initialValue.length; i = i + 1) {
-        for (int j = 0; j < initialValue[i].length; j = j + 1) {
-          view[(i * cols) + j] = initialValue[i][j];
+    using((Arena arena) {
+      Pointer<Float> ptr = arena<Float>(count);
+      Float32List view = ptr.asTypedList(count);
+
+      if (initialValue is double) {
+        view[0] = initialValue;
+      } else if (initialValue is List<double>) {
+        view.setAll(0, initialValue);
+      } else if (initialValue is List<List<double>>) {
+        int cols = shape[1];
+        for (int i = 0; i < initialValue.length; i = i + 1) {
+          for (int j = 0; j < initialValue[i].length; j = j + 1) {
+            view[(i * cols) + j] = initialValue[i][j];
+          }
         }
-      }
-    } else if (initialValue is List<List<List<double>>>) {
-      int height = shape[1];
-      int width = shape[2];
-      for (int d = 0; d < initialValue.length; d = d + 1) {
-        for (int h = 0; h < initialValue[d].length; h = h + 1) {
-          for (int w = 0; w < initialValue[d][h].length; w = w + 1) {
-            view[(d * height * width) + (h * width) + w] = initialValue[d][h][w];
+      } else if (initialValue is List<List<List<double>>>) {
+        int height = shape[1];
+        int width = shape[2];
+        for (int d = 0; d < initialValue.length; d = d + 1) {
+          for (int h = 0; h < initialValue[d].length; h = h + 1) {
+            for (int w = 0; w < initialValue[d][h].length; w = w + 1) {
+              view[(d * height * width) + (h * width) + w] = initialValue[d][h][w];
+            }
           }
         }
       }
-    }
 
-    GPUEngine.load(id, ptr, shape);
-    calloc.free(ptr);
+      GPUEngine.load(id, ptr, shape);
+    });
   }
-
 }

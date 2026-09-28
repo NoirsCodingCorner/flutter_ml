@@ -7,7 +7,7 @@ import 'tensor_gpu.dart';
 
 import '../gpu_version/ffi/OpCodes.dart';
 import '../gpu_version/ffi/commandBuffer.dart';
-import '../gpu_version/ffi/cudaEngine.dart';
+import '../gpu_version/ffi/GPUEngine.dart';
 
 
 Tensor<T> encapsulateGPUGraph<T>(

@@ -1,4 +1,4 @@
-import 'package:flutter_ml/full_library.dart';
+import '/full_library.dart';
 
 /// Sequential aid for constructing models to run.
 /// The Sequential Model wraps a list of [TapeLayer]s to manage static graph compilation
@@ -68,7 +68,15 @@ class SeqModel<InputType, OutputType> {
     }
 
     if (lossFunction != null && target != null) {
-      loss = lossFunction!(current as GPUTensor<OutputType>, target!, trainForward);
+      if (current is! GPUTensor<OutputType>) {
+        throw StateError(
+            '[SeqModel Compile Error] Architecture Mismatch:\n'
+                'The Sequential Model expects an output of type GPUTensor<$OutputType> to calculate the loss, '
+                'but the final layer returned a ${current.runtimeType}.\n'
+                'Please ensure the last TapeLayer matches your SeqModel definition.'
+        );
+      }
+      loss = lossFunction!(current, target!, trainForward);
     }
 
     if (loss != null) {
@@ -112,7 +120,15 @@ class SeqModel<InputType, OutputType> {
       current = layers[i].forward(current, inferTape!, <GPUTensor>[]);
     }
 
-    inferResult = current as GPUTensor<OutputType>;
+    if (current is! GPUTensor<OutputType>) {
+      throw StateError(
+          '[SeqModel Inference Error] Architecture Mismatch:\n'
+              'The Sequential Model is defined to return a GPUTensor<$OutputType>, '
+              'but the final layer produced a ${current.runtimeType}.'
+      );
+    }
+
+    inferResult = current;
     return inferResult!;
   }
 

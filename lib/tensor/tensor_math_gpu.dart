@@ -22,8 +22,8 @@ GPUTensor<Matrix> reshapeVectorToMatrixGPU(GPUTensor<Vector> v, int numRows, int
     [v],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'reshapeGPU',
     extraParams: {'numRows': numRows, 'numCols': numCols},
@@ -44,8 +44,8 @@ GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(GPUTensor<Matrix> m, int c, int h, int 
     <GPUTensor>[m],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'reshapeMatrixTo3DGPU',
     cost: 0,
@@ -64,8 +64,8 @@ GPUTensor<Matrix> reshape3DToMatrixGPU(GPUTensor<Tensor3D> t, int rows, int cols
     <GPUTensor>[t],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${t.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(t.gradId);
     },
     opName: 'reshape3DToMatrixGPU',
     cost: 0,
@@ -89,8 +89,8 @@ GPUTensor<Matrix> flatten3DToMatrixGPU(GPUTensor<Tensor3D> t, CommandBuffer tape
     <GPUTensor>[t],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${t.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(t.gradId);
     },
     opName: 'flatten3DToMatrixGPU',
     cost: 0,
@@ -114,8 +114,8 @@ GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex, Comm
     <GPUTensor>[dataset],
         (CommandBuffer bTape) {
       bTape.putInt(OP_STORE_SAMPLE);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${dataset.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(dataset.gradId);
       bTape.putInt(sampleIndex);
     },
     opName: 'loadSampleGPU',
@@ -142,12 +142,12 @@ GPUTensor<T> addGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape,{GPUTe
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'addGPU',
   );
@@ -167,12 +167,12 @@ GPUTensor<Vector> addVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b, Command
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'addVectorGPU',
   );
@@ -197,12 +197,12 @@ GPUTensor<Matrix> addMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, Command
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'add_matrixGPU',
     cost: numRows * numCols,
@@ -228,12 +228,12 @@ GPUTensor<Tensor3D> add3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b, Comma
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'add_3dGPU',
     cost: depth * height * width,
@@ -259,12 +259,12 @@ GPUTensor<T> subtractGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape,{
       // Forward: C = A - B
       // Backward: dA += dC, dB -= dC
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'subtractGPU',
   );
@@ -286,12 +286,12 @@ GPUTensor<Vector> subtractVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b, Co
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'subtractVectorGPU',
     cost: length,
@@ -316,12 +316,12 @@ GPUTensor<Matrix> subtractMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, Co
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'subtractMatrixGPU',
     cost: numRows * numCols,
@@ -347,12 +347,12 @@ GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b, 
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_SUBTRACT_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'subtract3DGPU',
     cost: depth * height * width,
@@ -375,14 +375,14 @@ GPUTensor<T> multiplyGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape,{
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(b.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${b.id}_grad');
+      bTape.putString(b.gradId);
     },
     opName: 'multiplyGPU',
     cost: 1,
@@ -403,14 +403,14 @@ GPUTensor<Scalar> multiplyScalarGPU(GPUTensor<Scalar> a, GPUTensor<Scalar> b, Co
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(b.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${b.id}_grad');
+      bTape.putString(b.gradId);
     },
     opName: 'multiplyScalarGPU',
     cost: 1,
@@ -432,14 +432,14 @@ GPUTensor<Vector> elementWiseMultiplyGPU(GPUTensor<Vector> a, GPUTensor<Vector> 
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(b.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${b.id}_grad');
+      bTape.putString(b.gradId);
     },
     opName: 'elementWiseMultiplyGPU',
     cost: 1,
@@ -465,14 +465,14 @@ GPUTensor<Tensor3D> elementWiseMultiply3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Te
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(b.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${b.id}_grad');
+      bTape.putString(b.gradId);
     },
     opName: 'multiply_3dGPU',
     cost: depth * height * width,
@@ -497,14 +497,14 @@ GPUTensor<Matrix> elementWiseMultiplyMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Ma
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(b.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
 
       bTape.putInt(OP_MULTIPLY_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${b.id}_grad');
+      bTape.putString(b.gradId);
     },
     opName: 'multiply_matrixGPU',
     cost: numRows * numCols,
@@ -530,9 +530,9 @@ GPUTensor<T> divideGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape,{GP
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'divideGPU',
   );
@@ -556,9 +556,9 @@ GPUTensor<Vector> divideVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b, Comm
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'divideVectorGPU',
     cost: length,
@@ -585,9 +585,9 @@ GPUTensor<Matrix> divideMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, Comm
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'divideMatrixGPU',
     cost: numRows * numCols,
@@ -615,9 +615,9 @@ GPUTensor<Tensor3D> divide3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b, Co
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'divide3DGPU',
     cost: depth * height * width,
@@ -664,9 +664,9 @@ GPUTensor<T> absGPU<T>(GPUTensor<T> a, CommandBuffer tape,{GPUTensor<T>? outTens
     <GPUTensor>[a],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ABS_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
     },
     opName: 'absGPU',
   );
@@ -687,9 +687,9 @@ GPUTensor<T> sqrtGPU<T>(GPUTensor<T> a, CommandBuffer tape,{GPUTensor<T>? outTen
         (CommandBuffer bTape) {
       // Sqrt backward optimizes perfectly by passing the OUT data instead of IN
       bTape.putInt(OP_SQRT_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(out.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
     },
     opName: 'sqrtGPU',
   );
@@ -709,9 +709,9 @@ GPUTensor<T> logGPU<T>(GPUTensor<T> a, CommandBuffer tape,{GPUTensor<T>? outTens
     <GPUTensor>[a],
         (CommandBuffer bTape) {
       bTape.putInt(OP_LOG_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
     },
     opName: 'logGPU',
   );
@@ -732,9 +732,9 @@ GPUTensor<T> powGPU<T>(GPUTensor<T> a, double exponent, CommandBuffer tape,{GPUT
     <GPUTensor>[a],
         (CommandBuffer bTape) {
       bTape.putInt(OP_POW_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
       bTape.putFloat(exponent);
     },
     opName: 'powGPU',
@@ -757,9 +757,9 @@ GPUTensor<T> clampGPU<T>(GPUTensor<T> a, double minVal, double maxVal, CommandBu
     <GPUTensor>[a],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CLAMP_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(a.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
       bTape.putFloat(minVal);
       bTape.putFloat(maxVal);
     },
@@ -799,9 +799,9 @@ GPUTensor<Matrix> matMulGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, CommandBuf
     <GPUTensor>[a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MATMUL);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(b.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
       bTape.putBool(false);
       bTape.putBool(true);
       bTape.putFloat(1.0);
@@ -810,8 +810,8 @@ GPUTensor<Matrix> matMulGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b, CommandBuf
 
       bTape.putInt(OP_MATMUL);
       bTape.putString(a.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
       bTape.putBool(true);
       bTape.putBool(false);
       bTape.putFloat(1.0);
@@ -845,9 +845,9 @@ GPUTensor<Vector> matVecMulGPU(GPUTensor<Matrix> mMat, GPUTensor<Vector> v, Comm
     [mMat, v],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MATMUL);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(v.id);
-      bTape.putString('${mMat.id}_grad');
+      bTape.putString(mMat.gradId);
       bTape.putBool(false);
       bTape.putBool(true);
       bTape.putFloat(1.0);
@@ -856,8 +856,8 @@ GPUTensor<Vector> matVecMulGPU(GPUTensor<Matrix> mMat, GPUTensor<Vector> v, Comm
 
       bTape.putInt(OP_MATMUL);
       bTape.putString(mMat.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
       bTape.putBool(true);
       bTape.putBool(false);
       bTape.putFloat(1.0);
@@ -888,12 +888,12 @@ GPUTensor<Matrix> transposeGPU(GPUTensor<Matrix> a, CommandBuffer tape,{GPUTenso
     [a],
         (CommandBuffer bTape) {
       bTape.putInt(OP_TRANSPOSE);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(tmpGrad.id);
 
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(tmpGrad.id);
-      bTape.putString('${a.id}_grad');
+      bTape.putString(a.gradId);
     },
     opName: 'transposeGPU',
     extraParams: {'tmpGrad': tmpGrad},
@@ -919,12 +919,12 @@ GPUTensor<Matrix> addMatrixAndVectorGPU(GPUTensor<Matrix> m, GPUTensor<Vector> v
     [m, v],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
 
       bTape.putInt(OP_SUM_REDUCE_COLUMNS);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'addMatrixAndVectorGPU',
     cost: numRows * numCols,
@@ -950,12 +950,12 @@ GPUTensor<Matrix> addScalarMatrixGPU(GPUTensor<Matrix> m, GPUTensor<Scalar> b, C
     <GPUTensor>[m, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
 
       bTape.putInt(OP_SUM_REDUCE);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'addScalarToMatrixGPU',
     cost: rows * cols,
@@ -978,8 +978,8 @@ GPUTensor<Vector> addScalarVectorGPU(GPUTensor<Vector> v, double scalar, Command
         (CommandBuffer bTape) {
       // The derivative of (x + c) is 1, so the gradient passes directly through
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'addScalarVectorGPU',
     cost: length,
@@ -1003,8 +1003,8 @@ GPUTensor<Tensor3D> addScalar3DGPU(GPUTensor<Tensor3D> t, double scalar, Command
     <GPUTensor>[t],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${t.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(t.gradId);
     },
     opName: 'addScalar3DGPU',
     cost: depth * height * width,
@@ -1030,12 +1030,12 @@ GPUTensor<Matrix> addBiasToFeatureMapGPU(GPUTensor<Matrix> m, GPUTensor<Matrix> 
     <GPUTensor>[m, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
 
       bTape.putInt(OP_SUM_REDUCE);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'addBiasToFeatureMapGPU',
     cost: rows * cols,
@@ -1059,13 +1059,13 @@ GPUTensor<Matrix> addBiasToMatMulOutGPU(GPUTensor<Matrix> m, GPUTensor<Vector> b
     <GPUTensor>[m, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
 
       // FIXED: Sum across columns to isolate the row biases!
       bTape.putInt(OP_SUM_REDUCE_ROWS);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'addBiasToMatMulOutGPU',
     cost: rows * cols,
@@ -1110,8 +1110,8 @@ GPUTensor<Matrix> scaleMatrixGPU(GPUTensor<Matrix> m, double s, CommandBuffer ta
     [m],
         (CommandBuffer bTape) {
       bTape.putInt(OP_SCALE_MATRIX_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
       bTape.putFloat(s);
     },
     opName: 'scaleMatrixGPU',
@@ -1139,8 +1139,8 @@ GPUTensor<Vector> reluGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTensor<Vec
         (CommandBuffer bTape) {
       bTape.putInt(OP_RELU_BACKWARD);
       bTape.putString(v.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'reluGPU',
     cost: v.shape[0],
@@ -1164,8 +1164,8 @@ GPUTensor<Matrix> reluMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUTens
         (CommandBuffer bTape) {
       bTape.putInt(OP_RELU_BACKWARD);
       bTape.putString(m.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'relu_matrixGPU',
     cost: numRows * numCols,
@@ -1187,8 +1187,8 @@ GPUTensor<T> sigmoidScalarGPU<T>(GPUTensor<T> s, CommandBuffer tape,{GPUTensor<T
         (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${s.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(s.gradId);
     },
     opName: 'sigmoidScalarGPU',
     cost: 1,
@@ -1209,8 +1209,8 @@ GPUTensor<Vector> sigmoidGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTensor<
         (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'sigmoidGPU',
     cost: v.shape[0],
@@ -1234,8 +1234,8 @@ GPUTensor<Matrix> sigmoidMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUT
         (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'sigmoid_matrixGPU',
     cost: numRows * numCols,
@@ -1273,8 +1273,8 @@ GPUTensor<Tensor3D> sigmoid3DGPU(GPUTensor<Tensor3D> t, CommandBuffer tape,{GPUT
         (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${t.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(t.gradId);
     },
     opName: 'sigmoid_3dGPU',
     cost: depth * height * width,
@@ -1322,8 +1322,8 @@ GPUTensor<Matrix> tanhMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUTens
         (CommandBuffer bTape) {
       bTape.putInt(OP_TANH_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'tanh_matrixGPU',
     cost: numRows * numCols,
@@ -1361,8 +1361,8 @@ GPUTensor<Tensor3D> tanh3DGPU(GPUTensor<Tensor3D> t, CommandBuffer tape,{GPUTens
         (CommandBuffer bTape) {
       bTape.putInt(OP_TANH_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${t.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(t.gradId);
     },
     opName: 'tanh_3dGPU',
     cost: depth * height * width,
@@ -1390,8 +1390,8 @@ GPUTensor<Vector> geluGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTensor<Vec
         (CommandBuffer bTape) {
       bTape.putInt(OP_GELU_BACKWARD);
       bTape.putString(v.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'geluGPU',
     cost: n,
@@ -1424,8 +1424,8 @@ GPUTensor<Matrix> geluMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUTens
         (CommandBuffer bTape) {
       bTape.putInt(OP_GELU_BACKWARD);
       bTape.putString(m.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'gelu_matrixGPU',
     cost: numRows * numCols,
@@ -1449,9 +1449,9 @@ GPUTensor<Matrix> softmaxMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUT
     [m],
         (CommandBuffer bTape) {
       bTape.putInt(OP_SOFTMAX_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(out.id);
-      bTape.putString('${m.id}_grad');
+      bTape.putString(m.gradId);
     },
     opName: 'softmax_matrixGPU',
     cost: numRows * numCols * 3,
@@ -1479,10 +1479,10 @@ GPUTensor<Scalar> binaryCrossEntropyGPU<T>(GPUTensor<T> prediction, GPUTensor<T>
         (CommandBuffer bTape) {
       bTape.putInt(OP_BCE_LOSS_BACKWARD);
       // CORRECT ORDER to match C++ bindings
-      bTape.putString('${out.id}_grad');         // 1. Incoming grad (1.0)
+      bTape.putString(out.gradId);         // 1. Incoming grad (1.0)
       bTape.putString(prediction.id);            // 2. Prediction
       bTape.putString(target.id);                // 3. Target
-      bTape.putString('${prediction.id}_grad');  // 4. Destination for the gradient
+      bTape.putString(prediction.gradId);  // 4. Destination for the gradient
     },
     opName: 'binaryCrossEntropyGPU',
     cost: 1,
@@ -1504,10 +1504,10 @@ GPUTensor<Scalar> mseGPU(GPUTensor<Vector> predictions, GPUTensor<Vector> target
         (CommandBuffer bTape) {
       bTape.putInt(OP_MSE_LOSS_BACKWARD);
       // CORRECT ORDER:
-      bTape.putString('${out.id}_grad');         // 1. gradOut
+      bTape.putString(out.gradId);         // 1. gradOut
       bTape.putString(predictions.id);           // 2. namePred
       bTape.putString(targets.id);               // 3. nameTarget
-      bTape.putString('${predictions.id}_grad');  // 4. gradIn
+      bTape.putString(predictions.gradId);  // 4. gradIn
     },
     opName: 'mseGPU',
     cost: 3 * predictions.shape[0],
@@ -1531,10 +1531,10 @@ GPUTensor<Scalar> mseMatrixGPU(GPUTensor<Matrix> predictions, GPUTensor<Matrix> 
     [predictions, targets],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MSE_LOSS_BACKWARD);
-      bTape.putString('${out.id}_grad');          // 1. gradOut (Der Skalar 1.0)
+      bTape.putString(out.gradId);          // 1. gradOut (Der Skalar 1.0)
       bTape.putString(predictions.id);            // 2. Prediction
       bTape.putString(targets.id);                // 3. Target
-      bTape.putString('${predictions.id}_grad');  // 4. gradIn (Ziel für das Update)
+      bTape.putString(predictions.gradId);  // 4. gradIn (Ziel für das Update)
     },
     opName: 'mse_matrixGPU',
     cost: 3 * numRows * numCols,
@@ -1552,7 +1552,7 @@ GPUTensor<Scalar> mseMatrixGPU(GPUTensor<Matrix> predictions, GPUTensor<Matrix> 
 void sgdUpdateGPU(GPUTensor<dynamic> data, double lr, CommandBuffer tape) {
   tape.putInt(OP_SGD_UPDATE);
   tape.putString(data.id);
-  tape.putString('${data.id}_grad'); // Automatically grab the implicit VRAM grad pointer
+  tape.putString(data.gradId); // Automatically grab the implicit VRAM grad pointer
   tape.putFloat(lr);
 }
 /// Performs an in place update of the provided [data] values via the adam function and its assigned gradient.
@@ -1572,7 +1572,7 @@ void adamUpdateGPU(
 
   tape.putInt(OP_ADAM_UPDATE);
   tape.putString(data.id);
-  tape.putString('${data.id}_grad');
+  tape.putString(data.gradId);
   tape.putString(m.id);
   tape.putString(v.id);
   tape.putFloat(lr);
@@ -1588,7 +1588,7 @@ void adamUpdateGPU(
 void clipGradValueGPU(GPUTensor<dynamic> tensor, double clipValue, CommandBuffer tape) {
   tape.putInt(OP_CLIP_GRAD_VALUE);
   // Usually applied directly to the gradients before the optimizer step
-  tape.putString('${tensor.id}_grad');
+  tape.putString(tensor.gradId);
   tape.putFloat(clipValue);
 }
 
@@ -1609,8 +1609,8 @@ GPUTensor<Scalar> sumGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTensor<Scal
     [v],
         (CommandBuffer bTape) {
       bTape.putInt(OP_SUM_REDUCE_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${v.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'sum_vectorGPU',
     cost: N,
@@ -1633,8 +1633,8 @@ GPUTensor<Scalar> sumMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUTenso
     [m],
         (CommandBuffer bTape) {
       bTape.putInt(OP_SUM_REDUCE_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'sum_matrixGPU',
     cost: numRows * numCols,
@@ -1661,9 +1661,9 @@ GPUTensor<Matrix> embeddingLookupGPU(GPUTensor<Vector> indices, GPUTensor<Matrix
     [weights],
         (CommandBuffer bTape) {
       bTape.putInt(OP_EMBEDDING_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(indices.id);
-      bTape.putString('${weights.id}_grad');
+      bTape.putString(weights.gradId);
     },
     opName: 'embedding_lookup_gpu',
     cost: numIndices * embeddingDim,
@@ -1691,9 +1691,9 @@ GPUTensor<Tensor3D> embeddingLookupBatchGPU(GPUTensor<Matrix> batchIndices, GPUT
     [weights],
         (CommandBuffer bTape) {
       bTape.putInt(OP_EMBEDDING_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(batchIndices.id);
-      bTape.putString('${weights.id}_grad');
+      bTape.putString(weights.gradId);
     },
     opName: 'embedding_lookup_batch_gpu',
     cost: batchSize * sequenceLength * embeddingDim,
@@ -1719,9 +1719,9 @@ GPUTensor<Vector> sumReduceColumnsGPU(GPUTensor<Matrix> m, CommandBuffer tape,{G
         (CommandBuffer bTape) {
       // The backward pass of reducing columns is broadcasting the gradient back
       bTape.putInt(OP_BROADCAST_ADD);
-      bTape.putString('${m.id}_grad');
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(m.gradId);
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'sumReduceColumnsGPU',
   );
@@ -1744,9 +1744,9 @@ GPUTensor<Vector> sumReduceRowsGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUT
     <GPUTensor>[m],
         (CommandBuffer bTape) {
       bTape.putInt(OP_BROADCAST_ADD);
-      bTape.putString('${m.id}_grad');
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(m.gradId);
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
     },
     opName: 'sumReduceRowsGPU',
   );
@@ -1778,8 +1778,8 @@ GPUTensor<Matrix> sliceColumnGPU(GPUTensor<Matrix> input, int startCol, int endC
     [input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_SLICE_COLUMN_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${input.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(input.gradId);
       bTape.putInt(startCol);
       bTape.putInt(endCol);
     },
@@ -1805,8 +1805,8 @@ GPUTensor<Vector> selectRowGPU(GPUTensor<Matrix> m, int rowIndex, CommandBuffer 
     [m],
         (CommandBuffer bTape) {
       bTape.putInt(OP_SLICE_ROW_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${m.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(m.gradId);
       bTape.putInt(rowIndex);
     },
     opName: 'selectRowGPU',
@@ -1839,8 +1839,8 @@ GPUTensor<Matrix> selectMatrixFrom3DGPU(
     <GPUTensor>[t],
         (CommandBuffer backwardTape) {
       backwardTape.putInt(OP_SLICE_ROW_BACKWARD);
-      backwardTape.putString('${out.id}_grad');
-      backwardTape.putString('${t.id}_grad');
+      backwardTape.putString(out.gradId);
+      backwardTape.putString(t.gradId);
       // FIX: inCols entfernt!
       backwardTape.putInt(index);
     },
@@ -1917,9 +1917,9 @@ GPUTensor<Matrix> concatenateMatricesByColumnGPU(List<GPUTensor<Matrix>> matrice
       <GPUTensor>[a, b],
           (CommandBuffer bTape) {
         bTape.putInt(OP_CONCATENATE_BACKWARD);
-        bTape.putString('${out.id}_grad');
-        bTape.putString('${a.id}_grad');
-        bTape.putString('${b.id}_grad');
+        bTape.putString(out.gradId);
+        bTape.putString(a.gradId);
+        bTape.putString(b.gradId);
         bTape.putInt(1);
         bTape.putInt(colsA);
       },
@@ -1958,9 +1958,9 @@ GPUTensor<Tensor3D> concatenate3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> 
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CONCATENATE_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${a.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
+      bTape.putString(b.gradId);
       bTape.putInt(0);
       bTape.putInt(aDepth);
     },
@@ -1993,10 +1993,10 @@ GPUTensor<Tensor3D> stackMatricesGPU(List<GPUTensor<Matrix>> matrices, CommandBu
     <GPUTensor>[...matrices],
         (CommandBuffer bTape) {
       bTape.putInt(OP_STACK_ROWS_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putInt(count);
       for (int i = 0; i < count; i = i + 1) {
-        bTape.putString('${matrices[i].id}_grad');
+        bTape.putString(matrices[i].gradId);
       }
       bTape.putInt(0);
     },
@@ -2038,8 +2038,8 @@ GPUTensor<Matrix> scatterHeadsGPU(List<GPUTensor<Matrix>> heads, int dModel, Com
         int endCol = startCol + dHead;
 
         bTape.putInt(OP_SLICE_COLUMN);
-        bTape.putString('${out.id}_grad');
-        bTape.putString('${heads[i].id}_grad');
+        bTape.putString(out.gradId);
+        bTape.putString(heads[i].gradId);
         bTape.putInt(startCol);
         bTape.putInt(endCol);
       }
@@ -2072,8 +2072,8 @@ GPUTensor<Matrix> padMatrixGPU(GPUTensor<Matrix> input, int padSize, CommandBuff
     [input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_PAD2D_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${input.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(input.gradId);
       bTape.putInt(padSize);
       bTape.putInt(padSize);
       bTape.putInt(padSize);
@@ -2145,9 +2145,9 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
     <GPUTensor>[input, weight, bias],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CONV2D_MULTI_BACKWARD_INPUT);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(weight.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
       bTape.putInt(inChannels);
       bTape.putInt(outChannels);
       bTape.putInt(kH);
@@ -2159,9 +2159,9 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
 
       bTape.putInt(OP_CONV2D_MULTI_BACKWARD_WEIGHT);
       bTape.putString(input.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${weight.id}_grad');
-      bTape.putString('${bias.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(weight.gradId);
+      bTape.putString(bias.gradId);
       bTape.putInt(inChannels);
       bTape.putInt(outChannels);
       bTape.putInt(kH);
@@ -2206,14 +2206,14 @@ GPUTensor<Matrix> conv2dSimpleGPU(
     <GPUTensor>[input, kernel],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CONV2D_BACKWARD_INPUT);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(kernel.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
 
       bTape.putInt(OP_CONV2D_BACKWARD_KERNEL);
       bTape.putString(input.id);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${kernel.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(kernel.gradId);
     },
     opName: 'conv2dSimpleGPU',
     cost: outH * outW * kH * kW,
@@ -2248,8 +2248,8 @@ GPUTensor<Matrix> im2colGPU(GPUTensor<dynamic> input, int kH, int kW, CommandBuf
     <GPUTensor>[input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_COL2IM);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${input.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(input.gradId);
       bTape.putInt(kH);
       bTape.putInt(kW);
     },
@@ -2281,9 +2281,9 @@ GPUTensor<Vector> maxPool1dGPU(GPUTensor<Vector> input, int poolSize, int stride
     [input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MAX_POOL_1D_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(indices.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
     },
     opName: 'maxPool1dGPU',
     cost: inputSize,
@@ -2315,9 +2315,9 @@ GPUTensor<Matrix> maxPool2dGPU(GPUTensor<Matrix> input, int poolSize, int stride
     [input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_MAX_POOL_2D_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(indices.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
     },
     opName: 'maxPool2dGPU',
     cost: inputHeight * inputWidth,
@@ -2354,8 +2354,8 @@ GPUTensor<Matrix> avgPool2dGPU(
     <GPUTensor>[input],
         (CommandBuffer backwardTape) {
       backwardTape.putInt(OP_AVG_POOL_2D_BACKWARD);
-      backwardTape.putString('${out.id}_grad');
-      backwardTape.putString('${input.id}_grad');
+      backwardTape.putString(out.gradId);
+      backwardTape.putString(input.gradId);
       backwardTape.putInt(poolSize);
       backwardTape.putInt(stride);
     },
@@ -2385,8 +2385,8 @@ GPUTensor<Vector> globalAveragePoolingGPU(
     <GPUTensor>[input],
         (CommandBuffer backwardTape) {
       backwardTape.putInt(OP_GLOBAL_AVG_POOL_BACKWARD);
-      backwardTape.putString('${out.id}_grad');
-      backwardTape.putString('${input.id}_grad');
+      backwardTape.putString(out.gradId);
+      backwardTape.putString(input.gradId);
     },
     opName: 'global_avg_pool_gpu',
   );
@@ -2434,14 +2434,14 @@ GPUTensor<Vector> batchNorm1dGPU(
     [input, gamma, beta],
         (CommandBuffer bTape) {
       bTape.putInt(OP_BATCH_NORM_1D_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(input.id);
       bTape.putString(gamma.id);
       bTape.putString(savedMean.id);
       bTape.putString(savedInvVar.id);
-      bTape.putString('${input.id}_grad');
-      bTape.putString('${gamma.id}_grad');
-      bTape.putString('${beta.id}_grad');
+      bTape.putString(input.gradId);
+      bTape.putString(gamma.gradId);
+      bTape.putString(beta.gradId);
     },
     opName: 'batchNorm1dGPU',
     cost: numFeatures * 4,
@@ -2493,14 +2493,14 @@ GPUTensor<Tensor3D> batchNorm2dGPU(
     [input, gamma, beta],
         (CommandBuffer bTape) {
       bTape.putInt(OP_BATCH_NORM_2D_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(input.id);
       bTape.putString(gamma.id);
       bTape.putString(savedMean.id);
       bTape.putString(savedInvVar.id);
-      bTape.putString('${input.id}_grad');
-      bTape.putString('${gamma.id}_grad');
-      bTape.putString('${beta.id}_grad');
+      bTape.putString(input.gradId);
+      bTape.putString(gamma.gradId);
+      bTape.putString(beta.gradId);
     },
     opName: 'batchNorm2dGPU',
     cost: numChannels * height * width * 4,
@@ -2540,14 +2540,14 @@ GPUTensor<Matrix> layerNormMatrixGPU(
     [m, gamma, beta],
         (CommandBuffer bTape) {
       bTape.putInt(OP_LAYER_NORM_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(m.id);
       bTape.putString(gamma.id);
       bTape.putString(meanCache.id);
       bTape.putString(rstdCache.id);
-      bTape.putString('${m.id}_grad');
-      bTape.putString('${gamma.id}_grad');
-      bTape.putString('${beta.id}_grad');
+      bTape.putString(m.gradId);
+      bTape.putString(gamma.gradId);
+      bTape.putString(beta.gradId);
     },
     opName: 'layerNormMatrixGPU',
     cost: numRows * numCols * 8,
@@ -2583,9 +2583,9 @@ GPUTensor<T> dropoutGPU<T>(GPUTensor<T> input, double rate, CommandBuffer tape,{
     <GPUTensor>[input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_DROPOUT_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(mask.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
     },
     opName: 'dropout_gpu',
     cost: elementCount * 2,
@@ -2715,13 +2715,13 @@ GPUTensor<Matrix> matMulBiasReluGPU(
         (CommandBuffer bTape) {
       bTape.putInt(OP_RELU_BACKWARD);
       bTape.putString(preReluOut.id);
-      bTape.putString('${reluOut.id}_grad');
-      bTape.putString('${preReluOut.id}_grad');
+      bTape.putString(reluOut.gradId);
+      bTape.putString(preReluOut.gradId);
 
       bTape.putInt(OP_MATMUL);
       bTape.putString(x.id);
-      bTape.putString('${preReluOut.id}_grad');
-      bTape.putString('${w.id}_grad');
+      bTape.putString(preReluOut.gradId);
+      bTape.putString(w.gradId);
       bTape.putBool(true);
       bTape.putBool(false);
       bTape.putFloat(1.0);
@@ -2729,9 +2729,9 @@ GPUTensor<Matrix> matMulBiasReluGPU(
       bTape.putBool(true); // Tensor Cores ON
 
       bTape.putInt(OP_MATMUL);
-      bTape.putString('${preReluOut.id}_grad');
+      bTape.putString(preReluOut.gradId);
       bTape.putString(w.id);
-      bTape.putString('${x.id}_grad');
+      bTape.putString(x.gradId);
       bTape.putBool(false);
       bTape.putBool(true);
       bTape.putFloat(1.0);
@@ -2739,8 +2739,8 @@ GPUTensor<Matrix> matMulBiasReluGPU(
       bTape.putBool(true); // Tensor Cores ON
 
       bTape.putInt(OP_SUM_REDUCE_COLUMNS);
-      bTape.putString('${preReluOut.id}_grad');
-      bTape.putString('${b.id}_grad');
+      bTape.putString(preReluOut.gradId);
+      bTape.putString(b.gradId);
     },
     opName: 'matMulBiasReluGPU',
     cost: cost,
@@ -2847,7 +2847,7 @@ GPUTensor<Matrix> rmsNormMatrixGPU(
 
   if (weight != null) {
     weightId = weight.id;
-    weightGradId = '${weight.id}_grad';
+    weightGradId = weight.gradId;
   }
 
   tape.putInt(OP_RMS_NORM_FORWARD);
@@ -2867,11 +2867,11 @@ GPUTensor<Matrix> rmsNormMatrixGPU(
     inputs,
         (CommandBuffer bTape) {
       bTape.putInt(OP_RMS_NORM_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(input.id);
       bTape.putString(weightId);
       bTape.putString(rstdCache.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
       bTape.putString(weightGradId);
       bTape.putBool(scalePlusOne);
     },
@@ -2910,8 +2910,8 @@ GPUTensor<Tensor3D> causalMaskGPU(
     <GPUTensor>[input],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CAUSAL_MASK_BACKWARD);
-      bTape.putString('${out.id}_grad');
-      bTape.putString('${input.id}_grad');
+      bTape.putString(out.gradId);
+      bTape.putString(input.gradId);
       bTape.putInt(batchSize);
       bTape.putInt(numHeads);
       bTape.putInt(seqLen);
@@ -2956,10 +2956,10 @@ GPUTensor<Tensor3D> applyRopeGPU(
     <GPUTensor>[input, cosTable, sinTable],
         (CommandBuffer bTape) {
       bTape.putInt(OP_ROPE_BACKWARD);
-      bTape.putString('${out.id}_grad');
+      bTape.putString(out.gradId);
       bTape.putString(cosTable.id);
       bTape.putString(sinTable.id);
-      bTape.putString('${input.id}_grad');
+      bTape.putString(input.gradId);
       bTape.putInt(batchSize);
       bTape.putInt(seqLen);
       bTape.putInt(numHeads);
@@ -2994,10 +2994,10 @@ GPUTensor<Vector> crossEntropyLossGPU(
     <GPUTensor>[logits, targets],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CROSS_ENTROPY_BACKWARD);
-      bTape.putString('${outLoss.id}_grad');
+      bTape.putString(outLoss.gradId);
       bTape.putString(logits.id);
       bTape.putString(targets.id);
-      bTape.putString('${logits.id}_grad');
+      bTape.putString(logits.gradId);
     },
     opName: 'crossEntropyLossGPU',
     cost: batchSize * vocabSize,

@@ -25,7 +25,7 @@ export 'transformerEncoderBlockTapeLayer.dart';
 
 
 
-import 'package:flutter_ml/cpu_version/cpu_version.dart';
+import '/cpu_version/cpu_version.dart';
 
 import '/tensor/tensor_gpu.dart';
 import '../ffi/commandBuffer.dart';

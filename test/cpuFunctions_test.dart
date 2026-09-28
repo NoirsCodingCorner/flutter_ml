@@ -1,4 +1,4 @@
-import 'package:flutter_ml/full_library.dart';
+import 'package:flutter_ml_web_gpu/full_library.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -1,4 +1,3 @@
-// logger.dart
 import 'dart:io';
 
 class Logger {
@@ -16,7 +15,6 @@ class Logger {
         String prefix = 'ℹ️',
         String color  = _cyan,
       }) {
-    // The timestamp has been removed.
     stdout.writeln('$color$prefix $message$_reset');
   }
 

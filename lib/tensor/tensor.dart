@@ -1,6 +1,6 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
-import 'package:flutter_ml/tensor/type_Aliases.dart';
+import '/tensor/type_Aliases.dart';
 import '../tensor/tensor_gpu.dart';
 import 'dart:typed_data';
 import '../logger.dart';

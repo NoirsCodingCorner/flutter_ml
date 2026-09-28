@@ -2,10 +2,10 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_ml/gpu_version/ffi/cudaEngine.dart';
-import 'package:flutter_ml/speedtest.dart';
+import 'package:flutter_ml_web_gpu/gpu_version/ffi/GPUEngine.dart';
+import 'package:flutter_ml_web_gpu/speedtest.dart';
 
-import 'full_library.dart';
+import '../lib/full_library.dart';
 /*
 void main() {
   runApp(MaterialApp(home: SimpleGPUApp()));
@@ -1435,9 +1435,9 @@ class SimpleGPUApp extends StatelessWidget {
 */
 
 
-import 'gpu_version/SeqModel.dart';
-import 'gpu_version/optimizer/adam.dart';
-import 'logger.dart';
+import '../lib/gpu_version/SeqModel.dart';
+import '../lib/gpu_version/optimizer/adam.dart';
+import '../lib/logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

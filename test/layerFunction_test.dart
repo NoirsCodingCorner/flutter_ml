@@ -4,7 +4,7 @@ import 'dart:math';
 
 import 'package:flutter_ml_web_gpu/full_library.dart';
 import 'package:flutter_ml_web_gpu/gpu_version/SeqModel.dart';
-import 'package:flutter_ml_web_gpu/gpu_version/ffi/cudaEngine.dart';
+import 'package:flutter_ml_web_gpu/gpu_version/ffi/GPUEngine.dart';
 import 'package:flutter_ml_web_gpu/gpu_version/optimizer/adam.dart';
 import 'package:flutter_ml_web_gpu/logger.dart';
 import 'package:flutter_test/flutter_test.dart';

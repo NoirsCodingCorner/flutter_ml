@@ -2,15 +2,14 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
+import '/full_library.dart';
 
 /// Targeted device architecture
-enum Target {
+enum Target{
   android_arm64,
   android_x86_64,
-  cuda,
-  auto // Added a recommended 'auto' option
+  cuda
 }
-
 /// FFI- Binding for creating a tensor on the GPU
 typedef NativeCreate   = Int64 Function(Bool);
 typedef DartCreate     = int Function(bool);
@@ -35,7 +34,7 @@ typedef DartRun        = void Function(int, Pointer<Uint8>, int);
 typedef NativeFreeT    = Void Function(Int64, Pointer<Utf8>);
 typedef DartFreeT      = void Function(int, Pointer<Utf8>);
 
-/// FFI- Binding for retrieving the ids of all tensors currently on the GPU.
+/// FFI- Binding for retrieving the ids of all tensors currently on the GPU. This creates a List of Strings that is stored in the backend and has to be deleted again
 typedef NativeGetNames = Pointer<Utf8> Function(Int64);
 typedef DartGetNames   = Pointer<Utf8> Function(int);
 
@@ -43,7 +42,7 @@ typedef DartGetNames   = Pointer<Utf8> Function(int);
 typedef NativeFreeStr  = Void Function(Pointer<Utf8>);
 typedef DartFreeStr    = void Function(Pointer<Utf8>);
 
-/// FFI- Advanced operation to allow direct pointer access.
+/// FFI- Advanced operation to allow direct pointer access. Adds the content of a source content into a destination pointer with a given length
 typedef NativeAddPointers = Void Function(Pointer<Float>, Pointer<Float>, Int32);
 typedef DartAddPointers   = void Function(Pointer<Float>, Pointer<Float>, int);
 
@@ -52,7 +51,14 @@ typedef NativeInitRandom = Void Function(Int64, Pointer<Utf8>, Float, Int32);
 typedef DartInitRandom   = void Function(int, Pointer<Utf8>, double, int);
 
 
+
 /// The Cuda Engine in responsible for communication with the native runtimes as well as managing the communication between dart and its native FFI-bindings.
+/// In order to use the GPU acceleration, at the very beginning of the program it is required to call [initialize] with the [Target] provided to load the relevant binary.
+/// This class is to be used globally as a sole instance of communication and data transfer.
+/// Its [handle] acts as the id of the native executor instance. If there is currently no instance running this value will be 0.
+/// Currently supported are WebGPU with `android_arm64`, `android_x86_64` and `cuda`from version 1.12.1 (2026-09).
+/// Use [dispose] to delete the currently running instance of GPUEngine and free all memory again.
+
 class GPUEngine {
 
   /// Id of the currently running GPUEngine. If its value is 0, no engine is running.
@@ -69,64 +75,41 @@ class GPUEngine {
   static late DartAddPointers _addPointers;
   static late DartInitRandom  _initRandom;
 
-  /// Initialises the [GPUEngine].
-  /// [debug] enables full printout of every interaction for in debugging.
-  static Future<void> initialize({bool debug = false, Target target = Target.auto}) async {
+  /// Initialises the [GPUEngine]. If no target platform is provided initialising with `cuda` is attempted.
+  /// [debug] enables full printout of every interaction for in debugging. Initialize has to be called at least once before using the GPUEngine.
+  static Future<void> initialize({bool debug = false, Target target = Target.cuda}) async {
     String libName = "";
 
-    // 1. Resolve Library Name based on Platform & Target
-    if (Platform.isAndroid) {
-      if (target == Target.android_arm64) {
-        libName = "libandroid_arm64.so";
-      } else if (target == Target.android_x86_64) {
-        libName = "libandroid_x86_64.so";
-      } else {
-        libName = "libandroid_arm64.so";
-      }
-    } else if (Platform.isWindows) {
+    if (target == Target.cuda) {
       libName = "cuda_executor.dll";
-    } else if (Platform.isLinux) {
-      libName = "libcuda_executor.so";
-    } else {
-      throw UnsupportedError("GPUEngine currently only supports Android, Windows, and Linux.");
+    } else if (target == Target.android_arm64) {
+      libName = "libandroid_arm64.so";
+    } else if (target == Target.android_x86_64) {
+      libName = "libandroid_x86_64.so";
     }
 
     DynamicLibrary dylib;
 
-    // 2. Open Library
     try {
-      dylib = DynamicLibrary.open(libName);
-      print("GPUEngine: Successfully loaded $libName backend via standard OS paths.");
-    } catch (e) {
-      // 3. Fallback for Local Development & Testing
-      print("Standard load failed, attempting local path fallback for testing...");
-      try {
+      if (Platform.isAndroid) {
+        dylib = DynamicLibrary.open(libName);
+      } else {
+        // WINDOWS / DESKTOP
+        // resolvePackageUri funktioniert nicht in Flutter Windows.
+        // Baut den absoluten Pfad ausgehend vom Projekt-Stammverzeichnis auf.
         String currentPath = Directory.current.path;
+        String dllPath = "$currentPath\\lib\\gpu_version\\ffi\\runfiles\\$libName";
 
-        if (currentPath.endsWith('example') || currentPath.endsWith('example\\') || currentPath.endsWith('example/')) {
-          currentPath = Directory(currentPath).parent.path;
-        }
-
-        String fallbackPath = "";
-        if (Platform.isWindows) {
-          fallbackPath = "$currentPath\\windows\\bin\\$libName";
-        } else if (Platform.isLinux) {
-          fallbackPath = "$currentPath/linux/bin/$libName";
-        } else {
-          fallbackPath = "$currentPath/android/src/main/jniLibs/arm64-v8a/$libName";
-        }
-
-        dylib = DynamicLibrary.open(fallbackPath);
-        print("GPUEngine: Successfully loaded via local fallback path.");
-      } catch (fallbackError) {
-        print("CRITICAL FFI ERROR: Failed to open library $libName.");
-        print("Primary Error: $e");
-        print("Fallback Error: $fallbackError");
-        rethrow;
+        dylib = DynamicLibrary.open(dllPath);
       }
+
+      print("GPUEngine: Successfully loaded ${target.name} backend.");
+
+    } catch (e) {
+      print("CRITICAL FFI ERROR: Failed to open library $libName. Error: $e");
+      rethrow;
     }
 
-    // 4. Bind Functions
     _create         = dylib.lookupFunction<NativeCreate, DartCreate>('create_executor');
     _free           = dylib.lookupFunction<NativeFree, DartFree>('free_executor');
     _load           = dylib.lookupFunction<NativeLoad, DartLoad>('load_tensor_h2d');
@@ -141,47 +124,46 @@ class GPUEngine {
     handle = _create(debug);
   }
 
-  /// Allocates and transfers tensor data from host to device (GPU).
+  /// Allocates and transfers tensor data from host to device (GPU). Requires the tensors name, data and shape.
   static void load(String name, Pointer<Float> data, List<int> shape) {
-    Pointer<Utf8>  nName  = name.toNativeUtf8();
-    Pointer<Int32> nShape = calloc<Int32>(shape.length);
-
-    Int32List view = nShape.asTypedList(shape.length);
-    for (int i = 0; i < shape.length; i++) {
-      view[i] = shape[i];
-    }
-
-    _load(handle, nName, data, shape.length, nShape);
-
-    calloc.free(nName);
-    calloc.free(nShape);
+    using((Arena arena) {
+      Pointer<Utf8>  nName  = name.toNativeUtf8(allocator: arena);
+      Pointer<Int32> nShape = arena<Int32>(shape.length);
+      Int32List view = nShape.asTypedList(shape.length);
+      for (int i = 0; i < shape.length; i = i + 1) {
+        view[i] = shape[i];
+      }
+      _load(handle, nName, data, shape.length, nShape);
+    });
   }
 
-  /// Transfers a tensors data from device(GPU) to host.
+  /// Transfers a tensors data from device(GPU) to host. Requires the tensors name and transfer destination.
   static void retrieve(String name, Pointer<Float> destination) {
-    Pointer<Utf8> nName = name.toNativeUtf8();
-    _retrieve(handle, nName, destination);
-    calloc.free(nName);
+    using((Arena arena) {
+      Pointer<Utf8> nName = name.toNativeUtf8(allocator: arena);
+      _retrieve(handle, nName, destination);
+    });
   }
 
-  /// Passes a compiled [CommandBuffer] tape to the native engine and executes it.
+  /// Passes a compiled [CommandBuffer] tape to the native engine and executes it. Bytes are copied into memory before dispatch.
   static void run(Uint8List tapeBytes) {
-    Pointer<Uint8> nTape = calloc<Uint8>(tapeBytes.length);
-    Uint8List      view  = nTape.asTypedList(tapeBytes.length);
+    using((Arena arena) {
+      Pointer<Uint8> nTape = arena<Uint8>(tapeBytes.length);
+      Uint8List view = nTape.asTypedList(tapeBytes.length);
 
-    for (int i = 0; i < tapeBytes.length; i++) {
-      view[i] = tapeBytes[i];
-    }
+      // Fast path memory copy (C-optimized) instead of manual loop
+      view.setAll(0, tapeBytes);
 
-    _run(handle, nTape, tapeBytes.length);
-    calloc.free(nTape);
+      _run(handle, nTape, tapeBytes.length);
+    });
   }
 
   /// Frees a given tensors allocation on the device(GPU).
   static void free(String name) {
-    Pointer<Utf8> nName = name.toNativeUtf8();
-    _freeTensor(handle, nName);
-    calloc.free(nName);
+    using((Arena arena) {
+      Pointer<Utf8> nName = name.toNativeUtf8(allocator: arena);
+      _freeTensor(handle, nName);
+    });
   }
 
   /// Allows a direct memory copy from [src] to [dest] for faster transfer.
@@ -189,7 +171,7 @@ class GPUEngine {
     _addPointers(dest, src, length);
   }
 
-  /// Retrieves all tensor names currently allocated on the GPU.
+  /// Retrieves all tensor names currently allocated on the GPU. Allocates memory to store the String list natively and deletes it before returning its value,
   static List<String> getTensorNames() {
     Pointer<Utf8> cStringPtr = _getTensorNames(handle);
 
@@ -198,6 +180,8 @@ class GPUEngine {
     }
 
     String combinedNames = cStringPtr.toDartString();
+
+    // _freeString remains manual because memory was allocated inside C++, not Dart.
     _freeString(cStringPtr);
 
     if (combinedNames.isEmpty) {
@@ -207,7 +191,7 @@ class GPUEngine {
     List<String> rawNames = combinedNames.split(',');
     List<String> cleanNames = <String>[];
 
-    for (int i = 0; i < rawNames.length; i++) {
+    for (int i = 0; i < rawNames.length; i = i + 1) {
       cleanNames.add(rawNames[i].trim());
     }
 
@@ -216,16 +200,15 @@ class GPUEngine {
 
   /// Deletes the current instance of the GPUEngine and frees all allocated memory.
   static void dispose() {
-    if (handle != 0) {
-      _free(handle);
-      handle = 0;
-    }
+    _free(handle);
+    handle = 0;
   }
 
   /// Fills the tensor [name] with uniformly distributed numbers scaled with [scale].
   static void initRandomUniform(String name, double scale, int seed) {
-    Pointer<Utf8> nName = name.toNativeUtf8();
-    _initRandom(handle, nName, scale, seed);
-    calloc.free(nName);
+    using((Arena arena) {
+      Pointer<Utf8> nName = name.toNativeUtf8(allocator: arena);
+      _initRandom(handle, nName, scale, seed);
+    });
   }
 }

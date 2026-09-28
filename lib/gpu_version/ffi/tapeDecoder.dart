@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 import 'dart:convert';
-import 'package:flutter_ml/full_library.dart';
+import '/full_library.dart';
 
 import '../../logger.dart';
 import 'OpCodes.dart';
