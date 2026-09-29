@@ -4,12 +4,16 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - "test/**"
-    - "examples/**"
+    - "example/**"
   errors:
     non_constant_identifier_names: ignore
     avoid_print: ignore
     prefer_interpolation_to_compose_strings: ignore
     curly_braces_in_flow_control_structures: ignore
-    # ADD THESE TWO:
     file_names: ignore
     unused_local_variable: ignore
+    constant_identifier_names: ignore
+    unnecessary_library_name: ignore
+    annotate_overrides: ignore
+    use_key_in_widget_constructors: ignore
+    unnecessary_import: ignore

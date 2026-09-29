@@ -1,4 +1,4 @@
-/// Type aliases to allow for easier tensor coding.
+// Type aliases to allow for easier tensor coding.
 
 typedef Scalar   = double;
 typedef Vector   = List<double>;

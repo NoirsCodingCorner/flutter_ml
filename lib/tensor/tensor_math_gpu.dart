@@ -217,7 +217,7 @@ GPUTensor<Tensor3D> add3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b, Comma
   int height = a.shape[1];
   int width = a.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ?? GPUTensor<Tensor3D>.empty([depth, height, width]);;
+  GPUTensor<Tensor3D> out = outTensor ?? GPUTensor<Tensor3D>.empty([depth, height, width]);
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);

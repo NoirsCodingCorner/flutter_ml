@@ -105,8 +105,6 @@ Version `3.0.0` introduces complete framework restructuring. Architecture is foc
 
 ## 🟩 CPU Components
 
-For full implementation details, see the [CPU Ecosystem Documentation](https://www.google.com/search?q=doc/cpu_ecosystem.md&utm_source=gemini).
-
 ### CPU Layers (20)
 
 AveragePoolingLayer, BatchNormalizationLayer, Conv2D, ConvLSTMLayer, DenseLayer, DropoutLayer, DualLSTM, EmbeddingLayer, FlattenLayer, GlobalAveragePoolingLayer, LSTMLayer, MaxPoolingLayer, MultiHeadAttentionLayer, MultiLSTMLayer, NormalizationLayer, PositionalEncodingLayer, ReLULayer, RNNLayer, SingleHeadAttentionLayer, TransformerEncodingLayer.
@@ -129,7 +127,7 @@ Adagrad, Adam, AdamW, AMSGrad, NAG, RMSprop, SGD, SGDMomentum.
 
 Version `3.0.0` utilizes `CommandBuffer` execution tapes. Operations map to 32-bit `OpCodes`. Compiled graphs dispatch to CUDA 12.1+ devices in a single FFI call.
 
-For full architectural blueprints, see the [GPU Engine Documentation](https://www.google.com/search?q=doc/gpu_engine.md&utm_source=gemini) and [OpCode Reference](https://www.google.com/search?q=doc/opcodes.md&utm_source=gemini).
+For full architectural blueprints, see the [GPU Tensor Documentation](https://github.com/NoirsCodingCorner/flutter_ml/blob/master/doc/gpu_tensor.md) and [Tape Layer](https://github.com/NoirsCodingCorner/flutter_ml/blob/master/doc/tapeLayer.md).
 
 ### GPU TapeLayers (29)
 

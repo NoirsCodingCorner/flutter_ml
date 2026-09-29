@@ -62,7 +62,7 @@ class AdamGPU extends OptimizerGPU {
     }
   }
 
-  List<int> _stepOffsets = <int>[];
+  final List<int> _stepOffsets = <int>[];
   /// Appends the Adam weight update operations to the provided [tape].
   /// Increments the [currentStep] automatically after processing all parameters.
   @override
