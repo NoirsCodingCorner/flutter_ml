@@ -1,4 +1,4 @@
-<img src="doc/flutterML.png" alt="Alt text" width="500">
+![flutter_ml](https://raw.githubusercontent.com/NoirsCodingCorner/flutter_ml/master/doc/flutterML.png)
 
 A deep learning library for Dart and Flutter. It brings native hardware-accelerated machine learning directly to your device. Train models and run inference locally without Python, cloud APIs, or static binaries.
 

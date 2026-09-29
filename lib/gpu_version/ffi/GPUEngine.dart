@@ -91,16 +91,11 @@ class GPUEngine {
     DynamicLibrary dylib;
 
     try {
-      if (Platform.isAndroid) {
+      // Windows automatically checks the directory of the executable for the DLL and its dependencies.
+      if (Platform.isAndroid || Platform.isWindows) {
         dylib = DynamicLibrary.open(libName);
       } else {
-        // WINDOWS / DESKTOP
-        // resolvePackageUri funktioniert nicht in Flutter Windows.
-        // Baut den absoluten Pfad ausgehend vom Projekt-Stammverzeichnis auf.
-        String currentPath = Directory.current.path;
-        String dllPath = "$currentPath\\lib\\gpu_version\\ffi\\runfiles\\$libName";
-
-        dylib = DynamicLibrary.open(dllPath);
+        throw Exception("Unsupported platform");
       }
 
       print("GPUEngine: Successfully loaded ${target.name} backend.");
