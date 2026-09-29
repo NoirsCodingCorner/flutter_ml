@@ -258,7 +258,6 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
       bias.free();
     }
     if (cachedOut != null) cachedOut!.free();
-    if (cachedPreRelu != null) cachedPreRelu!.free();
   }
 
   /// Returns [weights] and [bias] as a map.

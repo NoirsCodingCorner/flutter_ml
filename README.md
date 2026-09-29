@@ -1,8 +1,8 @@
-# flutter_ml
+<img src="doc/flutterML.png" alt="Alt text" width="500">
 
-A deep learning library for Dart and Flutter. It brings native hardware-accelerated machine learning directly to your device. Train models and run inference locally without Python, cloud APIs, or pre-compiled binaries.
+A deep learning library for Dart and Flutter. It brings native hardware-accelerated machine learning directly to your device. Train models and run inference locally without Python, cloud APIs, or static binaries.
 
-## Why flutter_ml?
+## 🟥 Why flutter_ml?
 
 Most machine learning in Flutter relies on external Python servers or read-only TFLite models. This package provides a native alternative. You get full control over tensor math, autograd graphs, and custom model architectures.
 
@@ -12,7 +12,7 @@ Most machine learning in Flutter relies on external Python servers or read-only 
 * **Hugging Face Compatibility:** Load and export standard `.safetensors` model weights natively. No Python conversion scripts are needed.
 * **Modern Architectures:** Build Transformers, Multi-Head Attention, RoPE, and spatio-temporal ConvLSTMs entirely in Dart.
 
-## CPU Engine (Eager Execution)
+## 🟧 CPU Engine (Eager Execution)
 
 The CPU engine uses an eager computation graph. It is highly transparent. Use it for debugging, testing, or running lightweight models.
 
@@ -46,7 +46,7 @@ void main() {
 
 ```
 
-## GPU Engine (Static Tape Compilation)
+## 🟨 GPU Engine (Static Tape Compilation)
 
 The GPU engine builds static execution tapes for extreme performance. It requires initialization. It uses `TapeLayer` structures to orchestrate VRAM.
 
@@ -103,7 +103,7 @@ Version `3.0.0` introduces complete framework restructuring. Architecture is foc
 
 ---
 
-## CPU Components
+## 🟩 CPU Components
 
 For full implementation details, see the [CPU Ecosystem Documentation](https://www.google.com/search?q=doc/cpu_ecosystem.md&utm_source=gemini).
 
@@ -125,7 +125,7 @@ Adagrad, Adam, AdamW, AMSGrad, NAG, RMSprop, SGD, SGDMomentum.
 
 ---
 
-## GPU - Accelerated Components
+## 🟦 GPU - Accelerated Components
 
 Version `3.0.0` utilizes `CommandBuffer` execution tapes. Operations map to 32-bit `OpCodes`. Compiled graphs dispatch to CUDA 12.1+ devices in a single FFI call.
 
@@ -202,7 +202,7 @@ void main() async {
 ```
 ---
 
-## Benchmark Speed on Consumer Hardware
+## 🟪 Benchmark Speed on Consumer Hardware
 
 **Test Environment**
 
@@ -271,4 +271,3 @@ void main() async {
 
 1. Integration of complete pre-trained LLM pipelines.
 2. Additional science and custom kernel mapping.
-3. WebGPU target implementation for unified web/mobile cross-compilation.

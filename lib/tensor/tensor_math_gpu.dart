@@ -640,9 +640,9 @@ GPUTensor<Vector> vectorExpGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTenso
     [v],
         (CommandBuffer bTape) {
       bTape.putInt(OP_EXP_BACKWARD);
+      bTape.putString(out.gradId);
       bTape.putString(out.id);
-      bTape.putString(out.id);
-      bTape.putString(v.id);
+      bTape.putString(v.gradId);
     },
     opName: 'exp_vectorGPU',
     cost: N,
@@ -1176,7 +1176,7 @@ GPUTensor<Matrix> reluMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUTens
 /// Appends commands for applying the sigmoid function on every element of [m] (type [t]) to [tape].
 GPUTensor<T> sigmoidScalarGPU<T>(GPUTensor<T> s, CommandBuffer tape,{GPUTensor<T>? outTensor}) {
   dynamic dummy = T == Scalar ? 0.0 : (T == Vector ? <double>[] : <List<double>>[]);
-  GPUTensor<T> out = outTensor??GPUTensor<T>(dummy);
+  GPUTensor<T> out = outTensor ?? GPUTensor<T>.empty(s.shape);
 
   tape.putInt(OP_SIGMOID);
   tape.putString(s.id);
@@ -1297,8 +1297,8 @@ GPUTensor<Vector> vectorTanhGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTens
         (CommandBuffer bTape) {
       bTape.putInt(OP_TANH_BACKWARD);
       bTape.putString(out.id);
-      bTape.putString(out.id);
-      bTape.putString(v.id);
+      bTape.putString(out.gradId);
+      bTape.putString(v.gradId);
     },
     opName: 'tanh_vectorGPU',
     cost: N,
@@ -1868,9 +1868,9 @@ GPUTensor<Vector> concatenateGPU(GPUTensor<Vector> a, GPUTensor<Vector> b, Comma
     [a, b],
         (CommandBuffer bTape) {
       bTape.putInt(OP_CONCATENATE_BACKWARD);
-      bTape.putString(out.id);
-      bTape.putString(a.id);
-      bTape.putString(b.id);
+      bTape.putString(out.gradId);
+      bTape.putString(a.gradId);
+      bTape.putString(b.gradId);
       bTape.putInt(0);
       bTape.putInt(aLength);
     },

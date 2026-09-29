@@ -1,6 +1,7 @@
 /// Holds the optimizers for the GPU.
 library GPUOptimizer;
 export 'SGD.dart';
+export 'Adam.dart';
 
 
 import '/tensor/tensor_gpu.dart';
@@ -20,4 +21,8 @@ abstract class OptimizerGPU {
 
   /// Function to reset the gradient of the parameter back to zero to make it ready for the next learning round.
   void zeroGrad(CommandBuffer tape);
+
+  /// Called once before every replay of an already-compiled tape. Optimizers with no
+  /// per-step state (SGD) can leave this as a no-op; Adam overrides it to patch its step count.
+  void refreshStep(CommandBuffer tape) {}
 }

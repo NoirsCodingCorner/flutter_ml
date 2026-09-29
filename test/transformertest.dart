@@ -1,12 +1,7 @@
-import 'package:flutter_ml_web_gpu/gpu_version/SeqModel.dart';
-import 'package:flutter_ml_web_gpu/gpu_version/optimizer/adam.dart';
-import 'package:flutter_ml_web_gpu/logger.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_ml_web_gpu/full_library.dart';
+import 'package:flutter_ml/full_library.dart';
 
 void main() {
   GPUEngine.initialize(target: Target.cuda);
-  test('Minimalist Transformer Sequence-to-Sequence', () {
     // 1. Setup Architecture Dimensions
     int vocabSize = 10;
     int dModel = 16;
@@ -85,5 +80,4 @@ void main() {
     }
 
     model.free();
-  });
 }

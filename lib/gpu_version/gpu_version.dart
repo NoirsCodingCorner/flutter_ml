@@ -4,3 +4,4 @@ library gpu_version;
 export 'ffi/ffi.dart';
 export 'optimizer/optimizer.dart';
 export 'tapelayertypes/tapeLayer.dart';
+export 'SeqModel.dart';

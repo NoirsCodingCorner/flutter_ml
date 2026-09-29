@@ -82,17 +82,10 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
     }
 
     GPUTensor<Vector> out = batchNorm1dGPU(
-      input,
-      gamma,
-      beta,
-      runningMean,
-      runningVariance,
-      momentum,
-      epsilon,
-      isTraining,
-      tape,
-      outTensor: cachedOut
+      input, gamma, beta, runningMean, runningVariance,
+      momentum, epsilon, isTraining, tape, outTensor: cachedOut,
     );
+    cachedOut = out;
     return out;
   }
 
@@ -260,6 +253,7 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
       tape,
       outTensor: cachedOut
     );
+    cachedOut = out;
     return out;
   }
 

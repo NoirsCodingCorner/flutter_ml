@@ -153,6 +153,8 @@ class SeqModel<InputType, OutputType> {
       target!.pushData(targetData);
     }
 
+    optimizer?.refreshStep(trainOptimize);
+
     GPUEngine.run(trainForward.bytes());
     GPUEngine.run(trainBackward.bytes());
     GPUEngine.run(trainOptimize.bytes());

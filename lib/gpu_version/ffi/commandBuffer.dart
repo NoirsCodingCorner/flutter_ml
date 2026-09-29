@@ -87,4 +87,17 @@ class CommandBuffer {
   void clear() {
     offset = 0;
   }
+
+  /// Reserves 4 bytes for a value that isn't known yet and writes a 0 placeholder there.
+  /// Returns the offset so the value can be overwritten later without re-recording the tape.
+  int reserveInt() {
+    int reservedOffset = offset;
+    putInt(0);
+    return reservedOffset;
+  }
+
+  /// Overwrites a 4-byte int previously written at [reservedOffset] in place.
+  void patchInt(int reservedOffset, int value) {
+    _buffer.setInt32(reservedOffset, value, Endian.host);
+  }
 }

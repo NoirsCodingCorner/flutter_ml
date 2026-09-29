@@ -62,10 +62,12 @@ class AdamGPU extends OptimizerGPU {
     }
   }
 
+  List<int> _stepOffsets = <int>[];
   /// Appends the Adam weight update operations to the provided [tape].
   /// Increments the [currentStep] automatically after processing all parameters.
   @override
   void step(CommandBuffer tape) {
+    _stepOffsets.clear();
     for (int i = 0; i < parameters.length; i = i + 1) {
       tape.putInt(OP_ADAM_UPDATE);
       tape.putString(parameters[i].id);
@@ -76,8 +78,16 @@ class AdamGPU extends OptimizerGPU {
       tape.putFloat(beta1);
       tape.putFloat(beta2);
       tape.putFloat(epsilon);
-      tape.putInt(currentStep);
+      _stepOffsets.add(tape.reserveInt());   // was: tape.putInt(currentStep);
       tape.putFloat(weightDecay);
+    }
+  }
+  /// Patches the compiled tape with the current step and advances it. Call this once per
+  /// training step, right before SeqModel replays the optimize tape.
+  @override
+  void refreshStep(CommandBuffer tape) {
+    for (int i = 0; i < _stepOffsets.length; i = i + 1) {
+      tape.patchInt(_stepOffsets[i], currentStep);
     }
     currentStep = currentStep + 1;
   }
