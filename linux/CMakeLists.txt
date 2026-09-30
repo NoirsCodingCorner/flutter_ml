@@ -45,7 +45,7 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 # GITHUB BINARY DOWNLOADER & BUNDLER
 # ----------------------------------------------------------------------
 
-set(DOWNLOAD_URL "https://github.com/YourOrg/YourRepo/releases/download/v1.0.0/linux_libs.zip")
+set(DOWNLOAD_URL "https://github.com/NoirsCodingCorner/flutter_ml/releases/download/v3.0.0/linux_libs.zip")
 set(ZIP_FILE "${CMAKE_CURRENT_BINARY_DIR}/linux_libs.zip")
 set(EXTRACT_DIR "${CMAKE_CURRENT_BINARY_DIR}/linux_libs")
 
@@ -64,8 +64,6 @@ if(NOT EXISTS "${EXTRACT_DIR}")
 endif()
 
 # List of absolute paths to libraries that should be bundled with the plugin.
-# This list could contain prebuilt libraries, or libraries created by an
-# external build triggered from this build file.
 set(flutter_ml_bundled_libraries
         "${EXTRACT_DIR}/libcuda_executor.so"
         PARENT_SCOPE

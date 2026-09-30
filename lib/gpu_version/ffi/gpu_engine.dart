@@ -79,7 +79,11 @@ class GPUEngine {
     String libName = "";
 
     if (target == Target.cuda) {
-      libName = "cuda_executor.dll";
+      if (Platform.isWindows) {
+        libName = "cuda_executor.dll";
+      } else if (Platform.isLinux) {
+        libName = "libcuda_executor.so";
+      }
     } else if (target == Target.androidArm64) {
       libName = "libandroid_arm64.so";
     } else if (target == Target.androidX8664) {
@@ -89,8 +93,8 @@ class GPUEngine {
     DynamicLibrary dylib;
 
     try {
-      // Windows automatically checks the directory of the executable for the DLL and its dependencies.
-      if (Platform.isAndroid || Platform.isWindows) {
+      // Windows and Linux automatically check the directory of the executable for the DLL/SO and its dependencies.
+      if (Platform.isAndroid || Platform.isWindows || Platform.isLinux) {
         dylib = DynamicLibrary.open(libName);
       } else {
         throw Exception("Unsupported platform");
