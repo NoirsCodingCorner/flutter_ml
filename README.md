@@ -142,7 +142,7 @@ Adagrad, Adam, AdamW, AMSGrad, NAG, RMSprop, SGD, SGDMomentum.
 
 ## 🟦 GPU - Accelerated Components
 
-Version `3.0.0` utilizes `CommandBuffer` execution tapes. Operations map to 32-bit `OpCodes`. Compiled graphs dispatch to CUDA 12.1+ devices in a single FFI call.
+Version `3.0.0` utilizes `CommandBuffer` execution tapes. Operations map to 32-bit `OpCodes`. Compiled graphs dispatch to CUDA 12.1+ devices in a single FFI call or WebGPU depending on device setting.
 
 For full architectural blueprints, see the [GPU Tensor Documentation](https://github.com/NoirsCodingCorner/flutter_ml/blob/master/doc/gpu_tensor.md) and [Tape Layer](https://github.com/NoirsCodingCorner/flutter_ml/blob/master/doc/tapeLayer.md).
 

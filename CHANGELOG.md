@@ -27,3 +27,7 @@ Quick description fix for linter issue on linux.
 ## 3.0.3
 
 Removed Ios due to instability.
+
+## 3.0.4
+
+Fixed claim in the readme.
