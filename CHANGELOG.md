@@ -15,3 +15,7 @@ Fix of adding Finalizer support to prevent accidental memory leaks.
 ## 3.0.0
 
 Added GPU support for android via WebGPU as well as ensuring all layers are functional.
+
+## 3.0.1
+
+Quick description fix for the pub.dev view.
