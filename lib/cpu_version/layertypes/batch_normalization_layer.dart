@@ -39,10 +39,10 @@ class BatchNorm1D extends Layer<Vector, Vector> {
   /// Creates a [BatchNorm1D] layer with [numFeatures], [momentum], and [epsilon].
   /// Allocates and initializes [gamma] with 1.0, [beta] with 0.0, [runningMean] with 0.0, and [runningVariance] with 1.0.
   BatchNorm1D(
-      this.numFeatures, {
-        this.momentum = 0.9,
-        this.epsilon = 1e-5,
-      }) {
+    this.numFeatures, {
+    this.momentum = 0.9,
+    this.epsilon = 1e-5,
+  }) {
     Vector gammaValues = [];
     for (int i = 0; i < numFeatures; i = i + 1) {
       gammaValues.add(1.0);
@@ -167,10 +167,10 @@ class BatchNorm2D extends Layer<Tensor3D, Tensor3D> {
   /// Creates a [BatchNorm2D] layer with [numChannels], [momentum], and [epsilon].
   /// Allocates and initializes [gamma] with 1.0, [beta] with 0.0, [runningMean] with 0.0, and [runningVariance] with 1.0.
   BatchNorm2D(
-      this.numChannels, {
-        this.momentum = 0.9,
-        this.epsilon = 1e-5,
-      }) {
+    this.numChannels, {
+    this.momentum = 0.9,
+    this.epsilon = 1e-5,
+  }) {
     Vector gammaValues = [];
     for (int i = 0; i < numChannels; i = i + 1) {
       gammaValues.add(1.0);

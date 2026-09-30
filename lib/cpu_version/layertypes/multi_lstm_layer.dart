@@ -26,19 +26,25 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
 
   /// List of forget gate weight matrix tensors for each tier.
   late List<Tensor<Matrix>> wfTiers;
+
   /// List of input gate weight matrix tensors for each tier.
   late List<Tensor<Matrix>> wiTiers;
+
   /// List of candidate cell state weight matrix tensors for each tier.
   late List<Tensor<Matrix>> wcTiers;
+
   /// List of output gate weight matrix tensors for each tier.
   late List<Tensor<Matrix>> woTiers;
 
   /// List of forget gate bias vector tensors for each tier.
   late List<Tensor<Vector>> bfTiers;
+
   /// List of input gate bias vector tensors for each tier.
   late List<Tensor<Vector>> biTiers;
+
   /// List of candidate cell state bias vector tensors for each tier.
   late List<Tensor<Vector>> bcTiers;
+
   /// List of output gate bias vector tensors for each tier.
   late List<Tensor<Vector>> boTiers;
 
@@ -83,8 +89,14 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     }
     Random random = Random();
 
-    wfTiers = []; wiTiers = []; wcTiers = []; woTiers = [];
-    bfTiers = []; biTiers = []; bcTiers = []; boTiers = [];
+    wfTiers = [];
+    wiTiers = [];
+    wcTiers = [];
+    woTiers = [];
+    bfTiers = [];
+    biTiers = [];
+    bcTiers = [];
+    boTiers = [];
 
     Tensor<Matrix> initWeights(int fanIn, int fanOut) {
       double stddev = sqrt(1.0 / fanIn);
@@ -149,7 +161,9 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
       cStates.add(Tensor<Vector>(zeroVectorC));
     }
 
-    for (int globalStep = 0; globalStep < totalSteps; globalStep = globalStep + 1) {
+    for (int globalStep = 0;
+        globalStep < totalSteps;
+        globalStep = globalStep + 1) {
       Tensor<Vector> xT = Tensor<Vector>(sequence[globalStep]);
 
       Tensor<Vector> contextFromHigherTiers;
@@ -163,18 +177,22 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
         contextFromHigherTiers = Tensor<Vector>([]);
       }
 
-      Tensor<Vector> tempCombined = concatenate(hStates[0], contextFromHigherTiers);
+      Tensor<Vector> tempCombined =
+          concatenate(hStates[0], contextFromHigherTiers);
       Tensor<Vector> combinedInputLower = concatenate(tempCombined, xT);
 
-      Map<String, Tensor<Vector>> updatedStates = _lstmStep(combinedInputLower, hStates[0], cStates[0], 0);
+      Map<String, Tensor<Vector>> updatedStates =
+          _lstmStep(combinedInputLower, hStates[0], cStates[0], 0);
       hStates[0] = updatedStates['h']!;
       cStates[0] = updatedStates['c']!;
 
       for (int i = 1; i < numTiers; i = i + 1) {
         if ((globalStep + 1) % cumulativeClockCycles[i - 1] == 0) {
-          Tensor<Vector> combinedInputHigher = concatenate(hStates[i], hStates[i - 1]);
+          Tensor<Vector> combinedInputHigher =
+              concatenate(hStates[i], hStates[i - 1]);
 
-          Map<String, Tensor<Vector>> updatedHigherStates = _lstmStep(combinedInputHigher, hStates[i], cStates[i], i);
+          Map<String, Tensor<Vector>> updatedHigherStates =
+              _lstmStep(combinedInputHigher, hStates[i], cStates[i], i);
           hStates[i] = updatedHigherStates['h']!;
           cStates[i] = updatedHigherStates['c']!;
         }
@@ -185,17 +203,18 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
   }
 
   /// Computes a single LSTM transition step for the tier at [tierIndex] given [combinedInput], [hPrev], and [cPrev].
-  Map<String, Tensor<Vector>> _lstmStep(
-      Tensor<Vector> combinedInput,
-      Tensor<Vector> hPrev,
-      Tensor<Vector> cPrev,
-      int tierIndex
-      ) {
-    Tensor<Vector> fT = sigmoid(addVector(matVecMul(wfTiers[tierIndex], combinedInput), bfTiers[tierIndex]));
-    Tensor<Vector> iT = sigmoid(addVector(matVecMul(wiTiers[tierIndex], combinedInput), biTiers[tierIndex]));
-    Tensor<Vector> cTildeT = vectorTanh(addVector(matVecMul(wcTiers[tierIndex], combinedInput), bcTiers[tierIndex]));
-    Tensor<Vector> cNext = addVector(elementWiseMultiply(fT, cPrev), elementWiseMultiply(iT, cTildeT));
-    Tensor<Vector> oT = sigmoid(addVector(matVecMul(woTiers[tierIndex], combinedInput), boTiers[tierIndex]));
+  Map<String, Tensor<Vector>> _lstmStep(Tensor<Vector> combinedInput,
+      Tensor<Vector> hPrev, Tensor<Vector> cPrev, int tierIndex) {
+    Tensor<Vector> fT = sigmoid(addVector(
+        matVecMul(wfTiers[tierIndex], combinedInput), bfTiers[tierIndex]));
+    Tensor<Vector> iT = sigmoid(addVector(
+        matVecMul(wiTiers[tierIndex], combinedInput), biTiers[tierIndex]));
+    Tensor<Vector> cTildeT = vectorTanh(addVector(
+        matVecMul(wcTiers[tierIndex], combinedInput), bcTiers[tierIndex]));
+    Tensor<Vector> cNext = addVector(
+        elementWiseMultiply(fT, cPrev), elementWiseMultiply(iT, cTildeT));
+    Tensor<Vector> oT = sigmoid(addVector(
+        matVecMul(woTiers[tierIndex], combinedInput), boTiers[tierIndex]));
     Tensor<Vector> hNext = elementWiseMultiply(oT, vectorTanh(cNext));
 
     return {'h': hNext, 'c': cNext};
@@ -254,8 +273,8 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
   /// Sets all weight matrices and bias vectors across every tier directly into their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
-
-    void copyMatrixList(List<Tensor<Matrix>> tensorList, List<dynamic> newDataList) {
+    void copyMatrixList(
+        List<Tensor<Matrix>> tensorList, List<dynamic> newDataList) {
       for (int i = 0; i < tensorList.length; i = i + 1) {
         List<dynamic> newMatrixDynamic = newDataList[i] as List<dynamic>;
         Tensor<Matrix> tensor = tensorList[i];
@@ -271,7 +290,8 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
       }
     }
 
-    void copyVectorList(List<Tensor<Vector>> tensorList, List<dynamic> newDataList) {
+    void copyVectorList(
+        List<Tensor<Vector>> tensorList, List<dynamic> newDataList) {
       for (int i = 0; i < tensorList.length; i = i + 1) {
         List<dynamic> newVectorDynamic = newDataList[i] as List<dynamic>;
         Tensor<Vector> tensor = tensorList[i];

@@ -1,6 +1,5 @@
 import 'dart:math';
 
-
 import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_aliases.dart';
@@ -25,38 +24,50 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
   // --- Parameters for the Lower Tier (e.g., Daily) ---
   /// Lower-tier forget gate weight matrix.
   late Tensor<Matrix> lWf;
+
   /// Lower-tier input gate weight matrix.
   late Tensor<Matrix> lWi;
+
   /// Lower-tier candidate cell state weight matrix.
   late Tensor<Matrix> lWc;
+
   /// Lower-tier output gate weight matrix.
   late Tensor<Matrix> lWo;
 
   /// Lower-tier forget gate bias vector.
   late Tensor<Vector> lbf;
+
   /// Lower-tier input gate bias vector.
   late Tensor<Vector> lbi;
+
   /// Lower-tier candidate cell state bias vector.
   late Tensor<Vector> lbc;
+
   /// Lower-tier output gate bias vector.
   late Tensor<Vector> lbo;
 
   // --- Parameters for the Higher Tier (e.g., Weekly) ---
   /// Higher-tier forget gate weight matrix.
   late Tensor<Matrix> hWf;
+
   /// Higher-tier input gate weight matrix.
   late Tensor<Matrix> hWi;
+
   /// Higher-tier candidate cell state weight matrix.
   late Tensor<Matrix> hWc;
+
   /// Higher-tier output gate weight matrix.
   late Tensor<Matrix> hWo;
 
   /// Higher-tier forget gate bias vector.
   late Tensor<Vector> hbf;
+
   /// Higher-tier input gate bias vector.
   late Tensor<Vector> hbi;
+
   /// Higher-tier candidate cell state bias vector.
   late Tensor<Vector> hbc;
+
   /// Higher-tier output gate bias vector.
   late Tensor<Vector> hbo;
 
@@ -67,15 +78,23 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
-    params.add(lWf); params.add(lbf);
-    params.add(lWi); params.add(lbi);
-    params.add(lWc); params.add(lbc);
-    params.add(lWo); params.add(lbo);
+    params.add(lWf);
+    params.add(lbf);
+    params.add(lWi);
+    params.add(lbi);
+    params.add(lWc);
+    params.add(lbc);
+    params.add(lWo);
+    params.add(lbo);
 
-    params.add(hWf); params.add(hbf);
-    params.add(hWi); params.add(hbi);
-    params.add(hWc); params.add(hbc);
-    params.add(hWo); params.add(hbo);
+    params.add(hWf);
+    params.add(hbf);
+    params.add(hWi);
+    params.add(hbi);
+    params.add(hWc);
+    params.add(hbc);
+    params.add(hWo);
+    params.add(hbo);
     return params;
   }
 
@@ -194,7 +213,6 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
 
       // --- 2. HIGHER TIER UPDATE (runs periodically) ---
       if (i > 0 && (i + 1) % lowerTierClockCycle == 0) {
-
         // Input to the higher tier is its own last hidden state (hh)
         // and the aggregated info from the lower tier (the current lh).
         Tensor<Vector> combinedInputHigher = concatenate(hh, lh);

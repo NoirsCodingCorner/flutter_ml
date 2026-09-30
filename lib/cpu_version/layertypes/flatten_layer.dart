@@ -49,7 +49,7 @@ class FlattenLayer extends Layer<Matrix, Vector> {
 
     out.creator = Node(
       [input],
-          () {
+      () {
         for (int i = 0; i < input.data.length; i = i + 1) {
           input.grad[i] = input.grad[i] + out.grad[i];
         }

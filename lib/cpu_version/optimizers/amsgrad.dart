@@ -29,12 +29,12 @@ class AMSGrad extends Optimizer {
 
   /// Creates an [AMSGrad] optimizer for [parameters] with [learningRate], moment decay rates [beta1] and [beta2], and numerical stability constant [epsilon].
   AMSGrad(
-      List<Tensor<dynamic>> parameters, {
-        required double learningRate,
-        this.beta1 = 0.9,
-        this.beta2 = 0.999,
-        this.epsilon = 1e-8,
-      }) : super(parameters, learningRate: learningRate) {
+    List<Tensor<dynamic>> parameters, {
+    required double learningRate,
+    this.beta1 = 0.9,
+    this.beta2 = 0.999,
+    this.epsilon = 1e-8,
+  }) : super(parameters, learningRate: learningRate) {
     _m = {};
     _v = {};
     _vHat = {};
@@ -79,7 +79,8 @@ class AMSGrad extends Optimizer {
         }
 
         double mHat = mList[i] / (1.0 - pow(beta1, _t));
-        param.data[i] = param.data[i] - learningRate * mHat / (sqrt(vHatList[i]) + epsilon);
+        param.data[i] =
+            param.data[i] - learningRate * mHat / (sqrt(vHatList[i]) + epsilon);
       }
     }
   }

@@ -28,13 +28,13 @@ class AdamW extends Optimizer {
 
   /// Creates an [AdamW] optimizer for [parameters] with [learningRate], decay rates [beta1] and [beta2], [epsilon], and decoupled [weightDecay].
   AdamW(
-      List<Tensor<dynamic>> parameters, {
-        required double learningRate,
-        this.beta1 = 0.9,
-        this.beta2 = 0.999,
-        this.epsilon = 1e-8,
-        this.weightDecay = 0.01,
-      }) : super(parameters, learningRate: learningRate) {
+    List<Tensor<dynamic>> parameters, {
+    required double learningRate,
+    this.beta1 = 0.9,
+    this.beta2 = 0.999,
+    this.epsilon = 1e-8,
+    this.weightDecay = 0.01,
+  }) : super(parameters, learningRate: learningRate) {
     _m = {};
     _v = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
@@ -74,10 +74,12 @@ class AdamW extends Optimizer {
         double vHat = vList[i] / (1.0 - pow(beta2, _t));
 
         // Weight decay (decoupled from gradient update)
-        param.data[i] = param.data[i] - (learningRate * weightDecay * param.data[i]);
+        param.data[i] =
+            param.data[i] - (learningRate * weightDecay * param.data[i]);
 
         // Gradient update
-        param.data[i] = param.data[i] - (learningRate * mHat) / (sqrt(vHat) + epsilon);
+        param.data[i] =
+            param.data[i] - (learningRate * mHat) / (sqrt(vHat) + epsilon);
       }
     }
   }

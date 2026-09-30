@@ -28,12 +28,12 @@ class Adam extends Optimizer {
 
   /// Creates an [Adam] optimizer for [parameters] with [learningRate], moment decay rates [beta1] and [beta2], and numerical stability constant [epsilon].
   Adam(
-      List<Tensor<dynamic>> parameters, {
-        required double learningRate,
-        this.beta1 = 0.9,
-        this.beta2 = 0.999,
-        this.epsilon = 1e-8,
-      }) : super(parameters, learningRate: learningRate) {
+    List<Tensor<dynamic>> parameters, {
+    required double learningRate,
+    this.beta1 = 0.9,
+    this.beta2 = 0.999,
+    this.epsilon = 1e-8,
+  }) : super(parameters, learningRate: learningRate) {
     _m = {};
     _v = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
@@ -65,12 +65,14 @@ class Adam extends Optimizer {
 
       for (int i = 0; i < param.data.length; i = i + 1) {
         mList[i] = beta1 * mList[i] + (1.0 - beta1) * param.grad[i];
-        vList[i] = beta2 * vList[i] + (1.0 - beta2) * (param.grad[i] * param.grad[i]);
+        vList[i] =
+            beta2 * vList[i] + (1.0 - beta2) * (param.grad[i] * param.grad[i]);
 
         double mHat = mList[i] / (1.0 - pow(beta1, _t));
         double vHat = vList[i] / (1.0 - pow(beta2, _t));
 
-        param.data[i] = param.data[i] - learningRate * mHat / (sqrt(vHat) + epsilon);
+        param.data[i] =
+            param.data[i] - learningRate * mHat / (sqrt(vHat) + epsilon);
       }
     }
   }

@@ -34,11 +34,11 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
 
   /// Creates a [Conv2DLayer] with [outChannels], [kernelSize], and optional [padding] and [activation].
   Conv2DLayer(
-      this.outChannels,
-      this.kernelSize, {
-        this.padding = 'valid',
-        this.activation,
-      });
+    this.outChannels,
+    this.kernelSize, {
+    this.padding = 'valid',
+    this.activation,
+  });
 
   /// Returns all trainable parameters including each kernel tensor and the bias vector.
   @override
@@ -156,7 +156,7 @@ Tensor<Scalar> flatMse(Tensor<dynamic> pred, Tensor<dynamic> target) {
 
   loss.creator = Node(
     [pred, target],
-        () {
+    () {
       double gradMultiplier = 2.0 / length;
       for (int i = 0; i < length; i = i + 1) {
         double diff = pred.data[i] - target.data[i];

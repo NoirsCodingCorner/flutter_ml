@@ -70,7 +70,8 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
   /// Appends the matrix multiplication and bias addition to the [tape].
   /// Persistently caches the intermediate multiplication result for static unrolling.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -83,7 +84,8 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
     }
 
     matMulResult = matMulGPU(input, weights, tape, outTensor: matMulResult);
-    cachedOut = addMatrixAndVectorGPU(matMulResult!, bias, tape, outTensor: cachedOut);
+    cachedOut =
+        addMatrixAndVectorGPU(matMulResult!, bias, tape, outTensor: cachedOut);
 
     return cachedOut!;
   }
@@ -222,14 +224,16 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
   /// Appends the fused matrix multiplication, bias addition, and ReLU operation to the [tape].
   /// The fused kernel automatically registers its intermediates.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     // Because the fused kernel allocates internally without an outTensor,
     // we must free the old allocations if forward is called dynamically multiple times.
     if (cachedOut != null) cachedOut!.free();
     if (cachedPreRelu != null) cachedPreRelu!.free();
 
     List<GPUTensor> localIntermediates = <GPUTensor>[];
-    cachedOut = matMulBiasReluGPU(input, weights, bias, tape, localIntermediates);
+    cachedOut =
+        matMulBiasReluGPU(input, weights, bias, tape, localIntermediates);
 
     if (localIntermediates.isNotEmpty) {
       cachedPreRelu = localIntermediates[0] as GPUTensor<Matrix>;

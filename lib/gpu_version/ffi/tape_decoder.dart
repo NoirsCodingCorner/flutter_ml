@@ -34,7 +34,8 @@ class TapeDecoder {
   /// 📜 --- End of Tape ---
   /// ```
   void decode() {
-    Logger.yellow('--- Decoding Execution Tape (${tape.length} bytes) ---', prefix: '📜');
+    Logger.yellow('--- Decoding Execution Tape (${tape.length} bytes) ---',
+        prefix: '📜');
     _offset = 0;
 
     while (_offset < tape.length) {
@@ -42,18 +43,20 @@ class TapeDecoder {
       String opName = _getOpName(opCode);
 
       switch (opCode) {
-      // --- Data Loading & Storage ---
+        // --- Data Loading & Storage ---
         case OP_LOAD_SAMPLE:
           String nameIn = _readString();
           String nameOut = _readString();
           int sampleIdx = _readInt();
-          Logger.cyan('$opName: $nameOut = load_sample($nameIn, index: $sampleIdx)');
+          Logger.cyan(
+              '$opName: $nameOut = load_sample($nameIn, index: $sampleIdx)');
           break;
         case OP_STORE_SAMPLE:
           String nameIn = _readString();
           String nameDest = _readString();
           int sampleIdx = _readInt();
-          Logger.cyan('$opName: store_sample($nameIn -> $nameDest, index: $sampleIdx)');
+          Logger.cyan(
+              '$opName: store_sample($nameIn -> $nameDest, index: $sampleIdx)');
           break;
         case OP_COPY:
           String nameIn = _readString();
@@ -70,7 +73,7 @@ class TapeDecoder {
           Logger.yellow('$opName: zero_grad($nameZero)');
           break;
 
-      // --- Basic Arithmetic ---
+        // --- Basic Arithmetic ---
         case OP_ADD:
         case OP_SUBTRACT:
         case OP_MULTIPLY:
@@ -99,7 +102,8 @@ class TapeDecoder {
           String gradOut = _readString();
           String gradA = _readString();
           String gradB = _readString();
-          Logger.blue('$opName: gradA=$gradA, gradB=$gradB from div($nameA, $nameB, $gradOut)');
+          Logger.blue(
+              '$opName: gradA=$gradA, gradB=$gradB from div($nameA, $nameB, $gradOut)');
           break;
         case OP_ADD_SCALAR:
           String nameInAddS = _readString();
@@ -108,7 +112,7 @@ class TapeDecoder {
           Logger.cyan('$opName: $nameOutAddS = $nameInAddS + $scalarAdd');
           break;
 
-      // --- New Element-wise Math ---
+        // --- New Element-wise Math ---
         case OP_LOG_ELEMENTWISE:
         case OP_ABS_ELEMENTWISE:
         case OP_SQRT_ELEMENTWISE:
@@ -122,14 +126,16 @@ class TapeDecoder {
           String gradOutMath = _readString();
           String inDataMath = _readString();
           String gradInMath = _readString();
-          Logger.blue('$opName: $gradInMath = bw($gradOutMath, inData: $inDataMath)');
+          Logger.blue(
+              '$opName: $gradInMath = bw($gradOutMath, inData: $inDataMath)');
           break;
         case OP_EXP_BACKWARD:
         case OP_SQRT_BACKWARD:
           String gradOutSE = _readString();
           String outDataSE = _readString();
           String gradInSE = _readString();
-          Logger.blue('$opName: $gradInSE = bw($gradOutSE, outData: $outDataSE)');
+          Logger.blue(
+              '$opName: $gradInSE = bw($gradOutSE, outData: $outDataSE)');
           break;
         case OP_POW_ELEMENTWISE:
           String nameInPow = _readString();
@@ -142,14 +148,16 @@ class TapeDecoder {
           String inDataPow = _readString();
           String gradInPow = _readString();
           double expBw = _readFloat();
-          Logger.blue('$opName: $gradInPow = pow_bw($gradOutPow, inData: $inDataPow, exp: $expBw)');
+          Logger.blue(
+              '$opName: $gradInPow = pow_bw($gradOutPow, inData: $inDataPow, exp: $expBw)');
           break;
         case OP_CLAMP_ELEMENTWISE:
           String nameInClamp = _readString();
           String nameOutClamp = _readString();
           double minVal = _readFloat();
           double maxVal = _readFloat();
-          Logger.cyan('$opName: $nameOutClamp = clamp($nameInClamp, min: $minVal, max: $maxVal)');
+          Logger.cyan(
+              '$opName: $nameOutClamp = clamp($nameInClamp, min: $minVal, max: $maxVal)');
           break;
         case OP_CLAMP_BACKWARD:
           String gradOutClamp = _readString();
@@ -157,10 +165,11 @@ class TapeDecoder {
           String gradInClamp = _readString();
           double minValBw = _readFloat();
           double maxValBw = _readFloat();
-          Logger.blue('$opName: $gradInClamp = clamp_bw($gradOutClamp, in: $inDataClamp, min: $minValBw, max: $maxValBw)');
+          Logger.blue(
+              '$opName: $gradInClamp = clamp_bw($gradOutClamp, in: $inDataClamp, min: $minValBw, max: $maxValBw)');
           break;
 
-      // --- Matrix Operations ---
+        // --- Matrix Operations ---
         case OP_MATMUL:
           String nameaMm = _readString();
           String namebMm = _readString();
@@ -170,7 +179,8 @@ class TapeDecoder {
           //double alpha = _readFloat();
           //double beta = _readFloat();
           //bool tCores = _readBool();
-          Logger.cyan('$opName: $namecMm = matmul($nameaMm, $namebMm) transA:$transA transB:$transB');
+          Logger.cyan(
+              '$opName: $namecMm = matmul($nameaMm, $namebMm) transA:$transA transB:$transB');
           break;
         case OP_TRANSPOSE:
           String nameInTr = _readString();
@@ -190,7 +200,7 @@ class TapeDecoder {
           Logger.blue('$opName: $gradInSMB += $gradOutSMB * $scaleSMB');
           break;
 
-      // --- Activations ---
+        // --- Activations ---
         case OP_RELU:
         case OP_SIGMOID:
         case OP_TANH:
@@ -205,29 +215,33 @@ class TapeDecoder {
           String nameInBack = _readString();
           String gradOutBack = _readString();
           String gradInBack = _readString();
-          Logger.blue('$opName: $gradInBack = act_bw($nameInBack, $gradOutBack)');
+          Logger.blue(
+              '$opName: $gradInBack = act_bw($nameInBack, $gradOutBack)');
           break;
         case OP_SIGMOID_BACKWARD:
         case OP_TANH_BACKWARD:
           String outData = _readString(); // C++ expects outData first here
           String gradOutAct = _readString();
           String gradInAct = _readString();
-          Logger.blue('$opName: $gradInAct = act_bw($gradOutAct, outData: $outData)');
+          Logger.blue(
+              '$opName: $gradInAct = act_bw($gradOutAct, outData: $outData)');
           break;
         case OP_SOFTMAX_BACKWARD:
           String gradOutSm = _readString(); // C++ expects gradOut first here
           String outDataSm = _readString();
           String gradInSm = _readString();
-          Logger.blue('$opName: $gradInSm = softmax_bw($gradOutSm, outData: $outDataSm)');
+          Logger.blue(
+              '$opName: $gradInSm = softmax_bw($gradOutSm, outData: $outDataSm)');
           break;
 
-      // --- Loss Functions ---
+        // --- Loss Functions ---
         case OP_MSE_LOSS_FORWARD:
         case OP_BCE_LOSS_FORWARD:
           String namePred = _readString();
           String nameTarget = _readString();
           String nameOutLoss = _readString();
-          Logger.green('$opName: $nameOutLoss = loss($namePred, target: $nameTarget)');
+          Logger.green(
+              '$opName: $nameOutLoss = loss($namePred, target: $nameTarget)');
           break;
         case OP_MSE_LOSS_BACKWARD:
         case OP_BCE_LOSS_BACKWARD:
@@ -235,15 +249,17 @@ class TapeDecoder {
           String namePredLoss = _readString();
           String nameTargetLoss = _readString();
           String gradInLoss = _readString();
-          Logger.blue('$opName: $gradInLoss = loss_bw($gradOutLoss, pred: $namePredLoss, target: $nameTargetLoss)');
+          Logger.blue(
+              '$opName: $gradInLoss = loss_bw($gradOutLoss, pred: $namePredLoss, target: $nameTargetLoss)');
           break;
 
-      // --- Optimizers ---
+        // --- Optimizers ---
         case OP_SGD_UPDATE:
           String nameDataSgd = _readString();
           String nameGradSgd = _readString();
           double lrSgd = _readFloat();
-          Logger.yellow('$opName: sgd($nameDataSgd, grad: $nameGradSgd, lr: $lrSgd)');
+          Logger.yellow(
+              '$opName: sgd($nameDataSgd, grad: $nameGradSgd, lr: $lrSgd)');
           break;
         case OP_ADAM_UPDATE:
           String nameDataAdam = _readString();
@@ -256,7 +272,8 @@ class TapeDecoder {
           //double epsAdam = _readFloat();
           int step = _readInt();
           //double wd = _readFloat();
-          Logger.yellow('$opName: adam($nameDataAdam, step: $step, lr: $lrAdam)');
+          Logger.yellow(
+              '$opName: adam($nameDataAdam, step: $step, lr: $lrAdam)');
           break;
         case OP_CLIP_GRAD_VALUE:
           String nameBufferClip = _readString();
@@ -264,7 +281,7 @@ class TapeDecoder {
           Logger.yellow('$opName: clip($nameBufferClip, val: $clipVal)');
           break;
 
-      // --- Reductions ---
+        // --- Reductions ---
         case OP_SUM_REDUCE:
         case OP_SUM_REDUCE_COLUMNS:
         case OP_SUM_REDUCE_ROWS:
@@ -281,22 +298,25 @@ class TapeDecoder {
           String nameIndicesEmb = _readString();
           String nameWeightEmb = _readString();
           String nameOutEmb = _readString();
-          Logger.cyan('$opName: $nameOutEmb = embedding($nameIndicesEmb, $nameWeightEmb)');
+          Logger.cyan(
+              '$opName: $nameOutEmb = embedding($nameIndicesEmb, $nameWeightEmb)');
           break;
         case OP_EMBEDDING_BACKWARD:
           String gradOutEmb = _readString();
           String nameIndicesEmbBw = _readString();
           String gradWeightEmb = _readString();
-          Logger.blue('$opName: $gradWeightEmb = embedding_bw($gradOutEmb, $nameIndicesEmbBw)');
+          Logger.blue(
+              '$opName: $gradWeightEmb = embedding_bw($gradOutEmb, $nameIndicesEmbBw)');
           break;
 
-      // --- Tensor Manipulation ---
+        // --- Tensor Manipulation ---
         case OP_SLICE_ROW:
         case OP_SLICE_ROW_BACKWARD:
           String nameInSlice = _readString();
           String nameOutSlice = _readString();
           int row = _readInt();
-          Logger.cyan('$opName: $nameOutSlice = slice_row($nameInSlice, row: $row)');
+          Logger.cyan(
+              '$opName: $nameOutSlice = slice_row($nameInSlice, row: $row)');
           break;
         case OP_SLICE_COLUMN:
         case OP_SLICE_COLUMN_BACKWARD:
@@ -304,7 +324,8 @@ class TapeDecoder {
           String nameOutCol = _readString();
           int start = _readInt();
           int end = _readInt();
-          Logger.cyan('$opName: $nameOutCol = slice_col($nameInCol, start: $start, end: $end)');
+          Logger.cyan(
+              '$opName: $nameOutCol = slice_col($nameInCol, start: $start, end: $end)');
           break;
         case OP_STACK_ROWS:
           int countStack = _readInt();
@@ -314,7 +335,8 @@ class TapeDecoder {
           }
           String nameOutStack = _readString();
           int axisStack = _readInt();
-          Logger.cyan('$opName: $nameOutStack = stack(${namesInStack.length} tensors, axis: $axisStack)');
+          Logger.cyan(
+              '$opName: $nameOutStack = stack(${namesInStack.length} tensors, axis: $axisStack)');
           break;
         case OP_STACK_ROWS_BACKWARD:
           String gradOutStack = _readString();
@@ -324,14 +346,16 @@ class TapeDecoder {
             namesGradIn.add(_readString());
           }
           int axisBw = _readInt();
-          Logger.blue('$opName: bw_stack($gradOutStack -> ${namesGradIn.length} tensors, axis: $axisBw)');
+          Logger.blue(
+              '$opName: bw_stack($gradOutStack -> ${namesGradIn.length} tensors, axis: $axisBw)');
           break;
         case OP_CONCATENATE:
           String nameaCat = _readString();
           String namebCat = _readString();
           String nameOutCat = _readString();
           int axisCat = _readInt();
-          Logger.cyan('$opName: $nameOutCat = concat($nameaCat, $namebCat, axis: $axisCat)');
+          Logger.cyan(
+              '$opName: $nameOutCat = concat($nameaCat, $namebCat, axis: $axisCat)');
           break;
         case OP_CONCATENATE_BACKWARD:
           String gradOutCat = _readString();
@@ -339,7 +363,8 @@ class TapeDecoder {
           String gradinbCat = _readString();
           //int axisCatBw = _readInt();
           int split = _readInt();
-          Logger.blue('$opName: bw_concat($gradOutCat -> $gradinaCat, $gradinbCat, split: $split)');
+          Logger.blue(
+              '$opName: bw_concat($gradOutCat -> $gradinaCat, $gradinbCat, split: $split)');
           break;
         case OP_PAD2D:
         case OP_PAD2D_BACKWARD:
@@ -349,17 +374,19 @@ class TapeDecoder {
           int padB = _readInt();
           int padL = _readInt();
           int padR = _readInt();
-          Logger.cyan('$opName: $nameOutPad = pad($nameInPad, t:$padT, b:$padB, l:$padL, r:$padR)');
+          Logger.cyan(
+              '$opName: $nameOutPad = pad($nameInPad, t:$padT, b:$padB, l:$padL, r:$padR)');
           break;
 
-      // --- Advanced Layers ---
+        // --- Advanced Layers ---
         case OP_MATMUL_BIAS_RELU_FORWARD:
           String nameX = _readString();
           String nameW = _readString();
           String namebMatmul = _readString();
           String nameReluOut = _readString();
           //String namePreROut = _readString();
-          Logger.cyan('$opName: $nameReluOut = matmul_bias_relu($nameX, $nameW, $namebMatmul)');
+          Logger.cyan(
+              '$opName: $nameReluOut = matmul_bias_relu($nameX, $nameW, $namebMatmul)');
           break;
         case OP_LAYER_NORM_FORWARD:
           String nameInNorm = _readString();
@@ -369,7 +396,8 @@ class TapeDecoder {
           //String nameMean = _readString();
           //String nameRstd = _readString();
           double eps = _readFloat();
-          Logger.cyan('$opName: $nameOutNorm = layer_norm($nameInNorm) eps:$eps');
+          Logger.cyan(
+              '$opName: $nameOutNorm = layer_norm($nameInNorm) eps:$eps');
           break;
         case OP_LAYER_NORM_BACKWARD:
           String gradOutNorm = _readString();
@@ -386,19 +414,22 @@ class TapeDecoder {
           String nameInConv = _readString();
           String nameKernel = _readString();
           String nameOutConv = _readString();
-          Logger.cyan('$opName: $nameOutConv = conv2d($nameInConv, $nameKernel)');
+          Logger.cyan(
+              '$opName: $nameOutConv = conv2d($nameInConv, $nameKernel)');
           break;
         case OP_CONV2D_BACKWARD_INPUT:
           String gradOutConv = _readString();
           String nameKernelBw = _readString();
           String gradInConv = _readString();
-          Logger.blue('$opName: $gradInConv = conv2d_bw_in($gradOutConv, $nameKernelBw)');
+          Logger.blue(
+              '$opName: $gradInConv = conv2d_bw_in($gradOutConv, $nameKernelBw)');
           break;
         case OP_CONV2D_BACKWARD_KERNEL:
           String nameInConvBw = _readString();
           String gradOutConvBw = _readString();
           String gradKernel = _readString();
-          Logger.blue('$opName: $gradKernel = conv2d_bw_k($nameInConvBw, $gradOutConvBw)');
+          Logger.blue(
+              '$opName: $gradKernel = conv2d_bw_k($nameInConvBw, $gradOutConvBw)');
           break;
         case OP_CONV2D_MULTI_FORWARD:
           String nameInMulti = _readString();
@@ -413,7 +444,8 @@ class TapeDecoder {
           int pl = _readInt();
           int sh = _readInt();
           int sw = _readInt();
-          Logger.cyan('$opName: $nameOutMulti = conv2d_multi($nameInMulti, inC:$inC, outC:$outC) pad:${pt}x$pl stride:${sh}x$sw');
+          Logger.cyan(
+              '$opName: $nameOutMulti = conv2d_multi($nameInMulti, inC:$inC, outC:$outC) pad:${pt}x$pl stride:${sh}x$sw');
           break;
         case OP_CONV2D_MULTI_BACKWARD_INPUT:
           String gradOutMulti = _readString();
@@ -427,7 +459,8 @@ class TapeDecoder {
           //int plBw = _readInt();
           //int shBw = _readInt();
           //int swBw = _readInt();
-          Logger.blue('$opName: $nameGradInMulti = conv2d_multi_bw_in($gradOutMulti) inC:$inCBw, outC:$outCBw');
+          Logger.blue(
+              '$opName: $nameGradInMulti = conv2d_multi_bw_in($gradOutMulti) inC:$inCBw, outC:$outCBw');
           break;
         case OP_CONV2D_MULTI_BACKWARD_WEIGHT:
           String nameInMultiBw = _readString();
@@ -442,21 +475,24 @@ class TapeDecoder {
           //int plW = _readInt();
           //int shW = _readInt();
           //int swW = _readInt();
-          Logger.blue('$opName: $nameGradWeight, $nameGradBias = conv2d_multi_bw_w($nameInMultiBw, $gradOutMultiBw)');
+          Logger.blue(
+              '$opName: $nameGradWeight, $nameGradBias = conv2d_multi_bw_w($nameInMultiBw, $gradOutMultiBw)');
           break;
         case OP_IM2COL:
           String nameInIm = _readString();
           String nameOutIm = _readString();
           int khIm = _readInt();
           int kwIm = _readInt();
-          Logger.cyan('$opName: $nameOutIm = im2col($nameInIm) kernel: ${khIm}x$kwIm');
+          Logger.cyan(
+              '$opName: $nameOutIm = im2col($nameInIm) kernel: ${khIm}x$kwIm');
           break;
         case OP_COL2IM:
           String nameColGrad = _readString();
           String nameInGrad = _readString();
           int khCol = _readInt();
           int kwCol = _readInt();
-          Logger.blue('$opName: $nameInGrad = col2im($nameColGrad) kernel: ${khCol}x$kwCol');
+          Logger.blue(
+              '$opName: $nameInGrad = col2im($nameColGrad) kernel: ${khCol}x$kwCol');
           break;
         case OP_MAX_POOL_1D_FORWARD:
         case OP_MAX_POOL_2D_FORWARD:
@@ -465,7 +501,8 @@ class TapeDecoder {
           //String nameIndicesPool = _readString();
           int poolSize = _readInt();
           int stridePool = _readInt();
-          Logger.cyan('$opName: $nameOutPool = max_pool($nameInPool, size: $poolSize, stride: $stridePool)');
+          Logger.cyan(
+              '$opName: $nameOutPool = max_pool($nameInPool, size: $poolSize, stride: $stridePool)');
           break;
         case OP_MAX_POOL_1D_BACKWARD:
         case OP_MAX_POOL_2D_BACKWARD:
@@ -479,7 +516,8 @@ class TapeDecoder {
           String nameOutAvg = _readString();
           int avgPoolSize = _readInt();
           int avgStridePool = _readInt();
-          Logger.cyan('$opName: $nameOutAvg = avg_pool($nameInAvg, size: $avgPoolSize, stride: $avgStridePool)');
+          Logger.cyan(
+              '$opName: $nameOutAvg = avg_pool($nameInAvg, size: $avgPoolSize, stride: $avgStridePool)');
           break;
         case OP_AVG_POOL_2D_BACKWARD: // Avg pool does NOT read indices in C++!
           String gradOutAvg = _readString();
@@ -511,7 +549,8 @@ class TapeDecoder {
           //double momentum = _readFloat();
           //double epsilonBn = _readFloat();
           bool isTraining = _readBool();
-          Logger.cyan('$opName: $nameOutBn = batch_norm($nameInBn) train:$isTraining');
+          Logger.cyan(
+              '$opName: $nameOutBn = batch_norm($nameInBn) train:$isTraining');
           break;
         case OP_BATCH_NORM_1D_BACKWARD:
         case OP_BATCH_NORM_2D_BACKWARD:
@@ -531,13 +570,15 @@ class TapeDecoder {
           //String nameMaskDrop = _readString();
           double dropRate = _readFloat();
           int seed = _readInt();
-          Logger.cyan('$opName: $nameOutDrop = dropout($nameInDrop, rate: $dropRate, seed: $seed)');
+          Logger.cyan(
+              '$opName: $nameOutDrop = dropout($nameInDrop, rate: $dropRate, seed: $seed)');
           break;
         case OP_DROPOUT_BACKWARD:
           String gradOutDrop = _readString();
           String nameMaskDropBw = _readString();
           String gradInDrop = _readString();
-          Logger.blue('$opName: $gradInDrop = dropout_bw($gradOutDrop, mask: $nameMaskDropBw)');
+          Logger.blue(
+              '$opName: $gradInDrop = dropout_bw($gradOutDrop, mask: $nameMaskDropBw)');
           break;
 
         default:

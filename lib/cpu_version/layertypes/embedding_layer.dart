@@ -71,7 +71,8 @@ class EmbeddingLayer extends Layer<Vector, Matrix> {
         int outOffset = i * embeddingDimension;
 
         for (int j = 0; j < embeddingDimension; j = j + 1) {
-          embeddings.grad[embOffset + j] = embeddings.grad[embOffset + j] + out.grad[outOffset + j];
+          embeddings.grad[embOffset + j] =
+              embeddings.grad[embOffset + j] + out.grad[outOffset + j];
         }
       }
     }, opName: 'embedding_lookup');
@@ -168,7 +169,8 @@ class EmbeddingLayerMatrix extends Layer<Matrix, Tensor3D> {
           int outOffset = (b * outSeqStride) + (s * embeddingDimension);
 
           for (int d = 0; d < embeddingDimension; d = d + 1) {
-            embeddings.grad[embOffset + d] = embeddings.grad[embOffset + d] + out.grad[outOffset + d];
+            embeddings.grad[embOffset + d] =
+                embeddings.grad[embOffset + d] + out.grad[outOffset + d];
           }
         }
       }

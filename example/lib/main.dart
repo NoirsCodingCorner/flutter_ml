@@ -1430,10 +1430,9 @@ class SimpleGPUApp extends StatelessWidget {
 }
 */
 
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   /// Adjust for your architecture
   await GPUEngine.initialize(target: Target.cuda);
   runApp(MaterialApp(home: BenchmarkScreen()));
@@ -1460,12 +1459,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     print('--- Test 1: Training and Static Prediction ---');
     GPUTensor<Matrix> trainInput1 = GPUTensor<Matrix>(<List<double>>[
       <double>[1.0, 1.0],
-      <double>[2.0, 2.0]
+      <double>[2.0, 2.0],
     ]);
 
     GPUTensor<Matrix> trainTarget1 = GPUTensor<Matrix>(<List<double>>[
       <double>[2.0, 2.0],
-      <double>[4.0, 4.0]
+      <double>[4.0, 4.0],
     ]);
 
     SeqModel<Matrix, Matrix> model1 = SeqModel<Matrix, Matrix>(
@@ -1489,7 +1488,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     print('Final Training Loss: ${model1.loss?.value}');
 
     GPUTensor<Matrix> inferInput1 = GPUTensor<Matrix>(<List<double>>[
-      <double>[3.0, 3.0]
+      <double>[3.0, 3.0],
     ]);
 
     GPUTensor<Matrix> inferResult1 = model1.predict(inferInput1);
@@ -1539,7 +1538,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         GeluLayerMatrixTL(),
         DenseTL(64),
         GeluLayerMatrixTL(),
-        DenseTL(outputFeatures2)
+        DenseTL(outputFeatures2),
       ],
       trainInput2,
       target: trainTarget2,
@@ -1557,7 +1556,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     timer2.stop();
     print('Compilation took: ${timer2.elapsedMilliseconds} ms');
 
-    print('Starting high-speed training loop (20 seconds max) for Batch Size $batchSize2...');
+    print(
+      'Starting high-speed training loop (20 seconds max) for Batch Size $batchSize2...',
+    );
     timer2.reset();
     timer2.start();
 
@@ -1588,9 +1589,13 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     double tflops2 = gflops2 / 1000.0;
 
     print('Final Training Loss: ${model2.loss?.value}');
-    print('Completed $actualEpochs2 epochs in ${seconds2.toStringAsFixed(2)} seconds');
+    print(
+      'Completed $actualEpochs2 epochs in ${seconds2.toStringAsFixed(2)} seconds',
+    );
     print('Engine Performance: ${epochsPerSec2.toStringAsFixed(2)} Epochs/sec');
-    print('Compute Performance: ${gflops2.toStringAsFixed(2)} GFLOPS (${tflops2.toStringAsFixed(4)} TFLOPS)');
+    print(
+      'Compute Performance: ${gflops2.toStringAsFixed(2)} GFLOPS (${tflops2.toStringAsFixed(4)} TFLOPS)',
+    );
 
     model2.free();
 
@@ -1648,8 +1653,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     double gflops3 = flopsPerSecond3 / 1000000000.0;
     double tflops3 = gflops3 / 1000.0;
 
-    print('Completed $actualSteps3 MatMul steps in ${seconds3.toStringAsFixed(2)} seconds');
-    print('Compute Performance: ${gflops3.toStringAsFixed(2)} GFLOPS (${tflops3.toStringAsFixed(4)} TFLOPS)');
+    print(
+      'Completed $actualSteps3 MatMul steps in ${seconds3.toStringAsFixed(2)} seconds',
+    );
+    print(
+      'Compute Performance: ${gflops3.toStringAsFixed(2)} GFLOPS (${tflops3.toStringAsFixed(4)} TFLOPS)',
+    );
 
     tensorA3.free();
     tensorB3.free();
@@ -1688,8 +1697,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     double gflops4 = flopsPerSecond4 / 1000000000.0;
     double tflops4 = gflops4 / 1000.0;
 
-    print('Completed $steps4 massive MatMul steps in ${seconds4.toStringAsFixed(2)} seconds');
-    print('Compute Performance: ${gflops4.toStringAsFixed(2)} GFLOPS (${tflops4.toStringAsFixed(4)} TFLOPS)');
+    print(
+      'Completed $steps4 massive MatMul steps in ${seconds4.toStringAsFixed(2)} seconds',
+    );
+    print(
+      'Compute Performance: ${gflops4.toStringAsFixed(2)} GFLOPS (${tflops4.toStringAsFixed(4)} TFLOPS)',
+    );
 
     tensorA4.free();
     tensorB4.free();
@@ -1704,9 +1717,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('GPU Engine Benchmark'),
-      ),
+      appBar: AppBar(title: Text('GPU Engine Benchmark')),
       body: Center(
         child: Padding(
           padding: EdgeInsets.all(24.0),
@@ -1722,7 +1733,10 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               ElevatedButton(
                 onPressed: isRunning ? null : runBenchmarkSuite,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 12.0,
+                  ),
                   child: Text(
                     isRunning ? 'Running...' : 'Run Benchmarks',
                     style: TextStyle(fontSize: 16.0),

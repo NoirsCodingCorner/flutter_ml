@@ -113,11 +113,11 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
   // Helper to strictly slice a sequence row into a 1xN Matrix.
   // Added outTensor support for static unrolling caching.
   GPUTensor<Matrix> sliceRowToMatrix(
-      GPUTensor<Matrix> sequence,
-      int rowIdx,
-      CommandBuffer tape, {
-        GPUTensor<Matrix>? outTensor,
-      }) {
+    GPUTensor<Matrix> sequence,
+    int rowIdx,
+    CommandBuffer tape, {
+    GPUTensor<Matrix>? outTensor,
+  }) {
     GPUTensor<Matrix> out =
         outTensor ?? GPUTensor<Matrix>.empty(<int>[1, sequence.shape[1]]);
     tape.putInt(OP_SLICE_ROW);
@@ -142,10 +142,10 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
   /// and bypasses the external [intermediates] list. It dynamically reallocates memory only if the sequence length changes.
   @override
   GPUTensor<Matrix> forward(
-      GPUTensor<Matrix> input,
-      CommandBuffer tape,
-      List<GPUTensor> intermediates,
-      ) {
+    GPUTensor<Matrix> input,
+    CommandBuffer tape,
+    List<GPUTensor> intermediates,
+  ) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 

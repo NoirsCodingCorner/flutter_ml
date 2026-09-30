@@ -79,7 +79,8 @@ class SafetensorsLoader {
       int byteLength = endOffset - startOffset;
       int floatCount = byteLength ~/ 4;
 
-      ByteData tensorData = ByteData.sublistView(rawBytes, absoluteStart, absoluteStart + byteLength);
+      ByteData tensorData = ByteData.sublistView(
+          rawBytes, absoluteStart, absoluteStart + byteLength);
       List<double> values = <double>[];
 
       for (int j = 0; j < floatCount; j = j + 1) {

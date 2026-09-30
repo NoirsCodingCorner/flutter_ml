@@ -33,13 +33,13 @@ class AdamGPU extends OptimizerGPU {
   /// Requires the list of trainable [parameters] and the [learningRate].
   /// Optional parameters [beta1], [beta2], [epsilon], and [weightDecay] allow fine-tuning of the algorithm.
   AdamGPU(
-      super.parameters,
-      this.learningRate, {
-        this.beta1 = 0.9,
-        this.beta2 = 0.999,
-        this.epsilon = 1e-7,
-        this.weightDecay = 0.0,
-      }) {
+    super.parameters,
+    this.learningRate, {
+    this.beta1 = 0.9,
+    this.beta2 = 0.999,
+    this.epsilon = 1e-7,
+    this.weightDecay = 0.0,
+  }) {
     for (int i = 0; i < parameters.length; i = i + 1) {
       int totalElements = 1;
       for (int s = 0; s < parameters[i].shape.length; s = s + 1) {
@@ -63,6 +63,7 @@ class AdamGPU extends OptimizerGPU {
   }
 
   final List<int> _stepOffsets = <int>[];
+
   /// Appends the Adam weight update operations to the provided [tape].
   /// Increments the [currentStep] automatically after processing all parameters.
   @override
@@ -78,10 +79,11 @@ class AdamGPU extends OptimizerGPU {
       tape.putFloat(beta1);
       tape.putFloat(beta2);
       tape.putFloat(epsilon);
-      _stepOffsets.add(tape.reserveInt());   // was: tape.putInt(currentStep);
+      _stepOffsets.add(tape.reserveInt()); // was: tape.putInt(currentStep);
       tape.putFloat(weightDecay);
     }
   }
+
   /// Patches the compiled tape with the current step and advances it. Call this once per
   /// training step, right before SeqModel replays the optimize tape.
   @override

@@ -14,10 +14,11 @@ void main() async {
 
   SeqModel<Tensor3D, Matrix> model = SeqModel<Tensor3D, Matrix>(
     <TapeLayer>[
-      Conv2DTL(4, 3),               // [1,8,8]  -> [4,6,6]   (valid padding, 3x3 kernel)
-      FlattenTL(),                  // [4,6,6]  -> [1,144]
-      ReLULayerMatrixTapeLayer(),   // [1,144]  -> [1,144]   (no Tensor3D relu layer exists yet,
-      DenseTL(2),                   // [1,144]  -> [1,2]     so the nonlinearity sits here instead)
+      Conv2DTL(4, 3), // [1,8,8]  -> [4,6,6]   (valid padding, 3x3 kernel)
+      FlattenTL(), // [4,6,6]  -> [1,144]
+      ReLULayerMatrixTapeLayer(), // [1,144]  -> [1,144]   (no Tensor3D relu layer exists yet,
+      DenseTL(
+          2), // [1,144]  -> [1,2]     so the nonlinearity sits here instead)
     ],
     input,
     target: target,

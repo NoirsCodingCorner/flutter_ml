@@ -9,6 +9,7 @@ import 'tape_layer.dart';
 class DropoutTL extends TapeLayer {
   /// The dropout probability for every element in the provided Tensor.
   double rate;
+
   /// Boolean flag to toggle between active and inactive. During training dropout is disabled.
   bool isTraining;
 
@@ -40,7 +41,8 @@ class DropoutTL extends TapeLayer {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   /// When [isTraining] is set to false it passes the input Tensor as its output.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     if (isTraining == false || rate == 0.0) {
       return input;
     }

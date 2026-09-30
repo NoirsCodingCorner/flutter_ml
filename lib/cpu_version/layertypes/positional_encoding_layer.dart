@@ -84,6 +84,5 @@ class PositionalEncoding extends Layer<Matrix, Matrix> {
 
   /// No-op as this layer contains no weights to set.
   @override
-  void setWeights(Map<String, dynamic> weights) {
-  }
+  void setWeights(Map<String, dynamic> weights) {}
 }

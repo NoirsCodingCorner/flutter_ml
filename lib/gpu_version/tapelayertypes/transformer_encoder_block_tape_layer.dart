@@ -24,10 +24,13 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
 
   /// Expansion weight matrix for the Feed-Forward Network.
   late GPUTensor<Matrix> w1;
+
   /// Expansion bias vector for the Feed-Forward Network.
   late GPUTensor<Vector> b1;
+
   /// Projection weight matrix for the Feed-Forward Network.
   late GPUTensor<Matrix> w2;
+
   /// Projection bias vector for the Feed-Forward Network.
   late GPUTensor<Vector> b2;
 
@@ -81,7 +84,8 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     Map<String, GPUTensor> map = <String, GPUTensor>{};
     if (built) {
       map.addAll(mha.getNamedParameters('$prefix.attention'));
-      map.addAll(norm1.getNamedParameters('$prefix.attention.output.LayerNorm'));
+      map.addAll(
+          norm1.getNamedParameters('$prefix.attention.output.LayerNorm'));
       map.addAll(norm2.getNamedParameters('$prefix.output.LayerNorm'));
 
       map['$prefix.intermediate.dense.weight'] = w1;
@@ -95,7 +99,8 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
   /// Appends the encoder block operations to the [tape].
   /// Relies on the internal persistent caches of its child layers and caches its own FFN math.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
@@ -128,30 +133,37 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     GPUTensor<Matrix> attnOut = mha.forward(input, tape, intermediates);
 
     // 2. Residual Add & Layer Norm 1
-    GPUTensor<Matrix> add1 = addMatrixGPU(input, attnOut, tape, outTensor: getCached());
+    GPUTensor<Matrix> add1 =
+        addMatrixGPU(input, attnOut, tape, outTensor: getCached());
     saveCached(add1);
 
     GPUTensor<Matrix> norm1Out = norm1.forward(add1, tape, intermediates);
 
     // 3. FFN Layer 1
-    GPUTensor<Matrix> ffn1MatMul = matMulGPU(norm1Out, w1, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn1MatMul =
+        matMulGPU(norm1Out, w1, tape, outTensor: getCached());
     saveCached(ffn1MatMul);
 
-    GPUTensor<Matrix> ffn1Bias = addBiasToMatMulOutGPU(ffn1MatMul, b1, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn1Bias =
+        addBiasToMatMulOutGPU(ffn1MatMul, b1, tape, outTensor: getCached());
     saveCached(ffn1Bias);
 
-    GPUTensor<Matrix> ffn1 = geluMatrixGPU(ffn1Bias, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn1 =
+        geluMatrixGPU(ffn1Bias, tape, outTensor: getCached());
     saveCached(ffn1);
 
     // 4. FFN Layer 2 (MatMul + Bias)
-    GPUTensor<Matrix> ffn2MatMul = matMulGPU(ffn1, w2, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn2MatMul =
+        matMulGPU(ffn1, w2, tape, outTensor: getCached());
     saveCached(ffn2MatMul);
 
-    GPUTensor<Matrix> ffn2 = addBiasToMatMulOutGPU(ffn2MatMul, b2, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn2 =
+        addBiasToMatMulOutGPU(ffn2MatMul, b2, tape, outTensor: getCached());
     saveCached(ffn2);
 
     // 5. Residual Add & Layer Norm 2
-    GPUTensor<Matrix> add2 = addMatrixGPU(norm1Out, ffn2, tape, outTensor: getCached());
+    GPUTensor<Matrix> add2 =
+        addMatrixGPU(norm1Out, ffn2, tape, outTensor: getCached());
     saveCached(add2);
 
     GPUTensor<Matrix> out = norm2.forward(add2, tape, intermediates);

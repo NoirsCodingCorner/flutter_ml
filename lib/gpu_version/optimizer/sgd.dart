@@ -20,8 +20,8 @@ class SGDGPU extends OptimizerGPU {
   void step(CommandBuffer tape) {
     for (int i = 0; i < parameters.length; i = i + 1) {
       tape.putInt(OP_SGD_UPDATE);
-      tape.putString(parameters[i].id);               // The weights
-      tape.putString('${parameters[i].id}_grad');     // The gradients
+      tape.putString(parameters[i].id); // The weights
+      tape.putString('${parameters[i].id}_grad'); // The gradients
       tape.putFloat(learningRate);
     }
   }

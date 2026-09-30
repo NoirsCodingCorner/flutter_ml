@@ -13,10 +13,10 @@ class Adagrad extends Optimizer {
 
   /// Creates an [Adagrad] optimizer for [parameters] with the specified [learningRate] and [epsilon].
   Adagrad(
-      List<Tensor<dynamic>> parameters, {
-        required double learningRate,
-        this.epsilon = 1e-8,
-      }) : super(parameters, learningRate: learningRate) {
+    List<Tensor<dynamic>> parameters, {
+    required double learningRate,
+    this.epsilon = 1e-8,
+  }) : super(parameters, learningRate: learningRate) {
     _gSquaredSum = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
       Tensor<dynamic> param = parameters[p];
@@ -39,7 +39,8 @@ class Adagrad extends Optimizer {
       for (int i = 0; i < param.data.length; i = i + 1) {
         double gradient = param.grad[i];
         gSum[i] = gSum[i] + (gradient * gradient);
-        param.data[i] = param.data[i] - (learningRate * gradient) / (sqrt(gSum[i]) + epsilon);
+        param.data[i] = param.data[i] -
+            (learningRate * gradient) / (sqrt(gSum[i]) + epsilon);
       }
     }
   }

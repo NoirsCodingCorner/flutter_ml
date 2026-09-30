@@ -5,10 +5,7 @@ import '../tensor/tensor_gpu.dart';
 import 'dart:typed_data';
 import '../logger.dart';
 
-
-
 class Node {
-
   List<Tensor> inputs;
   Function backwardFn;
   String opName;
@@ -40,14 +37,13 @@ class Node {
   ///   );
   /// ```
   Node(
-      this.inputs,
-      this.backwardFn, {
-        this.opName = 'op',
-        this.cost = 0,
-        this.extraParams = const {},
-      });
+    this.inputs,
+    this.backwardFn, {
+    this.opName = 'op',
+    this.cost = 0,
+    this.extraParams = const {},
+  });
 }
-
 
 /// A [Tensor] in this library is used as the fundamental unit to hold a structured collection of `float` values on the CPU.
 /// These values are stored for performance enhancement inside of [Float32List].
@@ -62,7 +58,8 @@ class Node {
 class Tensor<T> {
   static int _idCounter = 0;
 
-  static final Finalizer<(Pointer<Float>, Pointer<Float>)> _finalizer = Finalizer((ptrs) {
+  static final Finalizer<(Pointer<Float>, Pointer<Float>)> _finalizer =
+      Finalizer((ptrs) {
     calloc.free(ptrs.$1);
     calloc.free(ptrs.$2);
   });
@@ -70,13 +67,15 @@ class Tensor<T> {
   /// Global identifier to find and query tensors. [id] is set to "t_[_idCounter] by default. Id can be set anytime on CPU-bound Tensors.
   late String id;
 
-
   /// C pointer to the memory location of [data].
   late Pointer<Float> dataPtr;
+
   /// `Rolled out List of the Tensors value.
   late Float32List data;
+
   /// C pointer to the memory location of [grad].
   late Pointer<Float> gradPtr;
+
   /// `Rolled out List of the Tensors gradient value.
   late Float32List grad;
 
@@ -150,9 +149,9 @@ class Tensor<T> {
       int cols = rows > 0 ? initialValue[0].length : 0;
       shape = [rows, cols];
     } else if (initialValue is List<List<List<double>>>) {
-      int depth  = initialValue.length;
+      int depth = initialValue.length;
       int height = depth > 0 ? initialValue[0].length : 0;
-      int width  = height > 0 ? initialValue[0][0].length : 0;
+      int width = height > 0 ? initialValue[0][0].length : 0;
       shape = [depth, height, width];
     } else {
       throw Exception("Unsupported tensor initialization type.");
@@ -161,9 +160,9 @@ class Tensor<T> {
     int numElements = _elementCount(shape);
 
     dataPtr = calloc<Float>(numElements);
-    data    = dataPtr.asTypedList(numElements);
+    data = dataPtr.asTypedList(numElements);
     gradPtr = calloc<Float>(numElements);
-    grad    = gradPtr.asTypedList(numElements);
+    grad = gradPtr.asTypedList(numElements);
 
     _finalizer.attach(this, (dataPtr, gradPtr), detach: this);
 
@@ -182,17 +181,17 @@ class Tensor<T> {
       }
     } else if (initialValue is List<List<List<double>>>) {
       int height = shape[1];
-      int width  = shape[2];
+      int width = shape[2];
       for (int d = 0; d < initialValue.length; d = d + 1) {
         for (int h = 0; h < initialValue[d].length; h = h + 1) {
           for (int w = 0; w < initialValue[d][h].length; w = w + 1) {
-            data[(d * height * width) + (h * width) + w] = initialValue[d][h][w];
+            data[(d * height * width) + (h * width) + w] =
+                initialValue[d][h][w];
           }
         }
       }
     }
   }
-
 
   /// Helper function to return the total element amount of the Tensor.
   static int _elementCount(List<int> shape) {
@@ -242,9 +241,9 @@ class Tensor<T> {
     }
 
     if (shape.length == 3) {
-      int depth  = shape[0];
+      int depth = shape[0];
       int height = shape[1];
-      int width  = shape[2];
+      int width = shape[2];
       List<List<List<double>>> tensor3d = [];
       for (int d = 0; d < depth; d = d + 1) {
         List<List<double>> matrix = [];
@@ -262,6 +261,7 @@ class Tensor<T> {
 
     throw Exception('Unflattening beyond 3D is not supported.');
   }
+
   /// Converts [grad] via [shape] and returns the value as [T].
   T get gradValue {
     if (shape.isEmpty) return grad[0] as T;
@@ -289,9 +289,9 @@ class Tensor<T> {
     }
 
     if (shape.length == 3) {
-      int depth  = shape[0];
+      int depth = shape[0];
       int height = shape[1];
-      int width  = shape[2];
+      int width = shape[2];
       List<List<List<double>>> tensor3d = [];
       for (int d = 0; d < depth; d = d + 1) {
         List<List<double>> matrix = [];
@@ -316,14 +316,14 @@ class Tensor<T> {
 
   /// Starting point of gradient calculation. The network of Nodes and Tensors traverses in topological order over all Tensors affecting this Tensor adding a given gradient, calculated via their [creator].
   /// The value of [startingGrad] affects the first gradient given into the backwards process and is set to `1.0` by default.
-  void backward({double startingGrad=1.0}) {
+  void backward({double startingGrad = 1.0}) {
     for (int i = 0; i < grad.length; i = i + 1) {
       grad[i] = startingGrad;
     }
 
     if (creator == null) return;
 
-    List<Node> topo   = [];
+    List<Node> topo = [];
     Set<Node> visited = {};
 
     void buildTopo(Node? node) {
@@ -400,13 +400,8 @@ class Tensor<T> {
     _buildGraphString(this, '', true, visitedTensors, true);
   }
 
-  void _buildGraphString(
-      Tensor currentTensor,
-      String prefix,
-      bool isLast,
-      Set<String> visited,
-      bool isRoot) {
-
+  void _buildGraphString(Tensor currentTensor, String prefix, bool isLast,
+      Set<String> visited, bool isRoot) {
     String tId = currentTensor.id;
     String branchPrefix = prefix;
 
@@ -424,14 +419,20 @@ class Tensor<T> {
     visited.add(tId);
 
     if (currentTensor.creator == null) {
-      Logger.green('$tId ${currentTensor._getShapeString()} [CPU] (Leaf: Input)', prefix: branchPrefix);
+      Logger.green(
+          '$tId ${currentTensor._getShapeString()} [CPU] (Leaf: Input)',
+          prefix: branchPrefix);
     } else {
       String opName = currentTensor.creator!.opName;
 
       if (isRoot) {
-        Logger.yellow('$tId ${currentTensor._getShapeString()} [CPU] (Op: $opName)', prefix: branchPrefix);
+        Logger.yellow(
+            '$tId ${currentTensor._getShapeString()} [CPU] (Op: $opName)',
+            prefix: branchPrefix);
       } else {
-        Logger.blue('$tId ${currentTensor._getShapeString()} [CPU] (Op: $opName)', prefix: branchPrefix);
+        Logger.blue(
+            '$tId ${currentTensor._getShapeString()} [CPU] (Op: $opName)',
+            prefix: branchPrefix);
       }
 
       Map<String, dynamic>? extras = currentTensor.creator!.extraParams;
@@ -476,13 +477,9 @@ class Tensor<T> {
       }
     }
   }
-  void _buildGPUGraphString(
-      GPUTensor currentTensor,
-      String prefix,
-      bool isLast,
-      Set<String> visited,
-      Map<String, Tensor> boundaryMap) {
 
+  void _buildGPUGraphString(GPUTensor currentTensor, String prefix, bool isLast,
+      Set<String> visited, Map<String, Tensor> boundaryMap) {
     String tId = currentTensor.id;
     String branchPrefix = prefix;
 
@@ -509,7 +506,8 @@ class Tensor<T> {
     shapeStr = '$shapeStr]';
 
     if (currentTensor.creator == null) {
-      Logger.green('$tId $shapeStr [GPU] (Leaf: VRAM Input)', prefix: branchPrefix);
+      Logger.green('$tId $shapeStr [GPU] (Leaf: VRAM Input)',
+          prefix: branchPrefix);
 
       // If this VRAM input maps to a CPU tensor, bridge back to the CPU graph
       if (boundaryMap.containsKey(tId)) {
@@ -540,7 +538,8 @@ class Tensor<T> {
           nextPrefix = '$nextPrefix│   ';
         }
 
-        _buildGPUGraphString(inputs[i], nextPrefix, isLastChild, visited, boundaryMap);
+        _buildGPUGraphString(
+            inputs[i], nextPrefix, isLastChild, visited, boundaryMap);
       }
     }
   }

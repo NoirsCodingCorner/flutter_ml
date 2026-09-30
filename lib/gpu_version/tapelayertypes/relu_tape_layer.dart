@@ -30,7 +30,8 @@ class ReLULayerTL extends TapeLayer<Vector, Vector> {
   /// Writes the [reluGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape.isEmpty ? 1 : input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -98,7 +99,8 @@ class ReLULayerMatrixTapeLayer extends TapeLayer<Matrix, Matrix> {
   /// Writes the [reluMatrixGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {

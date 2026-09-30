@@ -26,7 +26,8 @@ class SafetensorsExporter {
   /// Exports a map of [GPUTensor] instances to disk at [outputPath] adhering to the Hugging Face Safetensors format.
   /// Pulls tensor data from VRAM to CPU, flattens dimensions, packs the data into little-endian Float32 byte buffers,
   /// constructs the JSON metadata header, and writes the complete binary file with an 8-byte little-endian header length prefix.
-  static void saveModel(Map<String, GPUTensor> modelTensors, String outputPath) {
+  static void saveModel(
+      Map<String, GPUTensor> modelTensors, String outputPath) {
     Logger.log('Starting export to $outputPath...');
 
     Map<String, dynamic> jsonHeader = <String, dynamic>{};
@@ -67,9 +68,7 @@ class SafetensorsExporter {
     }
 
     // Safetensors requires an "__metadata__" block (often used for format info)
-    jsonHeader["__metadata__"] = <String, String>{
-      "format": "pt"
-    };
+    jsonHeader["__metadata__"] = <String, String>{"format": "pt"};
 
     // 4. Encode JSON
     String jsonString = jsonEncode(jsonHeader);
@@ -84,8 +83,8 @@ class SafetensorsExporter {
     BytesBuilder fileBuilder = BytesBuilder();
 
     fileBuilder.add(headerLengthBytes.buffer.asUint8List()); // 8 bytes
-    fileBuilder.add(jsonBytes);                              // JSON String
-    fileBuilder.add(rawBuffer.takeBytes());                  // Raw F32 Tensor Data
+    fileBuilder.add(jsonBytes); // JSON String
+    fileBuilder.add(rawBuffer.takeBytes()); // Raw F32 Tensor Data
 
     file.writeAsBytesSync(fileBuilder.takeBytes());
 

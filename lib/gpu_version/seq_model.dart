@@ -17,7 +17,9 @@ class SeqModel<InputType, OutputType> {
   GPUTensor<Scalar>? loss;
 
   /// The function used to calculate the loss between the network's output and the [target].
-  GPUTensor<Scalar> Function(GPUTensor<OutputType>, GPUTensor<OutputType>, CommandBuffer, {GPUTensor<Scalar>? outTensor})? lossFunction;
+  GPUTensor<Scalar> Function(
+      GPUTensor<OutputType>, GPUTensor<OutputType>, CommandBuffer,
+      {GPUTensor<Scalar>? outTensor})? lossFunction;
 
   /// A callback that builds the optimizer once all layer parameters are allocated in VRAM.
   OptimizerGPU Function(List<GPUTensor>)? optimizerBuilder;
@@ -45,14 +47,8 @@ class SeqModel<InputType, OutputType> {
 
   /// Initializes the Sequential Model with a list of [layers] and the training [input] tensor.
   /// Optionally accepts a [target] tensor, [lossFunction], and an [optimizerBuilder] for training workflows.
-  SeqModel(
-      this.layers,
-      this.input,
-      {
-        this.target,
-        this.lossFunction,
-        this.optimizerBuilder
-      });
+  SeqModel(this.layers, this.input,
+      {this.target, this.lossFunction, this.optimizerBuilder});
 
   /// Compiles the static training tapes for forward execution, backpropagation, and optimization.
   /// It allocates all layer parameters in VRAM, chains their forward passes, and records the gradient memory lifecycle.
@@ -69,12 +65,10 @@ class SeqModel<InputType, OutputType> {
 
     if (lossFunction != null && target != null) {
       if (current is! GPUTensor<OutputType>) {
-        throw StateError(
-            '[SeqModel Compile Error] Architecture Mismatch:\n'
-                'The Sequential Model expects an output of type GPUTensor<$OutputType> to calculate the loss, '
-                'but the final layer returned a ${current.runtimeType}.\n'
-                'Please ensure the last TapeLayer matches your SeqModel definition.'
-        );
+        throw StateError('[SeqModel Compile Error] Architecture Mismatch:\n'
+            'The Sequential Model expects an output of type GPUTensor<$OutputType> to calculate the loss, '
+            'but the final layer returned a ${current.runtimeType}.\n'
+            'Please ensure the last TapeLayer matches your SeqModel definition.');
       }
       loss = lossFunction!(current, target!, trainForward);
     }
@@ -121,11 +115,9 @@ class SeqModel<InputType, OutputType> {
     }
 
     if (current is! GPUTensor<OutputType>) {
-      throw StateError(
-          '[SeqModel Inference Error] Architecture Mismatch:\n'
-              'The Sequential Model is defined to return a GPUTensor<$OutputType>, '
-              'but the final layer produced a ${current.runtimeType}.'
-      );
+      throw StateError('[SeqModel Inference Error] Architecture Mismatch:\n'
+          'The Sequential Model is defined to return a GPUTensor<$OutputType>, '
+          'but the final layer produced a ${current.runtimeType}.');
     }
 
     inferResult = current;

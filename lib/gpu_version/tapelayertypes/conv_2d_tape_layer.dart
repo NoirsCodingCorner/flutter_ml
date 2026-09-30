@@ -8,7 +8,7 @@ import 'tape_layer.dart';
 
 /// Applies a 2D convolution over a multi-channel input using learnable spatial filters.
 /// Works for Matrix and Tensor3D inputs. On Matrix input it is assumed to contain 1 channel.
-class Conv2DTL extends TapeLayer<dynamic,Tensor3D> {
+class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
   @override
   String get name => 'Conv2DTapeLayer';
 
@@ -18,8 +18,10 @@ class Conv2DTL extends TapeLayer<dynamic,Tensor3D> {
 
   /// Number of input channels.
   late int inChannels;
+
   /// Learnable filter weights for the convolution.
   late GPUTensor<Tensor3D> weights;
+
   /// Learnable shifting vector (similar to bias) applied to each output channel.
   late GPUTensor<Vector> biases;
 
@@ -79,7 +81,8 @@ class Conv2DTL extends TapeLayer<dynamic,Tensor3D> {
   /// Writes the [conv2dMultiChannelGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Tensor3D> forward(GPUTensor<dynamic> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Tensor3D> forward(GPUTensor<dynamic> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     // Safely free the old cache if the batch size changes
@@ -92,15 +95,8 @@ class Conv2DTL extends TapeLayer<dynamic,Tensor3D> {
     }
 
     cachedOut = conv2dMultiChannelGPU(
-        input,
-        weights,
-        biases,
-        kernelSize,
-        kernelSize,
-        tape,
-        padding: padding,
-        outTensor: cachedOut
-    );
+        input, weights, biases, kernelSize, kernelSize, tape,
+        padding: padding, outTensor: cachedOut);
 
     return cachedOut!;
   }

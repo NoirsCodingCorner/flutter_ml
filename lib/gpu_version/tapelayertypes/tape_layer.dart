@@ -23,13 +23,10 @@ export 'sigmoid_matrix_tape_layer.dart';
 export 'single_head_attention_tape_layer.dart';
 export 'transformer_encoder_block_tape_layer.dart';
 
-
-
 import '/cpu_version/cpu_version.dart';
 
 import '/tensor/tensor_gpu.dart';
 import '../ffi/command_buffer.dart';
-
 
 /// TapeLayer is built to be an additional abstraction that allows for complex mathematical bundling.
 /// Operations like Dense Neural Networks are supported as a single TapeLayer and can be used to build models reliably.
@@ -50,7 +47,7 @@ import '../ffi/command_buffer.dart';
 /// -[call]: Helper function that, if not overwritten, checks whether [build] has already been called; if not, it calls [build] and only then [forward].
 ///
 /// -[free]: Function to free the allocated [parameters] VRAM.
-abstract class TapeLayer<InputType,OutputType> {
+abstract class TapeLayer<InputType, OutputType> {
   /// The assigned name of the given TapeLayer architecture. When building custom architectures, it is recommended to use a meaningful name.
   String get name;
 
@@ -61,7 +58,6 @@ abstract class TapeLayer<InputType,OutputType> {
   /// Bool flag to register whether a TapeLayer has already been built, or rather whether the required VRAM has been allocated at least once.
   bool built = false;
 
-
   /// Allocates VRAM for weights/biases based on the incoming input shape. The GPUTensor [input] will be used for the construction of the [CommandBuffer] and therefore
   /// should match the exact GPUTensor used in [forward]. All operations of a TapeLayer are in place, so this shape must not change during training or inference.
   void build(GPUTensor<InputType> input) {
@@ -70,10 +66,12 @@ abstract class TapeLayer<InputType,OutputType> {
 
   /// Appends this layer's forward operations to the [tape]. The intermediates list captures transient tensors to prevent VRAM creep on complex architectures.
   /// The input tensor should match the tensor provided in the [build] method.
-  GPUTensor<OutputType> forward(GPUTensor<InputType> input, CommandBuffer tape, List<GPUTensor> intermediates);
+  GPUTensor<OutputType> forward(GPUTensor<InputType> input, CommandBuffer tape,
+      List<GPUTensor> intermediates);
 
   /// Helper function that, if not overwritten, checks whether [build] has already been called; if not, it calls [build] and only then [forward].
-  GPUTensor<OutputType> call(GPUTensor<InputType> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<OutputType> call(GPUTensor<InputType> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     if (built == false) {
       build(input);
     }
@@ -92,6 +90,7 @@ abstract class TapeLayer<InputType,OutputType> {
 
   /// Function to retrieve the weights for storing purposes.
   Map<String, List<dynamic>> getWeights();
+
   /// Function to set the weights to the provided values.
   void setWeights(Map<String, List<dynamic>> weights);
 }

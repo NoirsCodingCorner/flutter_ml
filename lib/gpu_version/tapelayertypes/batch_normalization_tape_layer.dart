@@ -17,10 +17,13 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
 
   /// Learnable scaling vector used to find the optimal scale for the normalized features.
   late GPUTensor<Vector> gamma;
+
   /// Learnable shifting vector (similar to bias) used to find the optimal offset.
   late GPUTensor<Vector> beta;
+
   /// Non-trainable parameter used to track the global average mean.
   late GPUTensor<Vector> runningMean;
+
   /// Non-trainable parameter used to track the global average variance.
   late GPUTensor<Vector> runningVariance;
 
@@ -30,10 +33,10 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
 
   /// Requires the size of the input vector [numFeatures]. Initializes with a fixed [momentum] and a safety variance addition [epsilon] to prevent division by zero.
   BatchNorm1DTL(
-      this.numFeatures, {
-        this.momentum = 0.9,
-        this.epsilon = 1e-5,
-      });
+    this.numFeatures, {
+    this.momentum = 0.9,
+    this.epsilon = 1e-5,
+  });
 
   /// Returns the trainable parameters [gamma] and [beta].
   @override
@@ -72,7 +75,8 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
   /// Writes the [batchNorm1dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
     if (cacheBatchSize != currentBatchSize) {
       if (cachedOut != null) {
@@ -83,8 +87,16 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
     }
 
     GPUTensor<Vector> out = batchNorm1dGPU(
-      input, gamma, beta, runningMean, runningVariance,
-      momentum, epsilon, isTraining, tape, outTensor: cachedOut,
+      input,
+      gamma,
+      beta,
+      runningMean,
+      runningVariance,
+      momentum,
+      epsilon,
+      isTraining,
+      tape,
+      outTensor: cachedOut,
     );
     cachedOut = out;
     return out;
@@ -179,10 +191,13 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
 
   /// Learnable scaling vector used to find the optimal scale for the normalized features per channel.
   late GPUTensor<Vector> gamma;
+
   /// Learnable shifting vector (similar to bias) used to find the optimal offset per channel.
   late GPUTensor<Vector> beta;
+
   /// Non-trainable parameter used to track the global average mean of the inputs per channel.
   late GPUTensor<Vector> runningMean;
+
   /// Non-trainable parameter used to track the global average variance of the inputs per channel.
   late GPUTensor<Vector> runningVariance;
 
@@ -192,10 +207,10 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
 
   /// Requires the number of channels [numChannels] (the amount of matrices in the input [Tensor3D]). Initializes with a fixed [momentum] and a safety variance addition [epsilon] to prevent division by zero.
   BatchNorm2DTL(
-      this.numChannels, {
-        this.momentum = 0.9,
-        this.epsilon = 1e-5,
-      });
+    this.numChannels, {
+    this.momentum = 0.9,
+    this.epsilon = 1e-5,
+  });
 
   /// Returns the trainable parameters [gamma] and [beta].
   @override
@@ -234,7 +249,8 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
   /// Writes the [batchNorm2dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Tensor3D> forward(GPUTensor<Tensor3D> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Tensor3D> forward(GPUTensor<Tensor3D> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
     if (cacheBatchSize != currentBatchSize) {
       if (cachedOut != null) {
@@ -243,18 +259,9 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
       cachedOut = null;
       cacheBatchSize = currentBatchSize;
     }
-    GPUTensor<Tensor3D> out = batchNorm2dGPU(
-      input,
-      gamma,
-      beta,
-      runningMean,
-      runningVariance,
-      momentum,
-      epsilon,
-      isTraining,
-      tape,
-      outTensor: cachedOut
-    );
+    GPUTensor<Tensor3D> out = batchNorm2dGPU(input, gamma, beta, runningMean,
+        runningVariance, momentum, epsilon, isTraining, tape,
+        outTensor: cachedOut);
     cachedOut = out;
     return out;
   }

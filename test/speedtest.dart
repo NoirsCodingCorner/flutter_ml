@@ -7,7 +7,6 @@ import '../tensor/tensor_math_gpu.dart';
 import '../tensor/type_aliases.dart';
 import '../lib/gpu_version/ffi/gpu_engine.dart';
 
-
 void fillTensorGPU(GPUTensor tensor, double value, CommandBuffer tape) {
   tape.putInt(OP_FILL);
   tape.putString(tensor.id);
@@ -69,19 +68,22 @@ void runBenchmarkIsolated({
   String timeStr = avgMs.toStringAsFixed(2).padLeft(6);
   String gbStr = gbPerSec.toStringAsFixed(2).padLeft(8);
   String gflopsStr = gflops.toStringAsFixed(4).padLeft(8);
-  String allocStr = (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
-  String freeStr = (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
+  String allocStr =
+      (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
+  String freeStr =
+      (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
 
-  print("[BENCHMARK] ${name.padRight(10)} | Time: $timeStr ms | Bandwidth: $gbStr GB/s | Compute: $gflopsStr GFLOPs             Overhead  | Alloc/Tape: $allocStr ms | Free: $freeStr ms");
+  print(
+      "[BENCHMARK] ${name.padRight(10)} | Time: $timeStr ms | Bandwidth: $gbStr GB/s | Compute: $gflopsStr GFLOPs             Overhead  | Alloc/Tape: $allocStr ms | Free: $freeStr ms");
 }
 
-void testAll(Target target) async{
-  await GPUEngine.initialize(debug: false,target: target);
+void testAll(Target target) async {
+  await GPUEngine.initialize(debug: false, target: target);
 
-  int N = 2048*2048*8;
+  int N = 2048 * 2048 * 8;
   List<int> vecShape = <int>[N];
 
-  int M = 1024*4;
+  int M = 1024 * 4;
   List<int> matShape = <int>[M, M];
 
   int iterations = 50;
@@ -89,10 +91,12 @@ void testAll(Target target) async{
   print("\n==================================================================");
   print("                 CUDA ENGINE PERFORMANCE BENCHMARK                ");
   print("==================================================================");
-  print("Vector Size: $N elements (~${(N * 4 / 1000000).toStringAsFixed(0)} MB)");
+  print(
+      "Vector Size: $N elements (~${(N * 4 / 1000000).toStringAsFixed(0)} MB)");
   print("Matrix Size: ${M}x$M elements");
   print("Iterations:  $iterations");
-  print("Note: VRAM is aggressively wiped and reallocated between each run to test loading speeds of different operations. ");
+  print(
+      "Note: VRAM is aggressively wiped and reallocated between each run to test loading speeds of different operations. ");
   print("------------------------------------------------------------------\n");
 
   int unaryBytes = N * 8;
@@ -102,7 +106,7 @@ void testAll(Target target) async{
   int matmulFlops = 2 * M * M * M;
 
   // --- BINARY OPERATIONS ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
     GPUTensor<Vector>? out;
@@ -131,8 +135,7 @@ void testAll(Target target) async{
           vecA!.free();
           vecB!.free();
           out!.free();
-        }
-    );
+        });
   }
   {
     int markovSeqLen = 67108864; // ~67 Million elements
@@ -152,16 +155,19 @@ void testAll(Target target) async{
         flopsPerOp: buildFlops,
         allocateInputs: () {
           // 1. Generate random floats in range [-8.0, 8.0] directly in VRAM
-          sequence = GPUTensor<Vector>.randomUniform(<int>[markovSeqLen], numStates / 2.0);
+          sequence = GPUTensor<Vector>.randomUniform(
+              <int>[markovSeqLen], numStates / 2.0);
         },
         initData: () {
           CommandBuffer t = CommandBuffer();
 
           // 2. Shift [-8.0, 8.0] to [0.0, 16.0]
-          GPUTensor<Vector> shifted = addScalarVectorGPU(sequence!, numStates / 2.0, t);
+          GPUTensor<Vector> shifted =
+              addScalarVectorGPU(sequence!, numStates / 2.0, t);
 
           // 3. Clamp [0.0, 16.0] to [0.0, 15.0] to guarantee valid state indices
-          GPUTensor<Vector> clamped = clampGPU<Vector>(shifted, 0.0, (numStates - 1).toDouble(), t);
+          GPUTensor<Vector> clamped =
+              clampGPU<Vector>(shifted, 0.0, (numStates - 1).toDouble(), t);
 
           // 4. Overwrite our sequence with the valid randomized states
           t.putInt(OP_COPY);
@@ -194,7 +200,8 @@ void testAll(Target target) async{
     int predictBatchSize = 10000000;
 
     // Read histories (batch * order * 4), Write Probs (batch * numStates * 4)
-    int predictBytes = (predictBatchSize * order * 4) + (predictBatchSize * numStates * 4);
+    int predictBytes =
+        (predictBatchSize * order * 4) + (predictBatchSize * numStates * 4);
     int predictFlops = predictBatchSize * numStates;
 
     GPUTensor<Matrix>? historyBatch;
@@ -207,7 +214,8 @@ void testAll(Target target) async{
         bytesPerOp: predictBytes,
         flopsPerOp: predictFlops,
         allocateInputs: () {
-          historyBatch = GPUTensor<Matrix>.empty(<int>[predictBatchSize, order]);
+          historyBatch =
+              GPUTensor<Matrix>.empty(<int>[predictBatchSize, order]);
           probTable = GPUTensor<Matrix>.empty(<int>[numHistories, numStates]);
         },
         initData: () {
@@ -218,15 +226,15 @@ void testAll(Target target) async{
         },
         buildTape: () {
           CommandBuffer tape = CommandBuffer();
-          predictions = markovPredictGPU(historyBatch!, probTable!, numStates, tape);
+          predictions =
+              markovPredictGPU(historyBatch!, probTable!, numStates, tape);
           return tape;
         },
         freeAll: () {
           historyBatch!.free();
           probTable!.free();
           predictions!.free();
-        }
-    );
+        });
   }
 
   {
@@ -258,8 +266,7 @@ void testAll(Target target) async{
           vecA!.free();
           vecB!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   {
@@ -291,8 +298,7 @@ void testAll(Target target) async{
           vecA!.free();
           vecB!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   {
@@ -324,12 +330,11 @@ void testAll(Target target) async{
           vecA!.free();
           vecB!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   // --- UNARY OPERATIONS ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? out;
 
@@ -354,8 +359,7 @@ void testAll(Target target) async{
         freeAll: () {
           vecA!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   {
@@ -383,8 +387,7 @@ void testAll(Target target) async{
         freeAll: () {
           vecA!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   {
@@ -412,8 +415,7 @@ void testAll(Target target) async{
         freeAll: () {
           vecA!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   {
@@ -441,8 +443,7 @@ void testAll(Target target) async{
         freeAll: () {
           vecA!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   {
@@ -470,12 +471,11 @@ void testAll(Target target) async{
         freeAll: () {
           vecA!.free();
           out!.free();
-        }
-    );
+        });
   }
 
   // --- MATMUL ---
-      {
+  {
     GPUTensor<Matrix>? matA;
     GPUTensor<Matrix>? matB;
     GPUTensor<Matrix>? outMatmul;
@@ -515,12 +515,11 @@ void testAll(Target target) async{
           matA!.free();
           matB!.free();
           outMatmul!.free();
-        }
-    );
+        });
   }
   // --- LINEAR ALGEBRA & BROADCASTING ---
 
-      {
+  {
     GPUTensor<Matrix>? matA;
     GPUTensor<Matrix>? out;
 
@@ -668,7 +667,7 @@ void testAll(Target target) async{
         });
   }
   // --- ACTIVATIONS ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? out;
 
@@ -782,7 +781,9 @@ void testAll(Target target) async{
   }
 
   {
-    int softmaxBytes = M * M * 12; // Reads row for max, reads for sum, writes out (rough approx)
+    int softmaxBytes = M *
+        M *
+        12; // Reads row for max, reads for sum, writes out (rough approx)
     int softmaxFlops = M * M * 3;
 
     GPUTensor<Matrix>? matA;
@@ -812,7 +813,7 @@ void testAll(Target target) async{
         });
   }
   // --- LOSS FUNCTIONS (Memory Bound) ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
     GPUTensor<Scalar>? outLoss;
@@ -909,7 +910,7 @@ void testAll(Target target) async{
   }
 
   // --- REDUCTIONS (Memory Bound) ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Scalar>? outSum;
 
@@ -994,14 +995,14 @@ void testAll(Target target) async{
   }
 
   // --- EMBEDDING LOOKUPS (Memory Scatter/Gather Bound) ---
-      {
+  {
     int vocabSize = 32000;
     int embedDim = 768; // Standard LLM/BERT hidden size
     int numTokens = 1048576; // 1 Million tokens
 
     int embedBytes = (numTokens * 4) + // Read indices
         (numTokens * embedDim * 4) + // Gather from weights
-        (numTokens * embedDim * 4);  // Write output
+        (numTokens * embedDim * 4); // Write output
     int embedFlops = 0; // Pure memory routing
 
     GPUTensor<Vector>? indices;
@@ -1067,7 +1068,8 @@ void testAll(Target target) async{
         },
         buildTape: () {
           CommandBuffer tape = CommandBuffer();
-          outBatchEmbed = embeddingLookupBatchGPU(batchIndices!, weights!, tape);
+          outBatchEmbed =
+              embeddingLookupBatchGPU(batchIndices!, weights!, tape);
           return tape;
         },
         freeAll: () {
@@ -1078,7 +1080,7 @@ void testAll(Target target) async{
   }
   // --- TENSOR MANIPULATION & ROUTING (Memory Bound) ---
 
-      {
+  {
     int sliceRows = M;
     int sliceCols = M ~/ 2; // Slice half the matrix
     int sliceBytes = (sliceRows * sliceCols * 4) * 2; // Read slice, Write slice
@@ -1224,7 +1226,8 @@ void testAll(Target target) async{
         bytesPerOp: stackBytes,
         flopsPerOp: 0,
         allocateInputs: () {
-          matrices = List.generate(numMatrices, (_) => GPUTensor<Matrix>.empty(<int>[rows, cols]));
+          matrices = List.generate(
+              numMatrices, (_) => GPUTensor<Matrix>.empty(<int>[rows, cols]));
         },
         initData: () {
           CommandBuffer t = CommandBuffer();
@@ -1253,7 +1256,8 @@ void testAll(Target target) async{
     int numHeads = 12;
     int dModel = numHeads * dHead;
 
-    int scatterBytes = (seqLen * dModel * 4) * 2; // Gather from 12 heads, write to 1 model tensor
+    int scatterBytes = (seqLen * dModel * 4) *
+        2; // Gather from 12 heads, write to 1 model tensor
 
     List<GPUTensor<Matrix>>? heads;
     GPUTensor<Matrix>? outScatter;
@@ -1264,7 +1268,8 @@ void testAll(Target target) async{
         bytesPerOp: scatterBytes,
         flopsPerOp: 0,
         allocateInputs: () {
-          heads = List.generate(numHeads, (_) => GPUTensor<Matrix>.empty(<int>[seqLen, dHead]));
+          heads = List.generate(
+              numHeads, (_) => GPUTensor<Matrix>.empty(<int>[seqLen, dHead]));
         },
         initData: () {
           CommandBuffer t = CommandBuffer();
@@ -1291,7 +1296,10 @@ void testAll(Target target) async{
     int pad = 48; // Total out size = 4096 x 4096
     int outSize = inSize + (2 * pad);
 
-    int padBytes = (inSize * inSize * 4) + (outSize * outSize * 4); // Read inner, write outer (padded zeros are free)
+    int padBytes = (inSize * inSize * 4) +
+        (outSize *
+            outSize *
+            4); // Read inner, write outer (padded zeros are free)
 
     GPUTensor<Matrix>? matA;
     GPUTensor<Matrix>? outPad;
@@ -1320,9 +1328,13 @@ void testAll(Target target) async{
         });
   }
   // --- NORMALIZATION & REGULARIZATION ---
-      {
+  {
     int dModel = M; // 8192
-    int normBytes = (M * M * 4) + (dModel * 4 * 4) + (M * M * 4); // Read Input, Read Params (Gamma, Beta, Mean, Var), Write Output
+    int normBytes = (M * M * 4) +
+        (dModel * 4 * 4) +
+        (M *
+            M *
+            4); // Read Input, Read Params (Gamma, Beta, Mean, Var), Write Output
     int normFlops = M * M * 8; // Mean, Var, Normalize, Scale, Shift
 
     GPUTensor<Matrix>? input;
@@ -1355,7 +1367,8 @@ void testAll(Target target) async{
         },
         buildTape: () {
           CommandBuffer tape = CommandBuffer();
-          outNorm = layerNormMatrixGPU(input!, gamma!, beta!, mean!, rstd!, 1e-5, tape);
+          outNorm = layerNormMatrixGPU(
+              input!, gamma!, beta!, mean!, rstd!, 1e-5, tape);
           return tape;
         },
         freeAll: () {
@@ -1369,7 +1382,9 @@ void testAll(Target target) async{
   }
 
   {
-    int dropBytes = (M * M * 4) + (M * M * 4) + (M * M * 4); // Read Input, Write Mask, Write Output
+    int dropBytes = (M * M * 4) +
+        (M * M * 4) +
+        (M * M * 4); // Read Input, Write Mask, Write Output
     int dropFlops = M * M; // Random RNG comparison per element
 
     GPUTensor<Matrix>? input;
@@ -1399,8 +1414,9 @@ void testAll(Target target) async{
         });
   }
   // --- ADVANCED METRICS & LOSSES (Compositional) ---
-      {
-    int dotBytes = N * 16; // Multiply (Read 2N, Write 1N), Sum (Read 1N, Write 1)
+  {
+    int dotBytes =
+        N * 16; // Multiply (Read 2N, Write 1N), Sum (Read 1N, Write 1)
     int dotFlops = N * 2;
 
     GPUTensor<Vector>? vecA;
@@ -1501,7 +1517,8 @@ void testAll(Target target) async{
   }
 
   {
-    int cosBytes = N * 40; // Dot (4N), NormA (3N), NormB (3N) -> Total 10N reads/writes
+    int cosBytes =
+        N * 40; // Dot (4N), NormA (3N), NormB (3N) -> Total 10N reads/writes
     int cosFlops = N * 6;
 
     GPUTensor<Vector>? vecA;
@@ -1569,8 +1586,6 @@ void testAll(Target target) async{
           outMae!.free();
         });
   }
-
-
 
   GPUEngine.dispose();
 }

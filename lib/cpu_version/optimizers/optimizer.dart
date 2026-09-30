@@ -1,5 +1,6 @@
 /// Holds and exports all optimization algorithms used for training models.
 library;
+
 export 'adagrad.dart';
 export 'adam.dart';
 export 'adamw.dart';
@@ -8,7 +9,6 @@ export 'nag.dart';
 export 'rmsprop.dart';
 export 'sgd.dart';
 export 'sgdmomentum.dart';
-
 
 import '../../tensor/tensor.dart';
 

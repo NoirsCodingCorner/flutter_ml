@@ -17,11 +17,11 @@ class RMSprop extends Optimizer {
 
   /// Creates an [RMSprop] optimizer for [parameters] with the given [learningRate], decay factor [beta], and numerical stability constant [epsilon].
   RMSprop(
-      List<Tensor<dynamic>> parameters, {
-        required double learningRate,
-        this.beta = 0.99,
-        this.epsilon = 1e-8,
-      }) : super(parameters, learningRate: learningRate) {
+    List<Tensor<dynamic>> parameters, {
+    required double learningRate,
+    this.beta = 0.99,
+    this.epsilon = 1e-8,
+  }) : super(parameters, learningRate: learningRate) {
     _s = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
       Tensor<dynamic> param = parameters[p];
@@ -44,7 +44,8 @@ class RMSprop extends Optimizer {
       for (int i = 0; i < param.data.length; i = i + 1) {
         double grad = param.grad[i];
         sList[i] = beta * sList[i] + (1.0 - beta) * (grad * grad);
-        param.data[i] = param.data[i] - (learningRate * grad) / (sqrt(sList[i]) + epsilon);
+        param.data[i] =
+            param.data[i] - (learningRate * grad) / (sqrt(sList[i]) + epsilon);
       }
     }
   }

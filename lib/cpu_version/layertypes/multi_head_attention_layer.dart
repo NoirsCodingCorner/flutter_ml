@@ -79,7 +79,8 @@ class MultiHeadAttention extends Layer<Matrix, Matrix> {
       headOutputs.add(headOutput);
     }
 
-    Tensor<Matrix> concatenatedOutput = concatenateMatricesByColumn(headOutputs);
+    Tensor<Matrix> concatenatedOutput =
+        concatenateMatricesByColumn(headOutputs);
     Tensor<Matrix> finalOutput = matMul(concatenatedOutput, wo);
 
     return finalOutput;

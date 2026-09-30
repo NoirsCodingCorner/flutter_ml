@@ -19,21 +19,25 @@ class LSTMLayer extends Layer<Matrix, Vector> {
 
   /// Forget gate weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> wf;
+
   /// Forget gate bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> bf;
 
   /// Input gate weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> wi;
+
   /// Input gate bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> bi;
 
   /// Candidate cell state weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> wc;
+
   /// Candidate cell state bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> bc;
 
   /// Output gate weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> wo;
+
   /// Output gate bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> bo;
 
@@ -44,10 +48,14 @@ class LSTMLayer extends Layer<Matrix, Vector> {
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
-    params.add(wf); params.add(bf);
-    params.add(wi); params.add(bi);
-    params.add(wc); params.add(bc);
-    params.add(wo); params.add(bo);
+    params.add(wf);
+    params.add(bf);
+    params.add(wi);
+    params.add(bi);
+    params.add(wc);
+    params.add(bc);
+    params.add(wo);
+    params.add(bo);
     return params;
   }
 

@@ -14,14 +14,15 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
   @override
   String get name => 'RNNTapeLayer';
 
-
   int hiddenSize;
   String activation;
 
   /// Learnable weight matrix transforming the current input.
   late GPUTensor<Matrix> wXh;
+
   /// Learnable weight matrix transforming the previous hidden state.
   late GPUTensor<Matrix> wHh;
+
   /// Learnable bias column matrix added to the combined input and hidden state.
   late GPUTensor<Matrix> bh;
 
@@ -93,13 +94,18 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches all intermediates to guarantee static unrollability.
   /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
     if (!useCache) {
-      for (int i = 0; i < hStates.length; i = i + 1) { hStates[i].free(); }
-      for (int i = 0; i < stepCache.length; i = i + 1) { stepCache[i].free(); }
+      for (int i = 0; i < hStates.length; i = i + 1) {
+        hStates[i].free();
+      }
+      for (int i = 0; i < stepCache.length; i = i + 1) {
+        stepCache[i].free();
+      }
 
       hStates.clear();
       stepCache.clear();
@@ -129,26 +135,32 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       }
     }
 
-    GPUTensor<Matrix> transposedInput = transposeGPU(input, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> transposedInput =
+        transposeGPU(input, tape, outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(transposedInput);
 
     for (int i = 0; i < seqLength; i = i + 1) {
       GPUTensor<Matrix> hPrev = hStates[i];
 
       // Extract time step as a strict [InputSize, 1] Matrix
-      GPUTensor<Matrix> xT = sliceColumnGPU(transposedInput, i, i + 1, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> xT = sliceColumnGPU(transposedInput, i, i + 1, tape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(xT);
 
-      GPUTensor<Matrix> inputPart = matMulGPU(wXh, xT, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> inputPart =
+          matMulGPU(wXh, xT, tape, outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(inputPart);
 
-      GPUTensor<Matrix> hiddenPart = matMulGPU(wHh, hPrev, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> hiddenPart = matMulGPU(wHh, hPrev, tape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(hiddenPart);
 
-      GPUTensor<Matrix> sum1 = addMatrixGPU(inputPart, hiddenPart, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> sum1 = addMatrixGPU(inputPart, hiddenPart, tape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(sum1);
 
-      GPUTensor<Matrix> combined = addMatrixGPU(sum1, bh, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> combined = addMatrixGPU(sum1, bh, tape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(combined);
 
       GPUTensor<Matrix>? outNewH = useCache ? hStates[i + 1] : null;
@@ -188,8 +200,12 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       wHh.free();
       bh.free();
 
-      for (int i = 0; i < hStates.length; i = i + 1) { hStates[i].free(); }
-      for (int i = 0; i < stepCache.length; i = i + 1) { stepCache[i].free(); }
+      for (int i = 0; i < hStates.length; i = i + 1) {
+        hStates[i].free();
+      }
+      for (int i = 0; i < stepCache.length; i = i + 1) {
+        stepCache[i].free();
+      }
 
       hStates.clear();
       stepCache.clear();

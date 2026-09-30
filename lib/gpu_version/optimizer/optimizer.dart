@@ -1,8 +1,8 @@
 /// Holds the optimizers for the GPU.
 library;
+
 export 'sgd.dart';
 export 'Adam.dart';
-
 
 import '/tensor/tensor_gpu.dart';
 import '../ffi/command_buffer.dart';

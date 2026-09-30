@@ -18,12 +18,16 @@ void main() {
   late GPUTensor<Tensor3D> tensor3DA;
   late GPUTensor<Tensor3D> tensor3DB;
 
-  void testScalarGPU(GPUTensor<Scalar> actual, CommandBuffer buffer, double wanted,{tolerance = 1e-5}) {
+  void testScalarGPU(
+      GPUTensor<Scalar> actual, CommandBuffer buffer, double wanted,
+      {tolerance = 1e-5}) {
     GPUEngine.run(buffer.bytes());
     actual.toCpu();
     expect(actual.value, closeTo(wanted, tolerance));
   }
-  void testVectorGPU(GPUTensor<Vector> actual, CommandBuffer buffer, List<double> wanted,
+
+  void testVectorGPU(
+      GPUTensor<Vector> actual, CommandBuffer buffer, List<double> wanted,
       {tolerance = 1e-5}) {
     GPUEngine.run(buffer.bytes());
     actual.toCpu();
@@ -31,7 +35,10 @@ void main() {
       expect(actual.value[i], closeTo(wanted[i], tolerance));
     }
   }
-  void testMatrixGPU(GPUTensor<Matrix> actual, CommandBuffer buffer, List<List<double>> wanted,{tolerance = 1e-5}) {
+
+  void testMatrixGPU(
+      GPUTensor<Matrix> actual, CommandBuffer buffer, List<List<double>> wanted,
+      {tolerance = 1e-5}) {
     GPUEngine.run(buffer.bytes());
     actual.toCpu();
     for (int i = 0; i < actual.value.length; i++) {
@@ -40,11 +47,10 @@ void main() {
       }
     }
   }
-  void testTensor3DGPU(
-      GPUTensor<Tensor3D> actual,
-      CommandBuffer buffer,
-      List<List<List<double>>> wanted,{tolerance = 1e-5}
-      ) {
+
+  void testTensor3DGPU(GPUTensor<Tensor3D> actual, CommandBuffer buffer,
+      List<List<List<double>>> wanted,
+      {tolerance = 1e-5}) {
     GPUEngine.run(buffer.bytes());
     actual.toCpu();
     for (int i = 0; i < actual.value.length; i++) {
@@ -57,7 +63,7 @@ void main() {
   }
 
   setUpAll(() async {
-    await GPUEngine.initialize(target: Target.cuda,debug: true);
+    await GPUEngine.initialize(target: Target.cuda, debug: true);
     scalarA = GPUTensor<Scalar>(-1.5);
     scalarB = GPUTensor<Scalar>(0.0);
     scalarC = GPUTensor<Scalar>(2.5);
@@ -65,9 +71,18 @@ void main() {
     vectorB = GPUTensor<Vector>([0.5, -1.5, 3.0]);
     vectorC = GPUTensor<Vector>([4.0, -2.0, 0.0]);
     vectorD = GPUTensor<Vector>([-1.0, 2.0]);
-    matrixA = GPUTensor<Matrix>([[1.0, -2.0], [3.0, 0.0],]);
-    matrixB = GPUTensor<Matrix>([[-1.0, 0.5], [2.0, -1.5],]);
-    matrixC = GPUTensor<Matrix>([[0.0, 1.0], [-2.0, 3.0],]);
+    matrixA = GPUTensor<Matrix>([
+      [1.0, -2.0],
+      [3.0, 0.0],
+    ]);
+    matrixB = GPUTensor<Matrix>([
+      [-1.0, 0.5],
+      [2.0, -1.5],
+    ]);
+    matrixC = GPUTensor<Matrix>([
+      [0.0, 1.0],
+      [-2.0, 3.0],
+    ]);
     tensor3DA = GPUTensor<Tensor3D>([
       [
         [1.0, 2.0],
@@ -81,7 +96,6 @@ void main() {
       ],
     ]);
   });
-
 
   test('addGPU', () {
     CommandBuffer buffer = CommandBuffer();
@@ -153,12 +167,14 @@ void main() {
   });
   test('elementWiseMultiplyGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Vector> testOut = elementWiseMultiplyGPU(vectorA, vectorB, buffer);
+    GPUTensor<Vector> testOut =
+        elementWiseMultiplyGPU(vectorA, vectorB, buffer);
     testVectorGPU(testOut, buffer, [-0.5, 0.0, 6.0]);
   });
   test('elementWiseMultiplyMatrixGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Matrix> testOut = elementWiseMultiplyMatrixGPU(matrixA, matrixB, buffer);
+    GPUTensor<Matrix> testOut =
+        elementWiseMultiplyMatrixGPU(matrixA, matrixB, buffer);
     testMatrixGPU(testOut, buffer, [
       [-1.0, -1.0],
       [6.0, 0.0],
@@ -166,7 +182,8 @@ void main() {
   });
   test('elementWiseMultiply3DGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Tensor3D> testOut = elementWiseMultiply3DGPU(tensor3DA, tensor3DB, buffer);
+    GPUTensor<Tensor3D> testOut =
+        elementWiseMultiply3DGPU(tensor3DA, tensor3DB, buffer);
     testTensor3DGPU(testOut, buffer, [
       [
         [2.0, 6.0],
@@ -313,7 +330,6 @@ void main() {
     testScalarGPU(testOut, buffer, 6.25);
   });
 
-
   test('powGPU_Vector', () {
     CommandBuffer buffer = CommandBuffer();
     GPUTensor<Vector> testOut = powGPU(vectorA, 2.0, buffer);
@@ -426,7 +442,9 @@ void main() {
 
   test('addBiasToFeatureMapGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Matrix> bias = GPUTensor<Matrix>([[2.0]]);
+    GPUTensor<Matrix> bias = GPUTensor<Matrix>([
+      [2.0]
+    ]);
     GPUTensor<Matrix> testOut = addBiasToFeatureMapGPU(matrixA, bias, buffer);
     testMatrixGPU(testOut, buffer, [
       [3.0, 0.0],
@@ -443,7 +461,8 @@ void main() {
   });
   test('broadcastAddVectorToMatrixGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Matrix> testOut = broadcastAddVectorToMatrixGPU(matrixA, vectorD, buffer);
+    GPUTensor<Matrix> testOut =
+        broadcastAddVectorToMatrixGPU(matrixA, vectorD, buffer);
     testMatrixGPU(testOut, buffer, [
       [0.0, 0.0],
       [2.0, 2.0],
@@ -528,15 +547,19 @@ void main() {
   test('geluGPU', () {
     CommandBuffer buffer = CommandBuffer();
     GPUTensor<Vector> testOut = geluGPU(vectorA, buffer);
-    testVectorGPU(testOut, buffer, [-0.158655, 0.0, 1.954499],tolerance: 5e-4);
+    testVectorGPU(testOut, buffer, [-0.158655, 0.0, 1.954499], tolerance: 5e-4);
   });
   test('geluMatrixGPU', () {
     CommandBuffer buffer = CommandBuffer();
     GPUTensor<Matrix> testOut = geluMatrixGPU(matrixA, buffer);
-    testMatrixGPU(testOut, buffer, [
-      [0.841345, -0.045500],
-      [2.995950, 0.0],
-    ],tolerance: 5e-4);
+    testMatrixGPU(
+        testOut,
+        buffer,
+        [
+          [0.841345, -0.045500],
+          [2.995950, 0.0],
+        ],
+        tolerance: 5e-4);
   });
   test('softmaxMatrixGPU', () {
     CommandBuffer buffer = CommandBuffer();
@@ -551,7 +574,8 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     GPUTensor<Scalar> small = GPUTensor<Scalar>(0.7);
     GPUTensor<Scalar> big = GPUTensor<Scalar>(0.9);
-    GPUTensor<Scalar> testOut = binaryCrossEntropyGPU<Scalar>(small, big, buffer);
+    GPUTensor<Scalar> testOut =
+        binaryCrossEntropyGPU<Scalar>(small, big, buffer);
     testScalarGPU(testOut, buffer, 0.44140473);
   });
   test('mseGPU', () {
@@ -609,7 +633,8 @@ void main() {
   });
   test('embeddingLookupGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Vector> indices = GPUTensor<Vector>([1.0, 0.0]); // Lookup row 1, then row 0
+    GPUTensor<Vector> indices =
+        GPUTensor<Vector>([1.0, 0.0]); // Lookup row 1, then row 0
     GPUTensor<Matrix> testOut = embeddingLookupGPU(indices, matrixA, buffer);
     testMatrixGPU(testOut, buffer, [
       [3.0, 0.0],
@@ -622,7 +647,8 @@ void main() {
       [1.0, 0.0],
       [0.0, 1.0],
     ]);
-    GPUTensor<Tensor3D> testOut = embeddingLookupBatchGPU(batchIndices, matrixA, buffer);
+    GPUTensor<Tensor3D> testOut =
+        embeddingLookupBatchGPU(batchIndices, matrixA, buffer);
     testTensor3DGPU(testOut, buffer, [
       [
         [3.0, 0.0],
@@ -674,7 +700,8 @@ void main() {
   });
   test('concatenateMatricesByColumnGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Matrix> testOut = concatenateMatricesByColumnGPU([matrixA, matrixB], buffer);
+    GPUTensor<Matrix> testOut =
+        concatenateMatricesByColumnGPU([matrixA, matrixB], buffer);
     testMatrixGPU(testOut, buffer, [
       [1.0, -2.0, -1.0, 0.5],
       [3.0, 0.0, 2.0, -1.5],
@@ -682,7 +709,8 @@ void main() {
   });
   test('concatenate3DGPU', () {
     CommandBuffer buffer = CommandBuffer();
-    GPUTensor<Tensor3D> testOut = concatenate3DGPU(tensor3DA, tensor3DB, buffer);
+    GPUTensor<Tensor3D> testOut =
+        concatenate3DGPU(tensor3DA, tensor3DB, buffer);
     testTensor3DGPU(testOut, buffer, [
       [
         [1.0, 2.0],
@@ -743,7 +771,8 @@ void main() {
     ]);
     GPUTensor<Vector> bias = GPUTensor<Vector>([0.0]);
 
-    GPUTensor<Tensor3D> testOut = conv2dMultiChannelGPU(input, weight, bias, 2, 2, buffer);
+    GPUTensor<Tensor3D> testOut =
+        conv2dMultiChannelGPU(input, weight, bias, 2, 2, buffer);
     testTensor3DGPU(testOut, buffer, [
       [
         [-4.0, -4.0],
@@ -845,7 +874,15 @@ void main() {
     GPUTensor<Vector> runningVar = GPUTensor<Vector>([4.0, 4.0]);
 
     GPUTensor<Vector> testOut = batchNorm1dGPU(
-      x, gamma, beta, runningMean, runningVar, 0.9, 0.0, false, buffer,
+      x,
+      gamma,
+      beta,
+      runningMean,
+      runningVar,
+      0.9,
+      0.0,
+      false,
+      buffer,
     );
     testVectorGPU(testOut, buffer, [1.0, 3.0]);
   });
@@ -863,7 +900,15 @@ void main() {
     GPUTensor<Vector> runningVar = GPUTensor<Vector>([1.0]);
 
     GPUTensor<Tensor3D> testOut = batchNorm2dGPU(
-      x, gamma, beta, runningMean, runningVar, 0.9, 0.0, false, buffer,
+      x,
+      gamma,
+      beta,
+      runningMean,
+      runningVar,
+      0.9,
+      0.0,
+      false,
+      buffer,
     );
     testTensor3DGPU(testOut, buffer, [
       [
@@ -884,7 +929,13 @@ void main() {
     GPUTensor<Vector> rstdCache = GPUTensor<Vector>([0.0, 0.0]);
 
     GPUTensor<Matrix> testOut = layerNormMatrixGPU(
-      m, gamma, beta, meanCache, rstdCache, 0.0, buffer,
+      m,
+      gamma,
+      beta,
+      meanCache,
+      rstdCache,
+      0.0,
+      buffer,
     );
     testMatrixGPU(testOut, buffer, [
       [-1.0, 1.0],
@@ -925,7 +976,8 @@ void main() {
       [0.5, 0.5], // Probs for history 1
     ]);
 
-    GPUTensor<Matrix> testOut = markovPredictGPU(historyBatch, probTable, 2, buffer);
+    GPUTensor<Matrix> testOut =
+        markovPredictGPU(historyBatch, probTable, 2, buffer);
     testMatrixGPU(testOut, buffer, [
       [0.5, 0.5], // Looked up row 1
       [0.0, 1.0], // Looked up row 0
@@ -948,7 +1000,8 @@ void main() {
     // 1. X @ W = [[-2.0, 5.0], [-3.0, 6.0]]
     // 2. Add Bias = [[-1.0, 4.0], [-2.0, 5.0]]
     // 3. ReLU = [[0.0, 4.0], [0.0, 5.0]]
-    GPUTensor<Matrix> testOut = matMulBiasReluGPU(x, w, b, buffer, intermediates);
+    GPUTensor<Matrix> testOut =
+        matMulBiasReluGPU(x, w, b, buffer, intermediates);
     testMatrixGPU(testOut, buffer, [
       [0.0, 4.0],
       [0.0, 5.0],
@@ -967,7 +1020,6 @@ void main() {
     GPUTensor<Scalar> testOut = dotProductGPU(a, b, buffer);
     testScalarGPU(testOut, buffer, 1.5);
   });
-
 
   test('l2NormGPU', () {
     CommandBuffer buffer = CommandBuffer();
@@ -1016,7 +1068,8 @@ void main() {
 
     // RMS of [3, 4] = sqrt((9+16)/2) = sqrt(12.5) = 3.5355339
     // Normalized = [3/3.5355, 4/3.5355] = [0.848528, 1.13137]
-    GPUTensor<Matrix> testOut = rmsNormMatrixGPU(input, weight, 0.0, false, buffer);
+    GPUTensor<Matrix> testOut =
+        rmsNormMatrixGPU(input, weight, 0.0, false, buffer);
     testMatrixGPU(testOut, buffer, [
       [0.848528, 1.131371],
     ]);
@@ -1049,14 +1102,18 @@ void main() {
     ]);
 
     // Representing cos(90deg) and sin(90deg)
-    GPUTensor<Matrix> cosTable = GPUTensor<Matrix>([[0.0]]);
-    GPUTensor<Matrix> sinTable = GPUTensor<Matrix>([[1.0]]);
+    GPUTensor<Matrix> cosTable = GPUTensor<Matrix>([
+      [0.0]
+    ]);
+    GPUTensor<Matrix> sinTable = GPUTensor<Matrix>([
+      [1.0]
+    ]);
 
     // Batch=1, Seq=1, Heads=1, HeadDim=2
     // out[0] = 1.0*0.0 - 2.0*1.0 = -2.0
     // out[1] = 2.0*0.0 + 1.0*1.0 = 1.0
-    GPUTensor<Tensor3D> testOut = applyRopeGPU(
-        input, cosTable, sinTable, 1, 1, 1, 2, buffer);
+    GPUTensor<Tensor3D> testOut =
+        applyRopeGPU(input, cosTable, sinTable, 1, 1, 1, 2, buffer);
 
     testTensor3DGPU(testOut, buffer, [
       [

@@ -26,7 +26,8 @@ class SigmoidMatrixTL extends TapeLayer<Matrix, Matrix> {
   /// Writes the [sigmoidMatrixGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {

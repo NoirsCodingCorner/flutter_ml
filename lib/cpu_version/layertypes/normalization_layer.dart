@@ -71,7 +71,8 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
 
       double varSum = 0;
       for (int c = 0; c < numCols; c = c + 1) {
-        varSum = varSum + (input.data[offset + c] - mean) * (input.data[offset + c] - mean);
+        varSum = varSum +
+            (input.data[offset + c] - mean) * (input.data[offset + c] - mean);
       }
       double variance = varSum / numCols;
       variances.add(variance);
@@ -108,7 +109,10 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
         double invStd = 1.0 / (numCols * sqrt(variances[r] + epsilon));
         for (int c = 0; c < numCols; c = c + 1) {
           int idx = offset + c;
-          double totalGrad = invStd * (numCols * gradXHatRow[c] - sumGradXHat - normalizedData[idx] * dotProductTerm);
+          double totalGrad = invStd *
+              (numCols * gradXHatRow[c] -
+                  sumGradXHat -
+                  normalizedData[idx] * dotProductTerm);
           input.grad[idx] = input.grad[idx] + totalGrad;
         }
       }
@@ -119,7 +123,8 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
 
   /// Returns [gamma] and [beta] values as a map.
   @override
-  Map<String, dynamic> getWeights() => {'gamma': gamma.value, 'beta': beta.value};
+  Map<String, dynamic> getWeights() =>
+      {'gamma': gamma.value, 'beta': beta.value};
 
   /// Sets [gamma] and [beta] directly from a map into their data buffers.
   @override
@@ -132,4 +137,3 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
     }
   }
 }
-

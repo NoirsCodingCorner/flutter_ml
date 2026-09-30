@@ -50,7 +50,9 @@ class DenseLayer extends Layer<Vector, Vector> {
     for (int i = 0; i < outputSize; i = i + 1) {
       Vector row = [];
       for (int j = 0; j < inputSize; j = j + 1) {
-        row.add((sqrt(-2.0 * log(random.nextDouble())) * cos(2.0 * pi * random.nextDouble())) * stddev);
+        row.add((sqrt(-2.0 * log(random.nextDouble())) *
+                cos(2.0 * pi * random.nextDouble())) *
+            stddev);
       }
       w.add(row);
     }
@@ -155,7 +157,9 @@ class DenseLayerMatrix extends Layer<Matrix, Matrix> {
     for (int i = 0; i < inputSize; i = i + 1) {
       Vector row = [];
       for (int j = 0; j < outputSize; j = j + 1) {
-        row.add((sqrt(-2.0 * log(random.nextDouble())) * cos(2.0 * pi * random.nextDouble())) * stddev);
+        row.add((sqrt(-2.0 * log(random.nextDouble())) *
+                cos(2.0 * pi * random.nextDouble())) *
+            stddev);
       }
       w.add(row);
     }
@@ -174,7 +178,8 @@ class DenseLayerMatrix extends Layer<Matrix, Matrix> {
   /// using [matMul] and [addMatrixAndVector], applying [activation] if defined.
   @override
   Tensor<Matrix> forward(Tensor<Matrix> input) {
-    Tensor<Matrix> linearOutput = addMatrixAndVector(matMul(input, weights), biases);
+    Tensor<Matrix> linearOutput =
+        addMatrixAndVector(matMul(input, weights), biases);
 
     if (activation != null) {
       return activation!.call(linearOutput);

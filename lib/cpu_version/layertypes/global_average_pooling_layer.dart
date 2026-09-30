@@ -53,7 +53,8 @@ class GlobalAveragePooling1D extends Layer<Matrix, Vector> {
       for (int r = 0; r < sequenceLength; r = r + 1) {
         int offset = r * numFeatures;
         for (int c = 0; c < numFeatures; c = c + 1) {
-          input.grad[offset + c] = input.grad[offset + c] + out.grad[c] * distributedGrad;
+          input.grad[offset + c] =
+              input.grad[offset + c] + out.grad[c] * distributedGrad;
         }
       }
     }, opName: 'global_avg_pool_1d');
@@ -69,4 +70,3 @@ class GlobalAveragePooling1D extends Layer<Matrix, Vector> {
   @override
   void setWeights(Map<String, dynamic> weights) {}
 }
-

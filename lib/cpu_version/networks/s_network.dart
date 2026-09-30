@@ -2,8 +2,6 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:convert';
 
-
-
 import '../../logger.dart';
 
 import '../optimizers/optimizer.dart';
@@ -113,7 +111,8 @@ class SNetwork extends Layer<dynamic, dynamic> {
       if (debug) {
         double avgLoss = epochLoss / inputs.length;
 
-        stdout.write('\rEpoch ${epoch + 1}/$epochs: [====================>] 100%, Avg Loss: ${avgLoss.toStringAsFixed(6)}');
+        stdout.write(
+            '\rEpoch ${epoch + 1}/$epochs: [====================>] 100%, Avg Loss: ${avgLoss.toStringAsFixed(6)}');
 
         int logInterval = max(1, (epochs / 10).round());
 
@@ -153,7 +152,8 @@ class SNetwork extends Layer<dynamic, dynamic> {
 
     stopwatch.stop();
     if (debug) {
-      Logger.log('--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
+      Logger.log(
+          '--- TRAINING FINISHED in ${stopwatch.elapsedMilliseconds}ms ---\n');
     }
   }
 
@@ -310,14 +310,16 @@ Future<void> main() async {
   for (int j = 0; j < xorInputs.length; j = j + 1) {
     Vector input = xorInputs[j];
     Tensor<Vector> inputTensor = Tensor<Vector>(input);
-    Tensor<Vector> predictionTensor = loadedModel.predict(inputTensor) as Tensor<Vector>;
+    Tensor<Vector> predictionTensor =
+        loadedModel.predict(inputTensor) as Tensor<Vector>;
 
     int target = xorTargets[i][0].toInt();
     double rawOutput = predictionTensor.value[0];
     int predictedClass = (rawOutput > 0.5) ? 1 : 0;
     bool isCorrect = (predictedClass == target);
 
-    Logger.log('Input: $input, Target: $target, Output: ${rawOutput.toStringAsFixed(4)}, Predicted: $predictedClass, Correct: $isCorrect');
+    Logger.log(
+        'Input: $input, Target: $target, Output: ${rawOutput.toStringAsFixed(4)}, Predicted: $predictedClass, Correct: $isCorrect');
     i = i + 1;
   }
 }

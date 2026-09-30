@@ -28,7 +28,8 @@ class FlattenTL extends TapeLayer<Tensor3D, Matrix> {
   /// Writes the [flatten3DToMatrixGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Tensor3D> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Tensor3D> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {

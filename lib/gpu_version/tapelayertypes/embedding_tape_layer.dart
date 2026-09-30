@@ -57,7 +57,8 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
   /// Writes the [embeddingLookupGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Vector> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Vector> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -68,7 +69,8 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = embeddingLookupGPU(input, embeddings, tape, outTensor: cachedOut);
+    cachedOut =
+        embeddingLookupGPU(input, embeddings, tape, outTensor: cachedOut);
     return cachedOut!;
   }
 
@@ -179,7 +181,8 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
   /// Writes the [embeddingLookupBatchGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Tensor3D> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Tensor3D> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -190,7 +193,8 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = embeddingLookupBatchGPU(input, embeddings, tape, outTensor: cachedOut);
+    cachedOut =
+        embeddingLookupBatchGPU(input, embeddings, tape, outTensor: cachedOut);
     return cachedOut!;
   }
 

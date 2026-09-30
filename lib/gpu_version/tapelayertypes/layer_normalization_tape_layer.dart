@@ -16,6 +16,7 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
 
   /// Learnable scaling vector.
   late GPUTensor<Vector> gamma;
+
   /// Learnable shifting vector.
   late GPUTensor<Vector> beta;
 
@@ -69,7 +70,8 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
   /// Appends [layerNormMatrixGPU] to the [tape].
   /// Persistently caches intermediate tensors to avoid VRAM reallocation between batches.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int batchSize = input.shape[0];
 
     if (cacheBatchSize != batchSize) {
@@ -86,15 +88,8 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
 
     // Reuse persistent buffers, bypassing the external intermediates list
     cachedOut = layerNormMatrixGPU(
-        input,
-        gamma,
-        beta,
-        cachedMean!,
-        cachedRstd!,
-        epsilon,
-        tape,
-        outTensor: cachedOut
-    );
+        input, gamma, beta, cachedMean!, cachedRstd!, epsilon, tape,
+        outTensor: cachedOut);
 
     return cachedOut!;
   }

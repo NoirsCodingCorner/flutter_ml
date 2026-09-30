@@ -5,52 +5,50 @@ import 'package:ffi/ffi.dart';
 import '/full_library.dart';
 
 /// Targeted device architecture
-enum Target{
-  androidArm64,
-  androidX8664,
-  cuda
-}
+enum Target { androidArm64, androidX8664, cuda }
+
 /// FFI- Binding for creating a tensor on the GPU
-typedef NativeCreate   = Int64 Function(Bool);
-typedef DartCreate     = int Function(bool);
+typedef NativeCreate = Int64 Function(Bool);
+typedef DartCreate = int Function(bool);
 
 /// FFI- Binding for freeing/deleting the GPU backend
-typedef NativeFree     = Void Function(Int64);
-typedef DartFree       = void Function(int);
+typedef NativeFree = Void Function(Int64);
+typedef DartFree = void Function(int);
 
 /// FFI- Binding for pushing a tensor to the GPU
-typedef NativeLoad     = Void Function(Int64, Pointer<Utf8>, Pointer<Float>, Int32, Pointer<Int32>);
-typedef DartLoad       = void Function(int, Pointer<Utf8>, Pointer<Float>, int, Pointer<Int32>);
+typedef NativeLoad = Void Function(
+    Int64, Pointer<Utf8>, Pointer<Float>, Int32, Pointer<Int32>);
+typedef DartLoad = void Function(
+    int, Pointer<Utf8>, Pointer<Float>, int, Pointer<Int32>);
 
 /// FFI- Binding for pulling a tensor from the GPU
 typedef NativeRetrieve = Void Function(Int64, Pointer<Utf8>, Pointer<Float>);
-typedef DartRetrieve   = void Function(int, Pointer<Utf8>, Pointer<Float>);
+typedef DartRetrieve = void Function(int, Pointer<Utf8>, Pointer<Float>);
 
 /// FFI- Binding for running a given byteList of commands (usually via a [CommandBuffer])
-typedef NativeRun      = Void Function(Int64, Pointer<Uint8>, Int32);
-typedef DartRun        = void Function(int, Pointer<Uint8>, int);
+typedef NativeRun = Void Function(Int64, Pointer<Uint8>, Int32);
+typedef DartRun = void Function(int, Pointer<Uint8>, int);
 
 /// FFI- Binding for freeing a tensor on the GPU
-typedef NativeFreeT    = Void Function(Int64, Pointer<Utf8>);
-typedef DartFreeT      = void Function(int, Pointer<Utf8>);
+typedef NativeFreeT = Void Function(Int64, Pointer<Utf8>);
+typedef DartFreeT = void Function(int, Pointer<Utf8>);
 
 /// FFI- Binding for retrieving the ids of all tensors currently on the GPU. This creates a List of Strings that is stored in the backend and has to be deleted again
 typedef NativeGetNames = Pointer<Utf8> Function(Int64);
-typedef DartGetNames   = Pointer<Utf8> Function(int);
+typedef DartGetNames = Pointer<Utf8> Function(int);
 
 /// FFI- Binding for freeing the made list of tensor names
-typedef NativeFreeStr  = Void Function(Pointer<Utf8>);
-typedef DartFreeStr    = void Function(Pointer<Utf8>);
+typedef NativeFreeStr = Void Function(Pointer<Utf8>);
+typedef DartFreeStr = void Function(Pointer<Utf8>);
 
 /// FFI- Advanced operation to allow direct pointer access. Adds the content of a source content into a destination pointer with a given length
-typedef NativeAddPointers = Void Function(Pointer<Float>, Pointer<Float>, Int32);
-typedef DartAddPointers   = void Function(Pointer<Float>, Pointer<Float>, int);
+typedef NativeAddPointers = Void Function(
+    Pointer<Float>, Pointer<Float>, Int32);
+typedef DartAddPointers = void Function(Pointer<Float>, Pointer<Float>, int);
 
 /// FFI- Initialise a tensor with a random initialization
 typedef NativeInitRandom = Void Function(Int64, Pointer<Utf8>, Float, Int32);
-typedef DartInitRandom   = void Function(int, Pointer<Utf8>, double, int);
-
-
+typedef DartInitRandom = void Function(int, Pointer<Utf8>, double, int);
 
 /// The Cuda Engine in responsible for communication with the native runtimes as well as managing the communication between dart and its native FFI-bindings.
 /// In order to use the GPU acceleration, at the very beginning of the program it is required to call [initialize] with the [Target] provided to load the relevant binary.
@@ -60,24 +58,24 @@ typedef DartInitRandom   = void Function(int, Pointer<Utf8>, double, int);
 /// Use [dispose] to delete the currently running instance of GPUEngine and free all memory again.
 
 class GPUEngine {
-
   /// Id of the currently running GPUEngine. If its value is 0, no engine is running.
   static int handle = 0;
 
-  static late DartCreate      _create;
-  static late DartFree        _free;
-  static late DartLoad        _load;
-  static late DartRetrieve    _retrieve;
-  static late DartRun         _run;
-  static late DartFreeT       _freeTensor;
-  static late DartGetNames    _getTensorNames;
-  static late DartFreeStr     _freeString;
+  static late DartCreate _create;
+  static late DartFree _free;
+  static late DartLoad _load;
+  static late DartRetrieve _retrieve;
+  static late DartRun _run;
+  static late DartFreeT _freeTensor;
+  static late DartGetNames _getTensorNames;
+  static late DartFreeStr _freeString;
   static late DartAddPointers _addPointers;
-  static late DartInitRandom  _initRandom;
+  static late DartInitRandom _initRandom;
 
   /// Initialises the [GPUEngine]. If no target platform is provided initialising with `cuda` is attempted.
   /// [debug] enables full printout of every interaction for in debugging. Initialize has to be called at least once before using the GPUEngine.
-  static Future<void> initialize({bool debug = false, Target target = Target.cuda}) async {
+  static Future<void> initialize(
+      {bool debug = false, Target target = Target.cuda}) async {
     String libName = "";
 
     if (target == Target.cuda) {
@@ -99,22 +97,27 @@ class GPUEngine {
       }
 
       Logger.green("GPUEngine: Successfully loaded ${target.name} backend.");
-
     } catch (e) {
-      Logger.red("CRITICAL FFI ERROR: Failed to open library $libName. Error: $e");
+      Logger.red(
+          "CRITICAL FFI ERROR: Failed to open library $libName. Error: $e");
       rethrow;
     }
 
-    _create         = dylib.lookupFunction<NativeCreate, DartCreate>('create_executor');
-    _free           = dylib.lookupFunction<NativeFree, DartFree>('free_executor');
-    _load           = dylib.lookupFunction<NativeLoad, DartLoad>('load_tensor_h2d');
-    _retrieve       = dylib.lookupFunction<NativeRetrieve, DartRetrieve>('retrieve_tensor_d2h_into');
-    _run            = dylib.lookupFunction<NativeRun, DartRun>('run_tape');
-    _freeTensor     = dylib.lookupFunction<NativeFreeT, DartFreeT>('free_tensor');
-    _getTensorNames = dylib.lookupFunction<NativeGetNames, DartGetNames>('get_tensor_names');
-    _freeString     = dylib.lookupFunction<NativeFreeStr, DartFreeStr>('free_string');
-    _addPointers    = dylib.lookupFunction<NativeAddPointers, DartAddPointers>('add_pointers');
-    _initRandom     = dylib.lookupFunction<NativeInitRandom, DartInitRandom>('init_random_uniform');
+    _create = dylib.lookupFunction<NativeCreate, DartCreate>('create_executor');
+    _free = dylib.lookupFunction<NativeFree, DartFree>('free_executor');
+    _load = dylib.lookupFunction<NativeLoad, DartLoad>('load_tensor_h2d');
+    _retrieve = dylib.lookupFunction<NativeRetrieve, DartRetrieve>(
+        'retrieve_tensor_d2h_into');
+    _run = dylib.lookupFunction<NativeRun, DartRun>('run_tape');
+    _freeTensor = dylib.lookupFunction<NativeFreeT, DartFreeT>('free_tensor');
+    _getTensorNames =
+        dylib.lookupFunction<NativeGetNames, DartGetNames>('get_tensor_names');
+    _freeString =
+        dylib.lookupFunction<NativeFreeStr, DartFreeStr>('free_string');
+    _addPointers = dylib
+        .lookupFunction<NativeAddPointers, DartAddPointers>('add_pointers');
+    _initRandom = dylib.lookupFunction<NativeInitRandom, DartInitRandom>(
+        'init_random_uniform');
 
     handle = _create(debug);
   }
@@ -122,7 +125,7 @@ class GPUEngine {
   /// Allocates and transfers tensor data from host to device (GPU). Requires the tensors name, data and shape.
   static void load(String name, Pointer<Float> data, List<int> shape) {
     using((Arena arena) {
-      Pointer<Utf8>  nName  = name.toNativeUtf8(allocator: arena);
+      Pointer<Utf8> nName = name.toNativeUtf8(allocator: arena);
       Pointer<Int32> nShape = arena<Int32>(shape.length);
       Int32List view = nShape.asTypedList(shape.length);
       for (int i = 0; i < shape.length; i = i + 1) {

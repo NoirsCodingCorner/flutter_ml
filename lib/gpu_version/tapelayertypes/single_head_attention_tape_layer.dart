@@ -20,8 +20,10 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
 
   /// Learnable weight matrix to project the input into Queries.
   late GPUTensor<Matrix> wq;
+
   /// Learnable weight matrix to project the input into Keys.
   late GPUTensor<Matrix> wk;
+
   /// Learnable weight matrix to project the input into Values.
   late GPUTensor<Matrix> wv;
 
@@ -78,7 +80,8 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   /// Appends the single-head attention operations to the [tape].
   /// Persistently caches all intermediates to guarantee static unroll-ability.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
@@ -107,30 +110,38 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       }
     }
 
-    GPUTensor<Matrix> q = matMulGPU(input, wq, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> q =
+        matMulGPU(input, wq, tape, outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(q);
 
-    GPUTensor<Matrix> k = matMulGPU(input, wk, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> k =
+        matMulGPU(input, wk, tape, outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(k);
 
-    GPUTensor<Matrix> v = matMulGPU(input, wv, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> v =
+        matMulGPU(input, wv, tape, outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(v);
 
-    GPUTensor<Matrix> kT = transposeGPU(k, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> kT =
+        transposeGPU(k, tape, outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(kT);
 
-    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> scores =
+        matMulGPU(q, kT, tape, outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(scores);
 
     double scaleFactor = 1.0 / sqrt(dK);
-    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(scores, scaleFactor, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(scores, scaleFactor, tape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(scaledScores);
 
-    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(scaledScores, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(scaledScores, tape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(attentionWeights);
     lastAttentionWeights = attentionWeights;
 
-    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(output);
 
     return output;

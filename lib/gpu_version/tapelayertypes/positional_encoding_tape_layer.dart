@@ -58,7 +58,8 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
   /// Appends the positional encoding addition to the [tape].
   /// Slices the pre-calculated matrix dynamically based on the current batch's sequence length.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+      List<GPUTensor> intermediates) {
     int sequenceLength = input.shape[0];
 
     bool useCache = (cacheSeqLength == sequenceLength);
@@ -88,13 +89,17 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
       }
     }
 
-    GPUTensor<Matrix> slicedTransposed = sliceColumnGPU(encodingMatrixTransposed, 0, sequenceLength, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> slicedTransposed = sliceColumnGPU(
+        encodingMatrixTransposed, 0, sequenceLength, tape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(slicedTransposed);
 
-    GPUTensor<Matrix> positionalTensor = transposeGPU(slicedTransposed, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> positionalTensor = transposeGPU(slicedTransposed, tape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(positionalTensor);
 
-    GPUTensor<Matrix> out = addMatrixGPU(input, positionalTensor, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> out = addMatrixGPU(input, positionalTensor, tape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(out);
 
     return out;

@@ -169,7 +169,8 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
 
       Tensor<Matrix> cTildeTInputconv = conv2d(xT, kXc, padding: 'same');
       Tensor<Matrix> cTildeTHiddenconv = conv2d(h, kHc, padding: 'same');
-      Tensor<Matrix> cTildeTSum = addMatrix(cTildeTInputconv, cTildeTHiddenconv);
+      Tensor<Matrix> cTildeTSum =
+          addMatrix(cTildeTInputconv, cTildeTHiddenconv);
       Tensor<Matrix> cTildeTBiased = addMatrix(cTildeTSum, bc);
       Tensor<Matrix> cTildeT = tanhMatrix(cTildeTBiased);
 
@@ -196,16 +197,16 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
     Map<String, dynamic> weightsMap = {};
     weightsMap['K_xf'] = kXf.value;
     weightsMap['K_hf'] = kHf.value;
-    weightsMap['b_f']  = bf.value;
+    weightsMap['b_f'] = bf.value;
     weightsMap['K_xi'] = kXI.value;
     weightsMap['K_hi'] = kHi.value;
-    weightsMap['b_i']  = bi.value;
+    weightsMap['b_i'] = bi.value;
     weightsMap['K_xc'] = kXc.value;
     weightsMap['K_hc'] = kHc.value;
-    weightsMap['b_c']  = bc.value;
+    weightsMap['b_c'] = bc.value;
     weightsMap['K_xo'] = kXo.value;
     weightsMap['K_ho'] = kHo.value;
-    weightsMap['b_o']  = bo.value;
+    weightsMap['b_o'] = bo.value;
     return weightsMap;
   }
 
@@ -230,18 +231,18 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
 
     copyMatrix(kXf, weightsMap['K_xf'] as List<dynamic>);
     copyMatrix(kHf, weightsMap['K_hf'] as List<dynamic>);
-    copyMatrix(bf,  weightsMap['b_f']  as List<dynamic>);
+    copyMatrix(bf, weightsMap['b_f'] as List<dynamic>);
 
     copyMatrix(kXI, weightsMap['K_xi'] as List<dynamic>);
     copyMatrix(kHi, weightsMap['K_hi'] as List<dynamic>);
-    copyMatrix(bi,  weightsMap['b_i']  as List<dynamic>);
+    copyMatrix(bi, weightsMap['b_i'] as List<dynamic>);
 
     copyMatrix(kXc, weightsMap['K_xc'] as List<dynamic>);
     copyMatrix(kHc, weightsMap['K_hc'] as List<dynamic>);
-    copyMatrix(bc,  weightsMap['b_c']  as List<dynamic>);
+    copyMatrix(bc, weightsMap['b_c'] as List<dynamic>);
 
     copyMatrix(kXo, weightsMap['K_xo'] as List<dynamic>);
     copyMatrix(kHo, weightsMap['K_ho'] as List<dynamic>);
-    copyMatrix(bo,  weightsMap['b_o']  as List<dynamic>);
+    copyMatrix(bo, weightsMap['b_o'] as List<dynamic>);
   }
 }

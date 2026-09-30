@@ -1,5 +1,3 @@
-
-
 import 'dart:math';
 
 import 'package:flutter_ml_web_gpu/full_library.dart';
@@ -113,7 +111,8 @@ void main() {
     timer.stop();
     Logger.green('Compilation took: ${timer.elapsedMilliseconds} ms');
 
-    Logger.blue('Starting high-speed training loop (20 seconds max) for Batch Size $batchSize...');
+    Logger.blue(
+        'Starting high-speed training loop (20 seconds max) for Batch Size $batchSize...');
     timer.reset();
     timer.start();
 
@@ -148,9 +147,12 @@ void main() {
     double tflops = gflops / 1000.0;
 
     Logger.green('Final Training Loss: ${model.loss?.value}');
-    Logger.green('Completed $actualEpochs epochs in ${seconds.toStringAsFixed(2)} seconds');
-    Logger.green('Engine Performance: ${epochsPerSec.toStringAsFixed(2)} Epochs/sec');
-    Logger.green('Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
+    Logger.green(
+        'Completed $actualEpochs epochs in ${seconds.toStringAsFixed(2)} seconds');
+    Logger.green(
+        'Engine Performance: ${epochsPerSec.toStringAsFixed(2)} Epochs/sec');
+    Logger.green(
+        'Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
 
     model.free();
   });
@@ -209,8 +211,10 @@ void main() {
     double gflops = flopsPerSecond / 1000000000.0;
     double tflops = gflops / 1000.0;
 
-    Logger.green('Completed $actualSteps MatMul steps in ${seconds.toStringAsFixed(2)} seconds');
-    Logger.green('Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
+    Logger.green(
+        'Completed $actualSteps MatMul steps in ${seconds.toStringAsFixed(2)} seconds');
+    Logger.green(
+        'Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
 
     tensorA.free();
     tensorB.free();
@@ -221,9 +225,9 @@ void main() {
     // At 4 bytes per float, this equals ~2.41 GB per matrix.
     // 3 Matrices (A, B, C) = ~7.23 GB of VRAM allocated instantly.
     // Compute cost: ~29.67 TFLOPs per single execution step.
-    int m = 2048;//24576;
-    int k = 2048;//24576;
-    int n = 2048;//24576;
+    int m = 2048; //24576;
+    int k = 2048; //24576;
+    int n = 2048; //24576;
 
     Logger.blue('Allocating ~7.23 GB directly in VRAM...');
 
@@ -257,8 +261,10 @@ void main() {
     double gflops = flopsPerSecond / 1000000000.0;
     double tflops = gflops / 1000.0;
 
-    Logger.green('Completed $steps massive MatMul steps in ${seconds.toStringAsFixed(2)} seconds');
-    Logger.green('Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
+    Logger.green(
+        'Completed $steps massive MatMul steps in ${seconds.toStringAsFixed(2)} seconds');
+    Logger.green(
+        'Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
 
     tensorA.free();
     tensorB.free();
@@ -273,14 +279,59 @@ void main() {
     int maxSeqLength = 8;
 
     // 2. Training Data: A sequence of 4 token IDs
-    GPUTensor<Vector> trainInput = GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0]);
+    GPUTensor<Vector> trainInput =
+        GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0]);
 
     // Training Target: One-hot encoded matrix for the target outputs (Shape: 4 x 10)
     GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(<List<double>>[
-      <double>[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // Target for input 1.0 -> 2.0
-      <double>[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], // Target for input 3.0 -> 4.0
-      <double>[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0], // Target for input 5.0 -> 6.0
-      <double>[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], // Target for input 2.0 -> 3.0
+      <double>[
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ], // Target for input 1.0 -> 2.0
+      <double>[
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ], // Target for input 3.0 -> 4.0
+      <double>[
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0
+      ], // Target for input 5.0 -> 6.0
+      <double>[
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ], // Target for input 2.0 -> 3.0
     ]);
 
     // 3. Define the Transformer Pipeline
@@ -345,5 +396,4 @@ void main() {
     // Cleanup VRAM
     model.free();
   });
-
 }

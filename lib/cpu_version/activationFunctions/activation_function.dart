@@ -1,7 +1,6 @@
-
-
 /// Export the activation funcitons of this engine
 library;
+
 export 'elu.dart';
 export 'leaky_relu.dart';
 export 'mish.dart';

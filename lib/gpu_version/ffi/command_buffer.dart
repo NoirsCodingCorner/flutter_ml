@@ -32,6 +32,7 @@ class CommandBuffer {
       _buffer = bigger;
     }
   }
+
   /// Inserts an integer into the buffer
   void putInt(int value) {
     _expand(4);

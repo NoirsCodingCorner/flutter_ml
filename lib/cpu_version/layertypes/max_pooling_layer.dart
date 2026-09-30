@@ -84,14 +84,15 @@ class MaxPooling2DLayer extends Layer<Matrix, Matrix> {
     Tensor<Matrix> out = Tensor<Matrix>(outputValue);
     out.creator = Node(
       [input],
-          () {
+      () {
         int idx = 0;
         for (int y = 0; y < outputHeight; y = y + 1) {
           for (int x = 0; x < outputWidth; x = x + 1) {
             int inFlatIdx = maxIndicesFlat[idx];
             int outFlatIdx = y * outputWidth + x;
 
-            input.grad[inFlatIdx] = input.grad[inFlatIdx] + out.grad[outFlatIdx];
+            input.grad[inFlatIdx] =
+                input.grad[inFlatIdx] + out.grad[outFlatIdx];
             idx = idx + 1;
           }
         }
@@ -180,7 +181,7 @@ class MaxPooling1DLayer extends Layer<Vector, Vector> {
     Tensor<Vector> out = Tensor<Vector>(outputValue);
     out.creator = Node(
       [input],
-          () {
+      () {
         for (int i = 0; i < outputSize; i = i + 1) {
           int maxI = maxIndices[i];
           input.grad[maxI] = input.grad[maxI] + out.grad[i];
