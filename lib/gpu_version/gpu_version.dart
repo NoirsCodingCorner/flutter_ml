@@ -1,7 +1,7 @@
 /// Holds and exports the subclasses for GPU processing
-library gpu_version;
+library;
 
 export 'ffi/ffi.dart';
 export 'optimizer/optimizer.dart';
-export 'tapelayertypes/tapeLayer.dart';
-export 'SeqModel.dart';
+export 'tapelayertypes/tape_layer.dart';
+export 'seq_model.dart';

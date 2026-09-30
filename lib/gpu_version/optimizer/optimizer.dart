@@ -1,11 +1,11 @@
 /// Holds the optimizers for the GPU.
-library GPUOptimizer;
-export 'SGD.dart';
+library;
+export 'sgd.dart';
 export 'Adam.dart';
 
 
 import '/tensor/tensor_gpu.dart';
-import '../ffi/commandBuffer.dart';
+import '../ffi/command_buffer.dart';
 
 /// Optimizers are used to update a parameters value to reduce the error of the system.
 /// For that the gradient of the requested value is used.

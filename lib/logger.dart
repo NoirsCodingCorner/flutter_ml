@@ -13,6 +13,7 @@ class Logger {
         String prefix = 'ℹ️',
         String color  = _cyan,
       }) {
+    // ignore: avoid_print
     print('$color$prefix $message$_reset');
   }
 

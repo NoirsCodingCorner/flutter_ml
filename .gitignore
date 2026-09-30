@@ -1,49 +1,75 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
-/pubspec.lock
-**/doc/api/
+# -------------------------------------------------------------------------
+# Flutter & Dart core
+# -------------------------------------------------------------------------
 .dart_tool/
+build/
+**/build/
 .flutter-plugins
 .flutter-plugins-dependencies
-build/
-android/src/main/jniLibs/
-android_jniLibs.zip
+**/doc/api/
+coverage/
 
-# Local fallback binaries and extracted paths
+# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
+/pubspec.lock
+
+# -------------------------------------------------------------------------
+# Desktop (Windows & Linux) - Fixes pana symlink loops
+# -------------------------------------------------------------------------
+**/ephemeral/
+**/.plugin_symlinks/
+
+# Custom project binaries and extracted paths
 windows/bin/
 linux/bin/
 linux/linux_libs/
 windows/windows_cuda_libs/
 
-# Downloaded GitHub Release archives
-*.zip
+# -------------------------------------------------------------------------
+# Android
+# -------------------------------------------------------------------------
+**/.cxx/
+**/android/app/build/
+**/android/.gradle/
+android/src/main/jniLibs/
+android_jniLibs.zip
+
+# -------------------------------------------------------------------------
+# iOS & macOS
+# -------------------------------------------------------------------------
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Flutter.framework/
+**/ios/Flutter/Flutter.podspec
+**/macOS/Pods/
+**/macOS/Flutter/ephemeral/
+.swiftpm/
+
+# -------------------------------------------------------------------------
+# IDEs & Tools
+# -------------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+#.vscode/
 
 # CLion & CMake build outputs
 cmake-build-*/
 CMakeCache.txt
 CMakeFiles/
+**/CMakeLists.txt.user
+
+# -------------------------------------------------------------------------
+# Miscellaneous & OS
+# -------------------------------------------------------------------------
+.DS_Store
+*.class
+*.log
+*.pyc
+*.swp
+*.zip
+.build/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/

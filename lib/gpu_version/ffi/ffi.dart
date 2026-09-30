@@ -1,8 +1,8 @@
 /// Holds the exports for the ffi interaction with the C++ library
 
-library ffi_engine;
+library;
 
-export 'commandBuffer.dart';
-export 'GPUEngine.dart';
-export 'OpCodes.dart';
-export 'tapeDecoder.dart';
+export 'command_buffer.dart';
+export 'gpu_engine.dart';
+export 'op_codes.dart';
+export 'tape_decoder.dart';

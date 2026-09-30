@@ -6,14 +6,19 @@ analyzer:
     - "test/**"
     - "example/**"
   errors:
-    non_constant_identifier_names: ignore
-    avoid_print: ignore
-    prefer_interpolation_to_compose_strings: ignore
-    curly_braces_in_flow_control_structures: ignore
-    file_names: ignore
-    unused_local_variable: ignore
-    constant_identifier_names: ignore
-    unnecessary_library_name: ignore
-    annotate_overrides: ignore
-    use_key_in_widget_constructors: ignore
-    unnecessary_import: ignore
+    # Primary culprits based on your pana logs and file structure:
+    unused_local_variable: warning
+    file_names: warning
+
+    # Standard rules highly likely to be contributing to the remaining 309 issues:
+    non_constant_identifier_names: warning
+    constant_identifier_names: warning
+    unnecessary_library_name: warning
+    unnecessary_import: warning
+
+    # Remaining suppressed rules to highlight:
+    avoid_print: warning
+    prefer_interpolation_to_compose_strings: warning
+    curly_braces_in_flow_control_structures: warning
+    annotate_overrides: warning
+    use_key_in_widget_constructors: warning

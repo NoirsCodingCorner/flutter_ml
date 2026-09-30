@@ -1,10 +1,10 @@
 import 'dart:math';
 import 'dart:math' as math;
 import 'tensor_gpu.dart';
-import 'type_Aliases.dart';
+import 'type_aliases.dart';
 
-import '../gpu_version/ffi/OpCodes.dart';
-import '../gpu_version/ffi/commandBuffer.dart';
+import '../gpu_version/ffi/op_codes.dart';
+import '../gpu_version/ffi/command_buffer.dart';
 
 
 /// /////////////////////////////////
@@ -1175,7 +1175,6 @@ GPUTensor<Matrix> reluMatrixGPU(GPUTensor<Matrix> m, CommandBuffer tape,{GPUTens
 }
 /// Appends commands for applying the sigmoid function on every element of [m] (type [t]) to [tape].
 GPUTensor<T> sigmoidScalarGPU<T>(GPUTensor<T> s, CommandBuffer tape,{GPUTensor<T>? outTensor}) {
-  dynamic dummy = T == Scalar ? 0.0 : (T == Vector ? <double>[] : <List<double>>[]);
   GPUTensor<T> out = outTensor ?? GPUTensor<T>.empty(s.shape);
 
   tape.putInt(OP_SIGMOID);

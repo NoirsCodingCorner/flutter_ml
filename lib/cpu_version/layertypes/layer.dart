@@ -1,26 +1,26 @@
 /// Holds and exports all the different layer types that can be used for CPU model building.
 library;
 
-export 'averagePoolingLayer.dart';
-export 'batchNormalizationLayer.dart';
-export 'conv2D.dart';
-export 'convlstmLayer.dart';
-export 'denseLayer.dart';
-export 'dropoutLayer.dart';
-export 'dualLSTM.dart';
-export 'embeddingLayer.dart';
-export 'flattenLayer.dart';
-export 'globalAveragePoolingLayer.dart';
-export 'lstmLayer.dart';
-export 'maxPoolingLayer.dart';
-export 'multiHeadAttentionLayer.dart';
-export 'multiLSTMLayer.dart';
-export 'normalizationLayer.dart';
-export 'positionalEncodingLayer.dart';
-export 'reluLayer.dart';
-export 'rnnLayer.dart';
-export 'singleHeadAttentionLayer.dart';
-export 'transformerEncodingLayer.dart';
+export 'average_pooling_layer.dart';
+export 'batch_normalization_layer.dart';
+export 'conv_2d.dart';
+export 'convlstm_layer.dart';
+export 'dense_layer.dart';
+export 'dropout_layer.dart';
+export 'dual_lstm.dart';
+export 'embedding_layer.dart';
+export 'flatten_layer.dart';
+export 'global_average_pooling_layer.dart';
+export 'lstm_layer.dart';
+export 'max_pooling_layer.dart';
+export 'multi_head_attention_layer.dart';
+export 'multi_lstm_layer.dart';
+export 'normalization_layer.dart';
+export 'positional_encoding_layer.dart';
+export 'relu_layer.dart';
+export 'rnn_layer.dart';
+export 'single_head_attention_layer.dart';
+export 'transformer_encoding_layer.dart';
 
 import '../../tensor/tensor.dart';
 

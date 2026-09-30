@@ -2,7 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_ml_web_gpu/gpu_version/ffi/GPUEngine.dart';
+import 'package:flutter_ml_web_gpu/gpu_version/ffi/gpu_engine.dart';
 import 'package:flutter_ml_web_gpu/speedtest.dart';
 
 import '../lib/full_library.dart';
@@ -1435,7 +1435,7 @@ class SimpleGPUApp extends StatelessWidget {
 */
 
 
-import '../lib/gpu_version/SeqModel.dart';
+import '../lib/gpu_version/seq_model.dart';
 import '../lib/gpu_version/optimizer/adam.dart';
 import '../lib/logger.dart';
 

@@ -1,5 +1,5 @@
 import 'dart:math';
-import 'type_Aliases.dart';
+import 'type_aliases.dart';
 
 import '../tensor/tensor.dart';
 
