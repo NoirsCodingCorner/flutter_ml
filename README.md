@@ -148,7 +148,7 @@ AdamGPU, SGDGPU.
 The `SeqModel` object replaces eager execution loops. It handles VRAM lifecycle and compiles reusable execution tapes (`trainForward`, `trainBackward`, `trainOptimize`, `inferTape`).
 
 ```dart
-import 'package:flutter_ml_web_gpu/full_library.dart';
+import 'package:flutter_ml/full_library.dart';
 
 void main() async {
   // Initialize Native Engine
