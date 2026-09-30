@@ -16,7 +16,7 @@ class Momentum extends Optimizer {
     List<Tensor<dynamic>> parameters, {
     required double learningRate,
     this.momentum = 0.9,
-  }) : super(parameters, learningRate: learningRate) {
+  }) : super(parameters, learningRate) {
     _v = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
       Tensor<dynamic> param = parameters[p];

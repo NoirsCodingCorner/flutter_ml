@@ -23,3 +23,7 @@ Quick description fix for the pub.dev view.
 ## 3.0.2
 
 Quick description fix for linter issue on linux.
+
+## 3.0.3
+
+Removed Ios due to instability.

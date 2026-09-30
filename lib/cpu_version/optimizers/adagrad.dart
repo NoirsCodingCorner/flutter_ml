@@ -16,7 +16,7 @@ class Adagrad extends Optimizer {
     List<Tensor<dynamic>> parameters, {
     required double learningRate,
     this.epsilon = 1e-8,
-  }) : super(parameters, learningRate: learningRate) {
+  }) : super(parameters, learningRate) {
     _gSquaredSum = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
       Tensor<dynamic> param = parameters[p];

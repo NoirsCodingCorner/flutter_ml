@@ -34,7 +34,7 @@ class AdamW extends Optimizer {
     this.beta2 = 0.999,
     this.epsilon = 1e-8,
     this.weightDecay = 0.01,
-  }) : super(parameters, learningRate: learningRate) {
+  }) : super(parameters, learningRate) {
     _m = {};
     _v = {};
     for (int p = 0; p < parameters.length; p = p + 1) {

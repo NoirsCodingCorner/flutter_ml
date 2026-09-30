@@ -34,7 +34,7 @@ class AMSGrad extends Optimizer {
     this.beta1 = 0.9,
     this.beta2 = 0.999,
     this.epsilon = 1e-8,
-  }) : super(parameters, learningRate: learningRate) {
+  }) : super(parameters, learningRate) {
     _m = {};
     _v = {};
     _vHat = {};

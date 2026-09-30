@@ -1,3 +1,4 @@
+
 ![flutter_ml](https://raw.githubusercontent.com/NoirsCodingCorner/flutter_ml/master/doc/flutterML.png)
 
 A deep learning library for Dart and Flutter. It brings native hardware-accelerated machine learning directly to your device. Train models and run inference locally without Python, cloud APIs, or static binaries.
@@ -16,6 +17,7 @@ Most machine learning in Flutter relies on external Python servers or read-only 
 
 The CPU engine uses an eager computation graph. It is highly transparent. Use it for debugging, testing, or running lightweight models.
 
+🟠 *Does not require specified Device architecture*
 ```dart
 import 'package:flutter_ml/full_library.dart';
 
@@ -44,17 +46,30 @@ void main() {
   model.fit(inputs, targets, epochs: 1000, debug: true);
 }
 
+
 ```
 
 ## 🟨 GPU Engine (Static Tape Compilation)
 
-The GPU engine builds static execution tapes for extreme performance. It requires initialization. It uses `TapeLayer` structures to orchestrate VRAM.
+The GPU engine builds static execution tapes for extreme performance across multiple operating systems. It requires initialization. It uses `TapeLayer` structures to orchestrate VRAM.
+
+The engine actively supports and bundles acceleration targets for:
+
+🟡**Windows** (`Target.cuda`) via `.dll` binaries.
+
+
+🟡**Linux** (`Target.cuda`) via `.so` binaries.
+
+
+🟡**Android** (`Target.androidArm64`, `Target.androidX8664`) via bundled NDK objects.
+
+
 
 ```dart
 import 'package:flutter_ml/full_library.dart';
 
 void main() async {
-  await GPUEngine.initialize(debug: false, target: Target.cuda);
+  await GPUEngine.initialize(debug: false, target: Target.cuda); // Select targeted architecture
 
   List<TapeLayer> layers = <TapeLayer>[];
   layers.add(DenseReluTL(8));
@@ -90,7 +105,9 @@ void main() async {
   GPUEngine.dispose();
 }
 
+
 ```
+
 ## Core Design Decisions
 
 Version `3.0.0` introduces complete framework restructuring. Architecture is focused on memory safety, static compilation, and zero-allocation runtime.
@@ -197,7 +214,9 @@ void main() async {
   GPUEngine.dispose();
 }
 
+
 ```
+
 ---
 
 ## 🟪 Benchmark Speed on Consumer Hardware
@@ -269,3 +288,4 @@ void main() async {
 
 1. Integration of complete pre-trained LLM pipelines.
 2. Additional science and custom kernel mapping.
+

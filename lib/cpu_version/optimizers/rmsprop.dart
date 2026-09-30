@@ -21,7 +21,7 @@ class RMSprop extends Optimizer {
     required double learningRate,
     this.beta = 0.99,
     this.epsilon = 1e-8,
-  }) : super(parameters, learningRate: learningRate) {
+  }) : super(parameters, learningRate) {
     _s = {};
     for (int p = 0; p < parameters.length; p = p + 1) {
       Tensor<dynamic> param = parameters[p];

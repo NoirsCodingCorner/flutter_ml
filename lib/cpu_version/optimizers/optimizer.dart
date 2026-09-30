@@ -22,7 +22,7 @@ abstract class Optimizer {
   double learningRate;
 
   /// Base constructor initializing the target [parameters] and [learningRate].
-  Optimizer(this.parameters, {required this.learningRate});
+  Optimizer(this.parameters, this.learningRate);
 
   /// Executes a single optimization step to update all [parameters] in place.
   void step();

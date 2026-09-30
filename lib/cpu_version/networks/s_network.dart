@@ -283,7 +283,7 @@ Future<void> main() async {
   model.predict(initialInputTensor);
 
   // 2. LOWER THE LEARNING RATE TO 0.1
-  SGD optimizer = SGD(model.parameters, learningRate: 0.1);
+  SGD optimizer = SGD(model.parameters, 0.1);
   model.compile(configuredOptimizer: optimizer);
 
   int epochs = 5000;

@@ -1,6 +1,6 @@
 name: flutter_ml
 description: Bring native GPU-accelerated machine learning to Flutter. Train models, build transformers, and run local inference without Python or cloud APIs.
-version: 3.0.2
+version: 3.0.3
 homepage: https://github.com/NoirsCodingCorner/flutter_ml
 repository: https://github.com/NoirsCodingCorner/flutter_ml
 license: Apache-2.0
@@ -45,11 +45,7 @@ flutter:
       android:
         package: com.example.flutter_ml
         pluginClass: FlutterMlPlugin
-      ios:
-        pluginClass: FlutterMlPlugin
       linux:
-        pluginClass: FlutterMlPlugin
-      macos:
         pluginClass: FlutterMlPlugin
       windows:
         pluginClass: FlutterMlPluginCApi
