@@ -3,14 +3,16 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import 'activationFunction.dart';
 
-
-/// The Mish activation function.
+/// Applies the mish activation function (similar to swish) to each element inside of a given [input] of type [Tensor<Vector>].
+/// Mish mirrors Relu with a continuous curve.
+/// The calculation is handled via the [mishVector] math operation.
 ///
-/// Mish is a modern, self-gated, and smooth non-monotonic activation function
-/// that has achieved state-of-the-art results on a number of computer vision
-/// and NLP benchmarks, often outperforming `ReLU` and `Swish`.
-///
-
+/// Example:
+/// ```dart
+/// Tensor<Vector> v = Tensor<Vector>([1.0, 2.0, 3.0]);
+/// MishVector mish = MishVector();
+/// Tensor<Vector> out = mish(v);
+/// ```
 class MishVector implements ActivationFunction<Vector> {
   @override
   Tensor<Vector> call(Tensor<Vector> input) {
@@ -18,9 +20,16 @@ class MishVector implements ActivationFunction<Vector> {
   }
 }
 
-/// Mathematical operation for the Mish function on a vector.
+/// Applies the mish activation function (similar to swish) to each element inside of a given [input] of type [Tensor<Matrix>].
+/// Mish mirrors Relu with a continuous curve.
+/// The calculation is handled via the [mishMatrix] math operation.
 ///
-/// Built by composing other autograd operations. The backward pass is handled automatically.
+/// Example:
+/// ```dart
+/// Tensor<Matrix> m = Tensor<Matrix>([[1.0, 2.0], [3.0, 4.0]]);
+/// MishMatrix mish = MishMatrix();
+/// Tensor<Matrix> out = mish(m);
+/// ```
 class MishMatrix implements ActivationFunction<Matrix> {
   @override
   Tensor<Matrix> call(Tensor<Matrix> input) {

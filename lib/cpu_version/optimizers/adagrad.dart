@@ -2,10 +2,16 @@ import 'dart:math';
 import '../../tensor/tensor.dart';
 import 'optimizer.dart';
 
+/// Implements the Adagrad optimization algorithm.
+/// Adapts the learning rate individually for each parameter based on the accumulated history of squared gradients.
 class Adagrad extends Optimizer {
+  /// Small constant added to the denominator to prevent division by zero.
   double epsilon;
+
+  /// Accumulated sum of squared gradients mapped by tensor ID.
   late Map<String, List<double>> _gSquaredSum;
 
+  /// Creates an [Adagrad] optimizer for [parameters] with the specified [learningRate] and [epsilon].
   Adagrad(
       List<Tensor<dynamic>> parameters, {
         required double learningRate,
@@ -23,6 +29,7 @@ class Adagrad extends Optimizer {
     }
   }
 
+  /// Performs a single optimization step, accumulating squared gradients and updating parameter values.
   @override
   void step() {
     for (int p = 0; p < parameters.length; p = p + 1) {

@@ -5,21 +5,35 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import '../layertypes/layer.dart';
 
+/// Applies Multi-Head Attention over an input [Matrix] tensor.
+/// Projects the input sequence into multiple subspaces by running [numHeads] parallel [SingleHeadAttention] modules,
+/// concatenates the head outputs along the column dimension, and linearly projects the result back to [dModel] using [Wo].
 class MultiHeadAttention extends Layer<Matrix, Matrix> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'multi_head_attention';
+
+  /// Total dimensionality of the input and output feature representations.
   int dModel;
+
+  /// Number of parallel attention heads.
   int numHeads;
 
+  /// List of independent [SingleHeadAttention] heads computing attention in parallel.
   late List<SingleHeadAttention> attentionHeads;
+
+  /// Final linear output projection weight matrix tensor of shape `[dModel, dModel]`.
   late Tensor<Matrix> Wo;
 
+  /// Creates a [MultiHeadAttention] layer with [dModel] feature size split evenly across [numHeads].
+  /// Throws an exception if [dModel] is not evenly divisible by [numHeads].
   MultiHeadAttention(this.dModel, this.numHeads) {
     if (dModel % numHeads != 0) {
       throw Exception('dModel must be divisible by numHeads.');
     }
   }
 
+  /// Returns all trainable parameters across all individual attention heads and the output projection matrix [Wo].
   @override
   List<Tensor> get parameters {
     List<Tensor> params = [];
@@ -30,6 +44,8 @@ class MultiHeadAttention extends Layer<Matrix, Matrix> {
     return params;
   }
 
+  /// Instantiates each [SingleHeadAttention] head with `dHead = dModel ~/ numHeads`
+  /// and initializes the output projection matrix [Wo] using uniform Xavier scaling.
   @override
   void build(Tensor<Matrix> input) {
     int dHead = dModel ~/ numHeads;
@@ -53,6 +69,8 @@ class MultiHeadAttention extends Layer<Matrix, Matrix> {
     super.build(input);
   }
 
+  /// Executes multi-head self-attention on the CPU by computing all head outputs,
+  /// concatenating them along columns, and projecting through [Wo].
   @override
   Tensor<Matrix> forward(Tensor<Matrix> input) {
     List<Tensor<Matrix>> headOutputs = [];
@@ -67,6 +85,7 @@ class MultiHeadAttention extends Layer<Matrix, Matrix> {
     return finalOutput;
   }
 
+  /// Returns the output projection matrix [Wo] and all attention head weight dictionaries as a map.
   @override
   Map<String, dynamic> getWeights() {
     List<Map<String, dynamic>> headWeights = [];
@@ -80,6 +99,7 @@ class MultiHeadAttention extends Layer<Matrix, Matrix> {
     };
   }
 
+  /// Sets the output projection matrix [Wo] and delegates weight setting to each head from the weights map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     List<dynamic> woDynamic = weightsMap['Wo'] as List<dynamic>;

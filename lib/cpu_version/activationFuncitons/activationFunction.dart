@@ -7,9 +7,8 @@ export 'leakyRelu.dart';
 export 'mish.dart';
 export 'relu.dart';
 export 'sigmoid.dart';
-export 'silu.dart';
 export 'softmax.dart';
-
+export 'swish.dart';
 
 import '../../tensor/tensor.dart';
 

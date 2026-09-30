@@ -1,10 +1,16 @@
 import '../../tensor/tensor.dart';
 import 'optimizer.dart';
 
+/// Implements Nesterov Accelerated Gradient (NAG) optimization.
+/// Incorporates momentum by computing the parameter update step using a look-ahead velocity term.
 class NAG extends Optimizer {
+  /// The momentum factor determining the contribution of past update velocities.
   double momentum;
+
+  /// Velocity vectors accumulated over previous steps mapped by tensor ID.
   late Map<String, List<double>> _v;
 
+  /// Creates a [NAG] optimizer for [parameters] with the given [learningRate] and [momentum] factor.
   NAG(
       List<Tensor<dynamic>> parameters, {
         required double learningRate,
@@ -22,6 +28,7 @@ class NAG extends Optimizer {
     }
   }
 
+  /// Performs a single optimization step using the Nesterov momentum update rule.
   @override
   void step() {
     for (int p = 0; p < parameters.length; p = p + 1) {

@@ -1,4 +1,4 @@
-
+/// A comprehensive machine learning library for Flutter.
 library flutter_ml;
 
 export 'cpu_version/cpu_version.dart';

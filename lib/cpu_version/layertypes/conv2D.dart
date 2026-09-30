@@ -6,17 +6,33 @@ import '../../tensor/type_Aliases.dart';
 import '../activationFuncitons/activationFunction.dart';
 import 'layer.dart';
 
+/// Applies a 2D convolution over an input [Matrix] tensor.
+/// Convolves the input with a set of learnable 2D filters ([kernels]) to produce a 3D feature map ([Tensor3D]),
+/// adds channel-wise [biases], and optionally applies an [activation] function.
 class Conv2DLayer extends Layer<Matrix, Tensor3D> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'conv2d_layer';
+
+  /// Number of output channels (feature maps) to produce.
   int outChannels;
+
+  /// Spatial height and width of the 2D square convolution kernels.
   int kernelSize;
+
+  /// Padding scheme used during convolution ('valid' or 'same').
   String padding;
+
+  /// Optional activation function applied element-wise to the output 3D tensor.
   ActivationFunction<Tensor3D>? activation;
 
+  /// List of learnable 2D kernel tensors, one per output channel.
   late List<Tensor<Matrix>> kernels;
+
+  /// Learnable bias vector tensor containing one bias per output channel.
   late Tensor<Vector> biases;
 
+  /// Creates a [Conv2DLayer] with [outChannels], [kernelSize], and optional [padding] and [activation].
   Conv2DLayer(
       this.outChannels,
       this.kernelSize, {
@@ -24,6 +40,7 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
         this.activation,
       });
 
+  /// Returns all trainable parameters including each kernel tensor and the bias vector.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -34,6 +51,7 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
     return params;
   }
 
+  /// Allocates and initializes the convolution kernels using standard scaling and sets biases to 0.0.
   @override
   void build(Tensor<Matrix> input) {
     Random random = Random();
@@ -62,6 +80,7 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
     super.build(input);
   }
 
+  /// Executes the 2D convolution forward pass on the CPU, adding biases and applying activation if defined.
   @override
   Tensor<Tensor3D> forward(Tensor<Matrix> input) {
     List<Tensor<Matrix>> featureMaps = [];
@@ -82,6 +101,7 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
     }
   }
 
+  /// Returns the kernel matrices and bias values as a map.
   @override
   Map<String, dynamic> getWeights() {
     List<Matrix> kernelValues = [];
@@ -95,6 +115,7 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
     return weightsMap;
   }
 
+  /// Sets the kernel matrices and bias values from a provided weights map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     List<dynamic> newKernelValues = weightsMap['kernels'] as List<dynamic>;
@@ -119,8 +140,8 @@ class Conv2DLayer extends Layer<Matrix, Tensor3D> {
   }
 }
 
-
-
+/// Computes the Mean Squared Error (MSE) loss between flattened elements of [pred] and [target] tensors.
+/// Builds an autograd [Node] attached to the returned [Scalar] [Tensor] to propagate gradients back to [pred].
 Tensor<Scalar> flatMse(Tensor<dynamic> pred, Tensor<dynamic> target) {
   double sum = 0.0;
   int length = pred.data.length;
@@ -184,7 +205,7 @@ Tensor<Scalar> flatMse(Tensor<dynamic> pred, Tensor<dynamic> target) {
 
   SGD optimizer = SGD(conv2d.parameters, learningRate: 0.01);
 
-  for (int step = 0; step < 50; step = step + 1) {
+  for (step = 0; step < 50; step = step + 1) {
     Tensor<Tensor3D> output = conv2d.forward(input);
     Tensor<Scalar> loss = flatMse(output, target);
 

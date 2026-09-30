@@ -2,18 +2,27 @@ import '../../tensor/tensor.dart';
 import '../../tensor/type_Aliases.dart';
 import 'layer.dart';
 
+/// Flattens a 2D [Matrix] tensor into a contiguous 1D [Vector] tensor.
+/// Preserves the underlying flat data elements while resetting dimensionality and attaching an autograd [Node] to propagate gradients backward.
 class FlattenLayer extends Layer<Matrix, Vector> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'flatten';
+
+  /// Cached row dimension of the input matrix.
   late int inputRows;
+
+  /// Cached column dimension of the input matrix.
   late int inputCols;
 
+  /// Returns the trainable parameters. Since flattening contains no trainable parameters, an empty list is returned.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
     return params;
   }
 
+  /// Caches the spatial row and column dimensions of the input matrix and marks the layer as built.
   @override
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
@@ -26,6 +35,7 @@ class FlattenLayer extends Layer<Matrix, Vector> {
     super.build(input);
   }
 
+  /// Executes the flattening operation on the CPU by copying the flat data buffer and registering an autograd node.
   @override
   Tensor<Vector> forward(Tensor<Matrix> input) {
     // Because the Tensor class natively flattens all data internally,
@@ -50,12 +60,14 @@ class FlattenLayer extends Layer<Matrix, Vector> {
     return out;
   }
 
+  /// Returns an empty map as this layer contains no trainable weights.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> emptyMap = {};
     return emptyMap;
   }
 
+  /// No-op as this layer contains no weights to set.
   @override
   void setWeights(Map<String, dynamic> weights) {}
 }

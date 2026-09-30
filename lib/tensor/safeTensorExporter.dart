@@ -5,8 +5,11 @@ import '../logger.dart';
 
 import 'tensor_gpu.dart';
 
+/// Utility class for serializing and exporting [GPUTensor] weights into the Hugging Face Safetensors binary format.
+/// Handles flattening nested lists, pulling buffers from VRAM to CPU, converting values to 32-bit floats,
+/// and writing the 8-byte length prefix, JSON metadata header, and raw data buffer.
 class SafetensorsExporter {
-  /// Flattens nested Dart lists into a single 1D array of doubles
+  /// Flattens nested Dart lists into a single 1D array of doubles.
   static List<double> _flattenTensor(dynamic value) {
     if (value is double) {
       return <double>[value];
@@ -20,7 +23,9 @@ class SafetensorsExporter {
     return <double>[];
   }
 
-  /// Exports the VRAM tensors to a standard Hugging Face .safetensors file
+  /// Exports a map of [GPUTensor] instances to disk at [outputPath] adhering to the Hugging Face Safetensors format.
+  /// Pulls tensor data from VRAM to CPU, flattens dimensions, packs the data into little-endian Float32 byte buffers,
+  /// constructs the JSON metadata header, and writes the complete binary file with an 8-byte little-endian header length prefix.
   static void saveModel(Map<String, GPUTensor> modelTensors, String outputPath) {
     Logger.log('Starting export to $outputPath...');
 
@@ -58,7 +63,7 @@ class SafetensorsExporter {
       rawBuffer.add(byteData);
       currentOffset = currentOffset + byteLength;
 
-      Logger.log('Processed: $tensorName (Shape: ${tensor.shape})');
+      Logger.log('Processed: $tensorName (Shape:${tensor.shape})');
     }
 
     // Safetensors requires an "__metadata__" block (often used for format info)

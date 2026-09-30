@@ -5,26 +5,47 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import '../layertypes/layer.dart';
 
+/// Applies a Multi-Tier Hierarchical Long Short-Term Memory recurrent pass over a 2D [Matrix] sequence.
+/// Extends multi-timeline recurrence to an arbitrary number of stacked tiers defined by [tierClockCycles].
+/// - Tier 0 updates at every sequential timestep, integrating its hidden state, current input, and the cell states of all higher tiers.
+/// - Higher tiers (1 to N) update periodically according to their cumulative clock cycle intervals, integrating their hidden state with the hidden state of the tier below them.
+/// Returns the final hidden state [Vector] of the lowest tier (Tier 0).
 class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'multitier_lstm';
 
+  /// Dimensionality of the hidden and cell state vectors across all tiers.
   int hiddenSize;
+
+  /// Clock cycle intervals controlling the update frequencies between consecutive hierarchical tiers.
   List<int> tierClockCycles;
+
+  /// Total number of hierarchical tiers (`tierClockCycles.length + 1`).
   late int numTiers;
 
+  /// List of forget gate weight matrix tensors for each tier.
   late List<Tensor<Matrix>> W_f_tiers;
+  /// List of input gate weight matrix tensors for each tier.
   late List<Tensor<Matrix>> W_i_tiers;
+  /// List of candidate cell state weight matrix tensors for each tier.
   late List<Tensor<Matrix>> W_c_tiers;
+  /// List of output gate weight matrix tensors for each tier.
   late List<Tensor<Matrix>> W_o_tiers;
 
+  /// List of forget gate bias vector tensors for each tier.
   late List<Tensor<Vector>> b_f_tiers;
+  /// List of input gate bias vector tensors for each tier.
   late List<Tensor<Vector>> b_i_tiers;
+  /// List of candidate cell state bias vector tensors for each tier.
   late List<Tensor<Vector>> b_c_tiers;
+  /// List of output gate bias vector tensors for each tier.
   late List<Tensor<Vector>> b_o_tiers;
 
+  /// Precomputed cumulative step intervals for triggering updates of tiers 1 through N.
   late List<int> cumulativeClockCycles;
 
+  /// Creates a [MultiTierLSTMLayer] with the given [hiddenSize] and hierarchical [tierClockCycles].
   MultiTierLSTMLayer(this.hiddenSize, {required this.tierClockCycles}) {
     numTiers = tierClockCycles.length + 1;
     cumulativeClockCycles = [];
@@ -35,6 +56,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     }
   }
 
+  /// Returns all trainable weight matrices and bias vectors across every tier.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> allParams = [];
@@ -51,6 +73,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     return allParams;
   }
 
+  /// Allocates and initializes weights using fan-in scaling and biases to 0.0 for every tier based on input shape.
   @override
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
@@ -106,6 +129,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     super.build(input);
   }
 
+  /// Executes the multi-tier recurrent forward pass on the CPU across all sequence steps and returns the final lower-tier hidden state [Vector].
   @override
   Tensor<Vector> forward(Tensor<Matrix> input) {
     Matrix sequence = input.value;
@@ -160,6 +184,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     return hStates[0];
   }
 
+  /// Computes a single LSTM transition step for the tier at [tierIndex] given [combinedInput], [hPrev], and [cPrev].
   Map<String, Tensor<Vector>> _lstmStep(
       Tensor<Vector> combinedInput,
       Tensor<Vector> hPrev,
@@ -176,6 +201,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     return {'h': hNext, 'c': cNext};
   }
 
+  /// Sequentially concatenates all vector tensors in [tensors] into a single 1D [Tensor].
   Tensor<Vector> concatenateAll(List<Tensor<Vector>> tensors) {
     if (tensors.isEmpty) {
       return Tensor<Vector>([]);
@@ -191,6 +217,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     return result;
   }
 
+  /// Returns all weight matrices and bias vectors across every tier as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weights = {};
@@ -224,6 +251,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
     return weights;
   }
 
+  /// Sets all weight matrices and bias vectors across every tier directly into their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
 
@@ -350,7 +378,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
       epochsCompleted = epochsCompleted + 1;
     }
     trainingStopwatch.stop();
-    print('  -> Trained for $epochsCompleted epochs in ${trainingStopwatch.elapsedMilliseconds}ms.');
+    print('  -> Trained for $epochsCompleted epochs in${trainingStopwatch.elapsedMilliseconds}ms.');
     return calculateMSE(model, testX, testY);
   }
 
@@ -415,7 +443,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
       coreLayer = MultiTierLSTMLayer(hiddenSize, tierClockCycles: clockCycles);
     }
 
-    print('🏋️ Training $modelName with a time budget of ${timeBudget.inMilliseconds}ms...');
+    print('🏋️ Training $modelName with a time budget of${timeBudget.inMilliseconds}ms...');
 
     List<Layer<dynamic, dynamic>> currentLayers = [];
     currentLayers.add(coreLayer);
@@ -445,7 +473,7 @@ class MultiTierLSTMLayer extends Layer<Matrix, Vector> {
   for (int k = 0; k < keys.length; k = k + 1) {
     String modelName = keys[k];
     double loss = results[modelName]!;
-    print('${modelName.padRight(35)} | Final Test MSE: ${loss.toStringAsFixed(8)}');
+    print('${modelName.padRight(35)} \vert{} Final Test MSE:${loss.toStringAsFixed(8)}');
     if (loss < lowestLoss) {
       lowestLoss = loss;
       bestModel = modelName;

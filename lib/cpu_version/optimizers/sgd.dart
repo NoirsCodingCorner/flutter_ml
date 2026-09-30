@@ -1,11 +1,13 @@
-
 import 'optimizer.dart';
 import '../../tensor/tensor.dart';
 
-/// Implements the Stochastic Gradient Descent (SGD) optimizer.
+/// Implements the Stochastic Gradient Descent (SGD) optimization algorithm.
+/// Updates parameters in the opposite direction of the gradient scaled directly by [learningRate].
 class SGD extends Optimizer {
+  /// Creates an [SGD] optimizer for [parameters] with the specified [learningRate].
   SGD(super.parameters, {required super.learningRate});
 
+  /// Performs a single optimization step, updating parameter values proportional to their gradients.
   @override
   void step() {
     for (int p = 0; p < parameters.length; p = p + 1) {

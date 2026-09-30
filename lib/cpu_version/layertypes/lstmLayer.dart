@@ -5,26 +5,42 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import 'layer.dart';
 
+/// Applies a Long Short-Term Memory (LSTM) recurrent neural network pass over a sequential 2D [Matrix] tensor.
+/// Processes input sequences of shape `[sequenceLength, featureSize]` timestep-by-timestep using standard gating mechanisms
+/// (forget gate, input gate, candidate cell state, and output gate) to maintain long-term dependencies.
+/// Returns the final hidden state [Vector] after processing all sequence steps.
 class LSTMLayer extends Layer<Matrix, Vector> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'lstm';
 
+  /// Dimensionality of the hidden and cell state vectors.
   int hiddenSize;
 
+  /// Forget gate weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> W_f;
+  /// Forget gate bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> b_f;
 
+  /// Input gate weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> W_i;
+  /// Input gate bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> b_i;
 
+  /// Candidate cell state weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> W_c;
+  /// Candidate cell state bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> b_c;
 
+  /// Output gate weight matrix tensor of shape `[hiddenSize, hiddenSize + inputSize]`.
   late Tensor<Matrix> W_o;
+  /// Output gate bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> b_o;
 
+  /// Creates an [LSTMLayer] with the specified [hiddenSize].
   LSTMLayer(this.hiddenSize);
 
+  /// Returns all trainable weight matrices and bias vectors across all gates.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -35,6 +51,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
     return params;
   }
 
+  /// Allocates and initializes gate weight matrices using uniform scaling based on fan-in and sets all gate biases to 0.0.
   @override
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
@@ -79,6 +96,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
     super.build(input);
   }
 
+  /// Executes the recurrent LSTM forward pass on the CPU across all sequence steps and returns the final hidden state [Vector].
   @override
   Tensor<Vector> forward(Tensor<Matrix> input) {
     Matrix sequence = input.value;
@@ -124,6 +142,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
     return h;
   }
 
+  /// Returns all gate weights and biases as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -138,6 +157,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
     return weightsMap;
   }
 
+  /// Sets all gate weight matrices and bias vectors directly into their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
@@ -216,7 +236,7 @@ class LSTMLayer extends Layer<Matrix, Vector> {
     Tensor<Scalar> loss = mse(output, target);
 
     if (epoch % 10 == 0 || epoch == epochs - 1) {
-      print('Epoch $epoch -> Loss: ${loss.value.toStringAsFixed(6)}');
+      print('Epoch $epoch -> Loss:${loss.value.toStringAsFixed(6)}');
     }
 
     // Backward Pass: Computes gradients via backpropagation through time

@@ -3,21 +3,17 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import 'activationFunction.dart';
 
-/// The Leaky Rectified Linear Unit (Leaky ReLU) activation function.
+/// Applies leaky ReLu over a given [input] of type [Tensor<Vector>].
+/// In contrast to the standard ReLU function, this function multiplies negative values with a small negative number [alpha] to prevent the dying gradient problem.
 ///
-/// This is a variant of the standard `ReLU` function. Instead of being zero for
-/// negative inputs, `LeakyReLU` has a small negative slope (`alpha`), which
-/// helps prevent the "Dying ReLU" problem and can lead to more robust training.
+/// The value of [alpha] dictates the slope of the function for negative inputs and is set to `0.01` by default.
+/// The calculation is handled via the [leakyReluVector] math operation.
 ///
-/// The function is defined as `$f(x) = x` if `$x > 0$`, and `$f(x) = \alpha \cdot x$`
-/// if `$x \le 0$`. The `alpha` value is a small constant, typically 0.01.
-///
-///
-///
-/// ### Example
+/// Example:
 /// ```dart
-/// // A hidden layer using LeakyReLU with a custom slope.
-/// Layer hiddenLayer = DenseLayer(128, activation: LeakyReLU(alpha: 0.02));
+/// Tensor<Vector> v = Tensor<Vector>([-1.0, 0.0, 1.0]);
+/// LeakyReLUVector leakyRelu = LeakyReLUVector(alpha: 0.02);
+/// Tensor<Vector> out = leakyRelu(v);
 /// ```
 class LeakyReLUVector implements ActivationFunction<Vector> {
   double alpha;
@@ -30,6 +26,18 @@ class LeakyReLUVector implements ActivationFunction<Vector> {
   }
 }
 
+/// Applies leaky ReLu over a given [input] of type [Tensor<Matrix>].
+/// In contrast to the standard ReLU function, this function multiplies negative values with a small negative number [alpha] to prevent the dying gradient problem.
+///
+/// The value of [alpha] dictates the slope of the function for negative inputs and is set to `0.01` by default.
+/// The calculation is handled via the [leakyReluMatrix] math operation.
+///
+/// Example:
+/// ```dart
+/// Tensor<Matrix> m = Tensor<Matrix>([[-1.0, 2.0], [-3.0, 4.0]]);
+/// LeakyReLUMatrix leakyRelu = LeakyReLUMatrix(alpha: 0.01);
+/// Tensor<Matrix> out = leakyRelu(m);
+/// ```
 class LeakyReLUMatrix implements ActivationFunction<Matrix> {
   double alpha;
 

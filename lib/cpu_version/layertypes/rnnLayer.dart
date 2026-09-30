@@ -6,19 +6,35 @@ import '../../tensor/type_Aliases.dart';
 import '../activationFuncitons/activationFunction.dart';
 import 'layer.dart';
 
+/// Applies a standard Elman Recurrent Neural Network (RNN) pass over a sequential 2D [Matrix] tensor.
+/// Processes input sequences of shape `[sequenceLength, featureSize]` sequentially across timesteps,
+/// updating the recurrent hidden state vector [h] via input-to-hidden projections ([W_xh]),
+/// hidden-to-hidden transitions ([W_hh]), and a bias vector ([b_h]), followed by an [activation] function.
+/// Returns the final hidden state [Vector] after processing all sequence steps.
 class RNN extends Layer<Matrix, Vector> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'rnn';
 
+  /// Dimensionality of the recurrent hidden state vector.
   int hiddenSize;
+
+  /// Activation function applied element-wise to the updated hidden state vector at each timestep.
   ActivationFunction<Vector> activation;
 
+  /// Learnable input-to-hidden weight matrix tensor of shape `[hiddenSize, inputSize]`.
   late Tensor<Matrix> W_xh;
+
+  /// Learnable hidden-to-hidden recurrent transition weight matrix tensor of shape `[hiddenSize, hiddenSize]`.
   late Tensor<Matrix> W_hh;
+
+  /// Learnable bias vector tensor of shape `[hiddenSize]`.
   late Tensor<Vector> b_h;
 
+  /// Creates an [RNN] layer with the specified [hiddenSize] and recurrent [activation] function.
   RNN(this.hiddenSize, {required this.activation});
 
+  /// Returns all trainable parameters: [W_xh], [W_hh], and [b_h].
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -28,6 +44,8 @@ class RNN extends Layer<Matrix, Vector> {
     return params;
   }
 
+  /// Allocates and initializes input-to-hidden and hidden-to-hidden weight matrices using Xavier initialization
+  /// and sets all elements of the bias vector to 0.0.
   @override
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
@@ -73,6 +91,7 @@ class RNN extends Layer<Matrix, Vector> {
     super.build(input);
   }
 
+  /// Executes the recurrent RNN forward pass on the CPU across all sequence timesteps and returns the final hidden state [Vector].
   @override
   Tensor<Vector> forward(Tensor<Matrix> input) {
     Matrix sequence = input.value;
@@ -97,6 +116,7 @@ class RNN extends Layer<Matrix, Vector> {
     return h;
   }
 
+  /// Returns [W_xh], [W_hh], and [b_h] values as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -106,6 +126,7 @@ class RNN extends Layer<Matrix, Vector> {
     return weightsMap;
   }
 
+  /// Sets [W_xh], [W_hh], and [b_h] directly into their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {

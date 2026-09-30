@@ -4,16 +4,29 @@ import 'optimizer.dart';
 
 import '../../tensor/tensor.dart';
 
-
+/// Implements the Adam (Adaptive Moment Estimation) optimization algorithm.
+/// Computes individual adaptive learning rates from exponentially decaying averages of past gradients (first moment)
+/// and squared gradients (second moment), incorporating bias correction terms.
 class Adam extends Optimizer {
+  /// Exponential decay rate for the first moment estimates.
   double beta1;
+
+  /// Exponential decay rate for the second moment estimates.
   double beta2;
+
+  /// Small constant added to the denominator to prevent division by zero.
   double epsilon;
+
+  /// Timestep counter tracking the number of optimization steps taken.
   int _t = 0;
 
+  /// First moment vector estimates (moving average of gradients) mapped by tensor ID.
   late Map<String, List<double>> _m;
+
+  /// Second moment vector estimates (moving average of squared gradients) mapped by tensor ID.
   late Map<String, List<double>> _v;
 
+  /// Creates an [Adam] optimizer for [parameters] with [learningRate], moment decay rates [beta1] and [beta2], and numerical stability constant [epsilon].
   Adam(
       List<Tensor<dynamic>> parameters, {
         required double learningRate,
@@ -40,6 +53,8 @@ class Adam extends Optimizer {
     }
   }
 
+  /// Performs a single optimization step, updating biased first and second moment estimates,
+  /// computing bias-corrected estimates, and updating parameter values.
   @override
   void step() {
     _t = _t + 1;

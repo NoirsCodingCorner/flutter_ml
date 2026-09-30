@@ -651,7 +651,7 @@ GPUTensor<Vector> vectorExpGPU(GPUTensor<Vector> v, CommandBuffer tape,{GPUTenso
   return out;
 }
 
-/// Appends the commands for applying the abs(v) exponential function on every element of [v] to [tape].
+/// Appends the commands for applying the abs(v) exponential function on every element of [a] to [tape].
 GPUTensor<T> absGPU<T>(GPUTensor<T> a, CommandBuffer tape,{GPUTensor<T>? outTensor}) {
   // CORRECT: Inherits the exact shape from the input tensor (no 0-length tensors)
   GPUTensor<T> out = outTensor?? GPUTensor<T>.empty(a.shape);
@@ -987,7 +987,7 @@ GPUTensor<Vector> addScalarVectorGPU(GPUTensor<Vector> v, double scalar, Command
 
   return out;
 }
-/// Appends a command for adding a scalar [b] to every element of a Tensor3D [v] to [tape].
+/// Appends a command for adding a scalar [scalar] to every element of a Tensor3D [v] to [tape].
 GPUTensor<Tensor3D> addScalar3DGPU(GPUTensor<Tensor3D> t, double scalar, CommandBuffer tape,{GPUTensor<Tensor3D>? outTensor}) {
   int depth = t.shape[0];
   int height = t.shape[1];
@@ -1556,7 +1556,7 @@ void sgdUpdateGPU(GPUTensor<dynamic> data, double lr, CommandBuffer tape) {
   tape.putFloat(lr);
 }
 /// Performs an in place update of the provided [data] values via the adam function and its assigned gradient.
-/// The first moment [m] and second moment [v] as well as [beta1], [beta2], [eps],[weightDecay], and [steps] need to be provided.
+/// The first moment [m] and second moment [v] as well as [beta1], [beta2], [eps],[weightDecay], and [step] need to be provided.
 /// The operation is appended to [tape] for execution.
 void adamUpdateGPU(
     GPUTensor<dynamic> data,

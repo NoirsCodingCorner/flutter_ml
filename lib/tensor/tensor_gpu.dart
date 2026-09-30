@@ -56,7 +56,7 @@ class GPUNode {
 ///
 /// IMPORTANT: The datatype [T] is not predefined as a standard value. To ensure compatibility with the framework the use of [Scalar],[Vector],[Matrix] and [Tensor3D] is recommended.
 ///
-/// GPUTensors are NOT managed automatically. Allocating is done on construction. To free the tensor again use the [.free] method.
+/// GPUTensors are NOT managed automatically. Allocating is done on construction. To free the tensor again use the [free] method.
 /// Accessing GPUTensor values can be done via its local Buffers [data] and [grad] after [toCpu] was called to update the buffers. Forgetting to update will result in outdated or empty buffers.
 class GPUTensor<T> {
   static int _idCounter = 0;

@@ -15,19 +15,24 @@ import '../activationFuncitons/relu.dart';
 import '../activationFuncitons/sigmoid.dart';
 import '../layertypes/layer.dart';
 
-/// A sequential model that stacks layers linearly.
-///
-/// `SNetwork` provides a high-level API for building, training, and evaluating
-/// neural networks, similar to Keras's Sequential model. It manages the
-/// network's layers, parameters, and the entire training lifecycle.
+/// A sequential neural network architecture that linearly stacks and executes [Layer] instances.
+/// Manages sequential forward propagation, parameter aggregation across constituent layers,
+/// training loops via [fit], weight serialization to JSON via [save] and [load], and autograd graph visualization.
 class SNetwork extends Layer<dynamic, dynamic> {
+  /// The assigned name of this network architecture for debugging and inspection.
   @override
   String name;
+
+  /// Ordered list of [Layer] instances composing the sequential pipeline.
   List<Layer<dynamic, dynamic>> layers;
+
+  /// The [Optimizer] assigned via [compile] to update network parameters during training.
   late Optimizer optimizer;
 
+  /// Creates an [SNetwork] with the given [layers] sequence and optional [name].
   SNetwork(this.layers, {this.name = 'snetwork'});
 
+  /// Returns all trainable parameters aggregated across every layer in [layers].
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> allParams = [];
@@ -40,10 +45,12 @@ class SNetwork extends Layer<dynamic, dynamic> {
     return allParams;
   }
 
+  /// Configures the network by binding the specified [configuredOptimizer] for subsequent training.
   void compile({required Optimizer configuredOptimizer}) {
     optimizer = configuredOptimizer;
   }
 
+  /// Sequentially executes the forward pass across each layer in [layers], routing each output to the subsequent layer.
   @override
   Tensor<dynamic> forward(Tensor<dynamic> input) {
     Tensor<dynamic> currentOutput = input;
@@ -54,10 +61,12 @@ class SNetwork extends Layer<dynamic, dynamic> {
     return currentOutput;
   }
 
+  /// Executes an inference pass on the given [input] tensor by invoking the layer [call] pipeline.
   Tensor<dynamic> predict(Tensor<dynamic> input) {
     return call(input);
   }
 
+  /// Trains the network parameters on provided [inputs] and [targets] over [epochs] using MSE loss and the assigned optimizer.
   void fit(List<List<double>> inputs, List<List<double>> targets,
       {int epochs = 100, bool averageWeight = false, bool debug = true}) {
     if (debug) {
@@ -148,7 +157,8 @@ class SNetwork extends Layer<dynamic, dynamic> {
     }
   }
 
-  void evaluate(List<List<double>> inputs, List<List<double>> targets) {
+  /// Computes binary classification accuracy on [inputs] and [targets] by thresholding predictions at 0.5.
+  double evaluate(List<List<double>> inputs, List<List<double>> targets) {
     int correctPredictions = 0;
     for (int i = 0; i < inputs.length; i = i + 1) {
       Tensor<Vector> testInput = Tensor<Vector>(inputs[i]);
@@ -160,8 +170,10 @@ class SNetwork extends Layer<dynamic, dynamic> {
       }
     }
     double accuracy = (correctPredictions / inputs.length) * 100.0;
+    return accuracy;
   }
 
+  /// Serializes the weights of all parameterized layers into an indexed map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> networkWeights = {};
@@ -176,6 +188,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
     return networkWeights;
   }
 
+  /// Deserializes and loads weights into each parameterized layer from the provided [networkWeights] map.
   @override
   void setWeights(Map<String, dynamic> networkWeights) {
     int layerIndex = 0;
@@ -191,6 +204,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
     }
   }
 
+  /// Serializes network weights into formatted JSON and saves the output to [filePath].
   Future<void> save(String filePath) async {
     try {
       Map<String, dynamic> networkWeights = getWeights();
@@ -205,6 +219,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
     }
   }
 
+  /// Reads serialized network weights from a JSON file at [filePath] and applies them to the network layers.
   Future<void> load(String filePath) async {
     try {
       File file = File(filePath);
@@ -223,6 +238,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
     }
   }
 
+  /// Executes a forward pass with [inputData] and [targetData] to compute MSE loss and prints the autograd compute graph.
   void inspectGraph(List<double> inputData, List<double> targetData) {
     Logger.log('\n--- Inspecting Computational Graph ---');
 
@@ -243,6 +259,7 @@ class SNetwork extends Layer<dynamic, dynamic> {
   }
 }
 
+/// Demonstrates training, saving, loading, and evaluating an [SNetwork] model on the XOR problem.
 Future<void> main() async {
   List<Vector> xorInputs = [];
   xorInputs.add([0.0, 0.0]);

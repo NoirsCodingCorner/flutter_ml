@@ -9,7 +9,7 @@ import '../ffi/commandBuffer.dart';
 import 'tapeLayer.dart';
 
 /// Advanced Layer to process sequences of 2D spatial data. In this case it is represented as
-/// Tensor3Ds with format [Time, Height, Width]. It uses convolutional gates instead of standard matrix multiplications.
+/// Tensor3Ds with format 'Time, Height, Width'. It uses convolutional gates instead of standard matrix multiplications.
 /// Therefore this architecture is able to capture both time and spatial information.
 class ConvLSTMTL extends TapeLayer<Tensor3D,Tensor3D> {
   String get name => 'ConvLSTMTapeLayer';

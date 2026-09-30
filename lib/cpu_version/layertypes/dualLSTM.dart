@@ -6,38 +6,64 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import '../layertypes/layer.dart';
 
-/// A Multi-Timeline Long Short-Term Memory (MT-LSTM) layer.
+/// A Multi-Timeline Long Short-Term Memory (MT-LSTM) layer operating over a 2D [Matrix] sequence.
+/// Maintains two separate tiers of LSTM cells running at different temporal granularities:
+/// - A lower tier that updates at every sequential timestep, integrating the lower hidden state, current input, and higher cell state.
+/// - A higher tier that updates periodically every [lowerTierClockCycle] timesteps, integrating aggregated representations from the lower tier.
+/// Returns the final hidden state [Vector] of the lower tier.
 class DualLSTMLayer extends Layer<Matrix, Vector> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'duallstm';
 
+  /// Dimensionality of the hidden and cell states for both lower and higher tiers.
   int hiddenSize;
+
+  /// The clock cycle interval at which the higher tier updates relative to the lower tier.
   int lowerTierClockCycle;
 
   // --- Parameters for the Lower Tier (e.g., Daily) ---
+  /// Lower-tier forget gate weight matrix.
   late Tensor<Matrix> lW_f;
+  /// Lower-tier input gate weight matrix.
   late Tensor<Matrix> lW_i;
+  /// Lower-tier candidate cell state weight matrix.
   late Tensor<Matrix> lW_c;
+  /// Lower-tier output gate weight matrix.
   late Tensor<Matrix> lW_o;
 
+  /// Lower-tier forget gate bias vector.
   late Tensor<Vector> lb_f;
+  /// Lower-tier input gate bias vector.
   late Tensor<Vector> lb_i;
+  /// Lower-tier candidate cell state bias vector.
   late Tensor<Vector> lb_c;
+  /// Lower-tier output gate bias vector.
   late Tensor<Vector> lb_o;
 
   // --- Parameters for the Higher Tier (e.g., Weekly) ---
+  /// Higher-tier forget gate weight matrix.
   late Tensor<Matrix> hW_f;
+  /// Higher-tier input gate weight matrix.
   late Tensor<Matrix> hW_i;
+  /// Higher-tier candidate cell state weight matrix.
   late Tensor<Matrix> hW_c;
+  /// Higher-tier output gate weight matrix.
   late Tensor<Matrix> hW_o;
 
+  /// Higher-tier forget gate bias vector.
   late Tensor<Vector> hb_f;
+  /// Higher-tier input gate bias vector.
   late Tensor<Vector> hb_i;
+  /// Higher-tier candidate cell state bias vector.
   late Tensor<Vector> hb_c;
+  /// Higher-tier output gate bias vector.
   late Tensor<Vector> hb_o;
 
+  /// Creates a [DualLSTMLayer] with the given [hiddenSize] and optional [lowerTierClockCycle].
   DualLSTMLayer(this.hiddenSize, {this.lowerTierClockCycle = 7});
 
+  /// Returns all trainable weight matrices and bias vectors across both lower and higher tiers.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -53,6 +79,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
     return params;
   }
 
+  /// Allocates and initializes weight matrices using uniform scaling based on fan-in and sets all bias vectors to 0.0.
   @override
   void build(Tensor<Matrix> input) {
     Matrix inputMatrix = input.value;
@@ -112,6 +139,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
     super.build(input);
   }
 
+  /// Executes the dual-timeline recurrent forward pass on the CPU across all sequence steps and returns the final lower-tier hidden state [Vector].
   @override
   Tensor<Vector> forward(Tensor<Matrix> input) {
     Matrix sequence = input.value;
@@ -203,6 +231,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
     return lh;
   }
 
+  /// Returns all weight matrices and bias vectors across both lower and higher tiers as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -226,6 +255,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
     return weightsMap;
   }
 
+  /// Sets all lower-tier and higher-tier weights and biases directly into their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {
@@ -323,7 +353,7 @@ class DualLSTMLayer extends Layer<Matrix, Vector> {
       }
       outStr = outStr + ']';
 
-      print('Step $i -> Loss: ${loss.value.toStringAsFixed(6)} | Output: $outStr');
+      print('Step $i -> Loss: ${loss.value.toStringAsFixed(6)} \vert{} Output:$outStr');
     }
 
     // Backward Pass (computes gradients through time)

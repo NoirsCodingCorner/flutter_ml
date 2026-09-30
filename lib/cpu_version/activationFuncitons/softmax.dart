@@ -1,16 +1,18 @@
-
 import '../../tensor/tensor.dart';
 import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import 'activationFunction.dart';
 
-/// An activation function that applies Softmax to a Vector.
+/// Applies the softmax function over a given [input] of type [Tensor<Vector>].
+/// Creates a probability distribution over all values summing up to 1.
+/// The calculation is handled via the [softmaxVector] math operation.
 ///
-/// Softmax converts a vector of real numbers (logits) into a probability
-/// distribution where all elements sum to 1. It is the standard activation
-/// for the output layer in multi-class classification problems.
-
-/// An activation function that applies Softmax to a Vector.
+/// Example:
+/// ```dart
+/// Tensor<Vector> v = Tensor<Vector>([1.0, 2.0, 3.0]);
+/// SoftmaxVector softmax = SoftmaxVector();
+/// Tensor<Vector> out = softmax(v);
+/// ```
 class SoftmaxVector implements ActivationFunction<Vector> {
   @override
   Tensor<Vector> call(Tensor<Vector> input) {
@@ -18,7 +20,16 @@ class SoftmaxVector implements ActivationFunction<Vector> {
   }
 }
 
-/// An activation function that applies Softmax to each row of a Matrix.
+/// Applies the softmax function over a given [input] of type [Tensor<Matrix>].
+/// Creates a probability distribution over all values of each row summing up to 1.
+/// The calculation is handled via the [softmaxMatrix] math operation.
+///
+/// Example:
+/// ```dart
+/// Tensor<Matrix> m = Tensor<Matrix>([[1.0, 2.0], [3.0, 4.0]]);
+/// SoftmaxMatrix softmax = SoftmaxMatrix();
+/// Tensor<Matrix> out = softmax(m);
+/// ```
 class SoftmaxMatrix implements ActivationFunction<Matrix> {
   @override
   Tensor<Matrix> call(Tensor<Matrix> input) {

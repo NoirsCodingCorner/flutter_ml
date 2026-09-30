@@ -4,27 +4,60 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import 'layer.dart';
 
+/// Applies a Convolutional Long Short-Term Memory (ConvLSTM) recurrent step over a sequence of 2D matrices formatted as a [Tensor3D].
+/// Replaces standard matrix multiplications in an LSTM with 2D convolutions ([conv2d]) using 'same' padding to preserve spatial dimensions across recurrent state transitions.
+/// Computes forget, input, cell, and output gates sequentially over the sequence length and returns the final hidden state [Matrix].
 class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'conv_lstm';
+
+  /// Number of filter channels for the hidden state representation.
   int hiddenFilters;
+
+  /// Spatial height and width of the 2D square convolution kernels.
   int kernelSize;
 
+  /// Convolution kernel tensor for input-to-forget gate.
   late Tensor<Matrix> K_xf;
+
+  /// Convolution kernel tensor for hidden-to-forget gate.
   late Tensor<Matrix> K_hf;
+
+  /// Convolution kernel tensor for input-to-input gate.
   late Tensor<Matrix> K_xi;
+
+  /// Convolution kernel tensor for hidden-to-input gate.
   late Tensor<Matrix> K_hi;
+
+  /// Convolution kernel tensor for input-to-candidate cell state.
   late Tensor<Matrix> K_xc;
+
+  /// Convolution kernel tensor for hidden-to-candidate cell state.
   late Tensor<Matrix> K_hc;
+
+  /// Convolution kernel tensor for input-to-output gate.
   late Tensor<Matrix> K_xo;
+
+  /// Convolution kernel tensor for hidden-to-output gate.
   late Tensor<Matrix> K_ho;
+
+  /// Spatial bias matrix tensor for the forget gate.
   late Tensor<Matrix> b_f;
+
+  /// Spatial bias matrix tensor for the input gate.
   late Tensor<Matrix> b_i;
+
+  /// Spatial bias matrix tensor for the candidate cell state.
   late Tensor<Matrix> b_c;
+
+  /// Spatial bias matrix tensor for the output gate.
   late Tensor<Matrix> b_o;
 
+  /// Creates a [ConvLSTMLayer] with the specified [hiddenFilters] and [kernelSize].
   ConvLSTMLayer(this.hiddenFilters, this.kernelSize);
 
+  /// Returns all trainable convolution kernels and bias matrices across all gates.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -43,6 +76,7 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
     return params;
   }
 
+  /// Allocates and initializes convolution kernels with uniform scaling and biases to zero based on input spatial dimensions.
   @override
   void build(Tensor<Tensor3D> input) {
     Tensor3D inputSequence = input.value;
@@ -92,6 +126,7 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
     super.build(input);
   }
 
+  /// Executes the recurrent ConvLSTM forward pass on the CPU across all sequence frames and returns the final hidden state [Matrix].
   @override
   Tensor<Matrix> forward(Tensor<Tensor3D> input) {
     Tensor3D sequence = input.value;
@@ -155,6 +190,7 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
     return h;
   }
 
+  /// Returns all convolution kernels and bias matrices as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -173,6 +209,7 @@ class ConvLSTMLayer extends Layer<Tensor3D, Matrix> {
     return weightsMap;
   }
 
+  /// Sets all convolution kernels and bias matrices from a provided weights map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {

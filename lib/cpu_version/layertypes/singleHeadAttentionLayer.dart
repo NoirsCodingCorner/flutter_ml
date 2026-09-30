@@ -6,23 +6,42 @@ import '../../tensor/tensor_math_cpu.dart';
 import '../../tensor/type_Aliases.dart';
 import 'layer.dart';
 
+/// Applies single-head scaled dot-product attention over an input sequence [Matrix] tensor.
+/// Projects input token embeddings into Query ([Wq]), Key ([Wk]), and Value ([Wv]) representations,
+/// computes attention scores scaled by `1.0 / sqrt(dK)`, applies softmax normalization to extract attention weights,
+/// and computes the context matrix by weighting [Wv].
 class SingleHeadAttention extends Layer<Matrix, Matrix> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'single_head_attention';
+
+  /// Dimensionality of the input and output token representation.
   int dModel;
+
+  /// Dimensionality of the query and key projections.
   int dK;
+
+  /// Dimensionality of the value projection.
   int dV;
 
+  /// Query projection weight matrix tensor of shape `[dModel, dK]`.
   late Tensor<Matrix> Wq;
+
+  /// Key projection weight matrix tensor of shape `[dModel, dK]`.
   late Tensor<Matrix> Wk;
+
+  /// Value projection weight matrix tensor of shape `[dModel, dV]`.
   late Tensor<Matrix> Wv;
 
+  /// Caches the attention weights matrix from the most recent forward pass for inspection.
   late Tensor<Matrix> lastAttentionWeights;
 
+  /// Creates a [SingleHeadAttention] layer with [dModel] feature size and optional projection dimensions [dK] and [dV].
   SingleHeadAttention(this.dModel, {int? dK, int? dV})
       : dK = dK ?? dModel,
         dV = dV ?? dModel;
 
+  /// Returns all trainable parameters: [Wq], [Wk], and [Wv].
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -32,6 +51,7 @@ class SingleHeadAttention extends Layer<Matrix, Matrix> {
     return params;
   }
 
+  /// Allocates and initializes projection matrices [Wq], [Wk], and [Wv] using uniform fan-in scaling.
   @override
   void build(Tensor<Matrix> input) {
     Random random = Random();
@@ -56,6 +76,7 @@ class SingleHeadAttention extends Layer<Matrix, Matrix> {
     super.build(input);
   }
 
+  /// Executes scaled dot-product self-attention on the CPU, caches [lastAttentionWeights], and returns the projected [Matrix].
   @override
   Tensor<Matrix> forward(Tensor<Matrix> input) {
     Tensor<Matrix> Q = matMul(input, Wq);
@@ -75,6 +96,7 @@ class SingleHeadAttention extends Layer<Matrix, Matrix> {
     return out;
   }
 
+  /// Returns projection matrices [Wq], [Wk], and [Wv] as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -84,6 +106,7 @@ class SingleHeadAttention extends Layer<Matrix, Matrix> {
     return weightsMap;
   }
 
+  /// Sets projection matrices [Wq], [Wk], and [Wv] directly into their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     void copyMatrix(Tensor<Matrix> tensor, List<dynamic> newDataDynamic) {

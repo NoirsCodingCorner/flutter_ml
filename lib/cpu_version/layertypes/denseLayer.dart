@@ -6,17 +6,30 @@ import '../../tensor/type_Aliases.dart';
 import '../activationFuncitons/activationFunction.dart';
 import 'layer.dart';
 
+/// Represents a standard fully connected layer operating on a 1D [Vector] tensor.
+/// Performs a matrix-vector multiplication with [weights], adds a [biases] vector,
+/// and optionally applies an [activation] function to the resulting vector.
 class DenseLayer extends Layer<Vector, Vector> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'dense';
-  int outputSize;
-  ActivationFunction<Vector>? activation; // Added <Vector> generic
 
+  /// Number of output units (neurons) in this layer.
+  int outputSize;
+
+  /// Optional activation function applied element-wise to the output vector.
+  ActivationFunction<Vector>? activation;
+
+  /// Learnable weight matrix tensor of shape [outputSize, inputSize].
   late Tensor<Matrix> weights;
+
+  /// Learnable bias vector tensor of shape [outputSize].
   late Tensor<Vector> biases;
 
+  /// Creates a [DenseLayer] with the given [outputSize] and an optional [activation] function.
   DenseLayer(this.outputSize, {this.activation});
 
+  /// Returns the trainable [weights] matrix and [biases] vector.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -25,6 +38,8 @@ class DenseLayer extends Layer<Vector, Vector> {
     return params;
   }
 
+  /// Allocates and initializes [weights] using a standard normal distribution (Box-Muller)
+  /// scaled by He initialization, and sets all [biases] elements to 0.0.
   @override
   void build(Tensor<Vector> input) {
     int inputSize = input.value.length;
@@ -50,6 +65,8 @@ class DenseLayer extends Layer<Vector, Vector> {
     super.build(input);
   }
 
+  /// Computes the linear transformation [weights] * [input] + [biases] on the CPU
+  /// using [matVecMul] and [addVector], applying [activation] if defined.
   @override
   Tensor<Vector> forward(Tensor<Vector> input) {
     Tensor<Vector> linearOutput = addVector(matVecMul(weights, input), biases);
@@ -61,6 +78,7 @@ class DenseLayer extends Layer<Vector, Vector> {
     }
   }
 
+  /// Returns [weights] and [biases] as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -69,6 +87,7 @@ class DenseLayer extends Layer<Vector, Vector> {
     return weightsMap;
   }
 
+  /// Sets [weights] and [biases] by writing directly to their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     List<dynamic> weightsDynamic = weightsMap['weights'] as List<dynamic>;
@@ -92,17 +111,30 @@ class DenseLayer extends Layer<Vector, Vector> {
   }
 }
 
+/// Represents a standard fully connected layer operating on a 2D [Matrix] tensor for batched inputs.
+/// Performs matrix multiplication of [input] with [weights], broadcasts the [biases] vector across rows,
+/// and optionally applies an [activation] function to the output matrix.
 class DenseLayerMatrix extends Layer<Matrix, Matrix> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'dense_matrix';
-  int outputSize;
-  ActivationFunction<Matrix>? activation; // Added <Matrix> generic
 
+  /// Number of output units (features per sample) produced by this layer.
+  int outputSize;
+
+  /// Optional activation function applied element-wise to the output matrix.
+  ActivationFunction<Matrix>? activation;
+
+  /// Learnable weight matrix tensor of shape [inputSize, outputSize].
   late Tensor<Matrix> weights;
+
+  /// Learnable bias vector tensor of shape [outputSize].
   late Tensor<Vector> biases;
 
+  /// Creates a [DenseLayerMatrix] with the given [outputSize] and an optional [activation] function.
   DenseLayerMatrix(this.outputSize, {this.activation});
 
+  /// Returns the trainable [weights] matrix and [biases] vector.
   @override
   List<Tensor<dynamic>> get parameters {
     List<Tensor<dynamic>> params = [];
@@ -111,6 +143,8 @@ class DenseLayerMatrix extends Layer<Matrix, Matrix> {
     return params;
   }
 
+  /// Allocates and initializes [weights] using a standard normal distribution (Box-Muller)
+  /// scaled by He initialization, and sets all [biases] elements to 0.0.
   @override
   void build(Tensor<Matrix> input) {
     int inputSize = input.value[0].length;
@@ -136,6 +170,8 @@ class DenseLayerMatrix extends Layer<Matrix, Matrix> {
     super.build(input);
   }
 
+  /// Computes the batched linear transformation [input] * [weights] + [biases] on the CPU
+  /// using [matMul] and [addMatrixAndVector], applying [activation] if defined.
   @override
   Tensor<Matrix> forward(Tensor<Matrix> input) {
     Tensor<Matrix> linearOutput = addMatrixAndVector(matMul(input, weights), biases);
@@ -147,6 +183,7 @@ class DenseLayerMatrix extends Layer<Matrix, Matrix> {
     }
   }
 
+  /// Returns [weights] and [biases] as a map.
   @override
   Map<String, dynamic> getWeights() {
     Map<String, dynamic> weightsMap = {};
@@ -155,6 +192,7 @@ class DenseLayerMatrix extends Layer<Matrix, Matrix> {
     return weightsMap;
   }
 
+  /// Sets [weights] and [biases] by writing directly to their flat 1D data buffers from a map.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     List<dynamic> weightsDynamic = weightsMap['weights'] as List<dynamic>;

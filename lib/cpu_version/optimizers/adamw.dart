@@ -2,16 +2,31 @@ import 'dart:math';
 import '../../tensor/tensor.dart';
 import 'optimizer.dart';
 
+/// Implements the AdamW optimization algorithm with decoupled weight decay.
+/// Modifies the standard Adam update by applying weight decay directly to the parameters rather than incorporating it into the gradient moments.
 class AdamW extends Optimizer {
+  /// Exponential decay rate for the first moment estimates.
   double beta1;
+
+  /// Exponential decay rate for the second moment estimates.
   double beta2;
+
+  /// Small constant added to the denominator to prevent division by zero.
   double epsilon;
+
+  /// Weight decay coefficient applied independently of gradient moment updates.
   double weightDecay;
+
+  /// Timestep counter tracking the number of optimization steps taken.
   int _t = 0;
 
+  /// First moment vector estimates mapped by tensor ID.
   late Map<String, List<double>> _m;
+
+  /// Second moment vector estimates mapped by tensor ID.
   late Map<String, List<double>> _v;
 
+  /// Creates an [AdamW] optimizer for [parameters] with [learningRate], decay rates [beta1] and [beta2], [epsilon], and decoupled [weightDecay].
   AdamW(
       List<Tensor<dynamic>> parameters, {
         required double learningRate,
@@ -38,6 +53,7 @@ class AdamW extends Optimizer {
     }
   }
 
+  /// Performs a single optimization step, updating moment estimates, applying decoupled weight decay directly to parameter values, and adjusting parameters.
   @override
   void step() {
     _t = _t + 1;

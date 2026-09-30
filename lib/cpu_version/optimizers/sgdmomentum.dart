@@ -1,10 +1,17 @@
 import '../../tensor/tensor.dart';
 import 'optimizer.dart';
 
+/// Implements the Stochastic Gradient Descent with Momentum optimization algorithm.
+/// Accelerates gradient vectors in the relevant direction by accumulating past velocity updates,
+/// dampening oscillations across optimization steps.
 class Momentum extends Optimizer {
+  /// The momentum factor determining the exponential decay of past update velocities.
   double momentum;
+
+  /// Accumulated velocity vectors mapped by tensor ID.
   late Map<String, List<double>> _v;
 
+  /// Creates a [Momentum] optimizer for [parameters] with [learningRate] and [momentum] factor.
   Momentum(
       List<Tensor<dynamic>> parameters, {
         required double learningRate,
@@ -22,6 +29,7 @@ class Momentum extends Optimizer {
     }
   }
 
+  /// Performs a single optimization step, accumulating velocity vectors and updating parameter values.
   @override
   void step() {
     for (int p = 0; p < parameters.length; p = p + 1) {

@@ -5,11 +5,21 @@ import '../logger.dart';
 
 import 'tensor_gpu.dart';
 
+/// Utility class for reading and deserializing model weights from Hugging Face Safetensors files into [GPUTensor] instances.
+/// Parses the 8-byte header length, extracts the JSON metadata header, slices binary tensor chunks,
+/// handles matrix transpositions between coordinate standards, and pushes data directly into VRAM.
 class SafetensorsLoader {
+  /// Parsed JSON metadata header mapping tensor names to data types, shapes, and binary byte offsets.
   Map<String, dynamic> header = <String, dynamic>{};
+
+  /// Raw byte buffer of the entire loaded Safetensors file.
   late Uint8List rawBytes;
+
+  /// Byte index where raw tensor binary data begins following the 8-byte length prefix and JSON header.
   int bufferOffset = 0;
 
+  /// Reads a Safetensors file synchronously from [filePath], decodes the 8-byte header size prefix,
+  /// parses the JSON metadata header, and determines [bufferOffset].
   SafetensorsLoader(String filePath) {
     File file = File(filePath);
     rawBytes = file.readAsBytesSync();
@@ -29,6 +39,7 @@ class SafetensorsLoader {
     header = parsedJson;
   }
 
+  /// Returns a list of all tensor keys available in the parsed header, excluding the `__metadata__` block.
   List<String> getAvailableTensors() {
     List<String> keys = header.keys.toList();
     List<String> result = <String>[];
@@ -42,6 +53,9 @@ class SafetensorsLoader {
     return result;
   }
 
+  /// Extracts binary float values from the buffer for all matching keys in [modelTensors],
+  /// automatically transposes 2D matrices if row and column dimensions are inverted,
+  /// and uploads the resulting values directly to VRAM via [GPUTensor.pushData].
   void loadIntoTensors(Map<String, GPUTensor> modelTensors) {
     List<String> keys = modelTensors.keys.toList();
 
@@ -100,6 +114,7 @@ class SafetensorsLoader {
   }
 }
 
+/// Reads a Safetensors file from [filePath] and logs the name, shape, and data type of every serialized tensor.
 void printSafetensorsStructure(String filePath) {
   File file = File(filePath);
   Uint8List rawBytes = file.readAsBytesSync();
@@ -134,7 +149,9 @@ void printSafetensorsStructure(String filePath) {
   }
 }
 
+/*
+/// Entry point demonstrating the inspection and logging of tensor metadata from a Safetensors file.
 void main() {
   printSafetensorsStructure('models/bert/model.safetensors');
 }
-
+*/

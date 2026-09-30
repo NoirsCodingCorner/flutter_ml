@@ -3,19 +3,32 @@ import '../../tensor/tensor.dart';
 import '../../tensor/type_Aliases.dart';
 import '../layertypes/layer.dart';
 
+/// Applies Layer Normalization over a 2D [Matrix] tensor across features.
+/// Normalizes the activations of each sample (row) across the feature dimension (columns) to have zero mean and unit variance,
+/// followed by a learnable affine transformation using [gamma] and [beta].
+/// Constructs an autograd [Node] to backpropagate gradients to inputs and parameters.
 class LayerNormalization extends Layer<Matrix, Matrix> {
+  /// The assigned name of this layer architecture for debugging and inspection.
   @override
   String name = 'layer_norm';
+
+  /// A small constant added to the variance in the denominator to prevent division by zero.
   double epsilon;
 
+  /// Learnable scale parameter vector tensor across features initialized to 1.0.
   late Tensor<Vector> gamma;
+
+  /// Learnable shift parameter vector tensor across features initialized to 0.0.
   late Tensor<Vector> beta;
 
+  /// Creates a [LayerNormalization] layer with the specified numerical stability constant [epsilon].
   LayerNormalization({this.epsilon = 1e-5});
 
+  /// Returns the trainable parameters [gamma] and [beta].
   @override
   List<Tensor> get parameters => [gamma, beta];
 
+  /// Allocates and initializes [gamma] to 1.0 and [beta] to 0.0 based on the feature dimension of the input matrix.
   @override
   void build(Tensor<Matrix> input) {
     int numFeatures = input.shape[1];
@@ -35,6 +48,8 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
     super.build(input);
   }
 
+  /// Computes the layer normalization forward pass on the CPU, normalizes each row, applies the affine transformation,
+  /// and builds an autograd [Node] for exact backpropagation.
   @override
   Tensor<Matrix> forward(Tensor<Matrix> input) {
     int numRows = input.shape[0];
@@ -102,9 +117,11 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
     return out;
   }
 
+  /// Returns [gamma] and [beta] values as a map.
   @override
   Map<String, dynamic> getWeights() => {'gamma': gamma.value, 'beta': beta.value};
 
+  /// Sets [gamma] and [beta] directly from a map into their data buffers.
   @override
   void setWeights(Map<String, dynamic> weightsMap) {
     List<double> newGamma = (weightsMap['gamma'] as List).cast<double>();
@@ -115,3 +132,4 @@ class LayerNormalization extends Layer<Matrix, Matrix> {
     }
   }
 }
+
