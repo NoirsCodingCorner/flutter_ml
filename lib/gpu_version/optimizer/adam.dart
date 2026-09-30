@@ -4,9 +4,6 @@ import '../../full_library.dart';
 /// Adam combines the advantages of AdaGrad and RMSProp by computing adaptive learning rates
 /// for each parameter using the first and second moments of the gradients.
 class AdamGPU extends OptimizerGPU {
-  /// The step size used to update the weights.
-  double learningRate;
-
   /// The exponential decay rate for the first moment estimates (momentum).
   double beta1;
 
@@ -33,13 +30,13 @@ class AdamGPU extends OptimizerGPU {
   /// Requires the list of trainable [parameters] and the [learningRate].
   /// Optional parameters [beta1], [beta2], [epsilon], and [weightDecay] allow fine-tuning of the algorithm.
   AdamGPU(
-    super.parameters,
-    this.learningRate, {
-    this.beta1 = 0.9,
-    this.beta2 = 0.999,
-    this.epsilon = 1e-7,
-    this.weightDecay = 0.0,
-  }) {
+      super.parameters,
+      super.learningRate, {
+        this.beta1 = 0.9,
+        this.beta2 = 0.999,
+        this.epsilon = 1e-7,
+        this.weightDecay = 0.0,
+      }) {
     for (int i = 0; i < parameters.length; i = i + 1) {
       int totalElements = 1;
       for (int s = 0; s < parameters[i].shape.length; s = s + 1) {

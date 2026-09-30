@@ -2,7 +2,7 @@
 library;
 
 export 'sgd.dart';
-export 'Adam.dart';
+export 'adam.dart';
 
 import '/tensor/tensor_gpu.dart';
 import '../ffi/command_buffer.dart';
@@ -13,8 +13,9 @@ import '../ffi/command_buffer.dart';
 abstract class OptimizerGPU {
   /// List of parameters the gradient is responsible for updating.
   List<GPUTensor> parameters;
+  double learningRate;
 
-  OptimizerGPU(this.parameters);
+  OptimizerGPU(this.parameters,this.learningRate);
 
   /// Function to add an optimization step to a deferred execution tape.
   void step(CommandBuffer tape);

@@ -1,5 +1,4 @@
-import '../optimizer/optimizer.dart';
-
+import 'optimizer.dart';
 import '../ffi/op_codes.dart';
 import '../ffi/command_buffer.dart';
 
@@ -7,12 +6,9 @@ import '../ffi/command_buffer.dart';
 /// SGD is a very simply descent method and my get stuck in local minima.
 /// This function does not require to be reallocated on each training step and can be reused indefinitely.
 class SGDGPU extends OptimizerGPU {
-  /// The step size used to update the weights.
-  double learningRate;
-
   /// Initializes the SGD optimizer, which does not allocate any additional VRAM.
   /// Requires the list of trainable [parameters] and the [learningRate].
-  SGDGPU(super.parameters, this.learningRate);
+  SGDGPU(super.parameters, super.learningRate);
 
   /// Appends the SGD weight update operations to the provided [tape].
   /// This optimizer does not require to be updated and can be reused indefinitely via the same tape execution.

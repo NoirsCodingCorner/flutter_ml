@@ -19,3 +19,7 @@ Added GPU support for android via WebGPU as well as ensuring all layers are func
 ## 3.0.1
 
 Quick description fix for the pub.dev view.
+
+## 3.0.2
+
+Quick description fix for linter issue on linux.
