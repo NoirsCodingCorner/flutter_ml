@@ -31,3 +31,7 @@ Removed Ios due to instability.
 ## 3.0.4
 
 Fixed claim in the readme.
+
+## 3.0.5
+
+Added the ability to turn gradient allocation on and off.

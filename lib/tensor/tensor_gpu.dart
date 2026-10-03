@@ -59,6 +59,9 @@ class GPUNode {
 class GPUTensor<T> {
   static int _idCounter = 0;
 
+  /// Global default for saying if allocated GPUTensors should hold gradient by default.
+  static bool globalGrad=true;
+
   /// Global identifier to find and query tensors. [id] is set to "t_gpu_[_idCounter] by default. It is recommended NOT to set this value manually outside of creation.
   /// Uniqueness is to be handled manually when setting the name.
   late String id;
@@ -78,6 +81,8 @@ class GPUTensor<T> {
 
   /// Map to capture the sub GPUTensors that may have been allocate during creation.
   Map<String, GPUTensor> subMap = {};
+
+  late bool localGrad;
 
   /// Creates a [GPUTensor] object storing and managing the value [initialValue] given. Supported types for GPUTensors are:
   /// [Scalar],[Vector],[Matrix] and [Tensor3D]. Short versions of those types are [Sc],[Vec],[Mat] and [T3D].
@@ -127,7 +132,8 @@ class GPUTensor<T> {
   /// The raw [grad] can be accessed via [.grad]. To return a structured value [.gradValue] converts it via [shape] into [T].
   /// Both require [toCpu] to be called directly before that if the value is to be pulled from VRAM.
   ///
-  GPUTensor(T initialValue, {this.creator, String? id}) {
+  GPUTensor(T initialValue, {this.creator, String? id, bool? requiresGrad}) {
+    localGrad = requiresGrad ?? globalGrad;
     this.id = id ?? _generateId();
     // 1. Determine Shape
     if (initialValue is double) {
@@ -154,7 +160,8 @@ class GPUTensor<T> {
     // 3. Push Initial Data if provided
     _pushInitialValue(initialValue);
   }
-  GPUTensor.scalar(Scalar? initialValue, {this.creator, this.id = "EMPTY"}) {
+  GPUTensor.scalar(Scalar? initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+    localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
@@ -162,7 +169,8 @@ class GPUTensor<T> {
     _allocateEmptyInVram();
     _pushInitialValue(initialValue);
   }
-  GPUTensor.vector(Vector initialValue, {this.creator, this.id = "EMPTY"}) {
+  GPUTensor.vector(Vector initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+    localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
@@ -170,7 +178,9 @@ class GPUTensor<T> {
     _allocateEmptyInVram();
     _pushInitialValue(initialValue);
   }
-  GPUTensor.matrix(Matrix initialValue, {this.creator, this.id = "EMPTY"}) {
+
+  GPUTensor.matrix(Matrix initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+    localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
@@ -180,7 +190,8 @@ class GPUTensor<T> {
     _allocateEmptyInVram();
     _pushInitialValue(initialValue);
   }
-  GPUTensor.tensor3D(Tensor3D initialValue, {this.creator, this.id = "EMPTY"}) {
+  GPUTensor.tensor3D(Tensor3D initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+    localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
@@ -194,19 +205,20 @@ class GPUTensor<T> {
 
   /// Create a GPUTensor with the given shape and fills the GPUTensor with 0.0.
   /// Additionally the [creator] GPUNode can be set.
-  GPUTensor.empty(List<int> initialShape, {this.creator}) : id = _generateId() {
+  GPUTensor.empty(List<int> initialShape, {this.creator, bool? requiresGrad}) : id = _generateId() {
+    localGrad = requiresGrad ?? globalGrad;
     shape = <int>[];
     for (int i = 0; i < initialShape.length; i = i + 1) {
       shape.add(initialShape[i]);
     }
     _allocateEmptyInVram();
   }
-
   /// Create a GPUTensor with the given shape and fills the GPUTensor with random initialised values in range of provided scale parameter.
   /// Additionally the [creator] GPUNode can be set as well as a seed for randomization.
   GPUTensor.randomUniform(List<int> initialShape, double scale,
-      {int? seed, this.creator})
+      {int? seed, this.creator, bool? requiresGrad})
       : id = _generateId() {
+    localGrad = requiresGrad ?? globalGrad;
     shape = <int>[];
     for (int i = 0; i < initialShape.length; i = i + 1) {
       shape.add(initialShape[i]);
@@ -239,19 +251,20 @@ class GPUTensor<T> {
 
     using((Arena arena) {
       Pointer<Float> pData = arena<Float>(count);
-      Pointer<Float> pGrad = arena<Float>(count);
-
       GPUEngine.retrieve(id, pData);
-      GPUEngine.retrieve('${id}_grad', pGrad);
-
       Float32List dataView = pData.asTypedList(count);
-      Float32List gradView = pGrad.asTypedList(count);
 
       data.clear();
       grad.clear();
 
       data.addAll(dataView);
-      grad.addAll(gradView);
+
+      if (localGrad == true) {
+        Pointer<Float> pGrad = arena<Float>(count);
+        GPUEngine.retrieve('${id}_grad', pGrad);
+        Float32List gradView = pGrad.asTypedList(count);
+        grad.addAll(gradView);
+      }
     });
   }
 
@@ -310,7 +323,10 @@ class GPUTensor<T> {
     }
 
     GPUEngine.free(id);
-    GPUEngine.free('${id}_grad');
+
+    if (localGrad == true) {
+      GPUEngine.free('${id}_grad');
+    }
   }
 
   /// Allows the exact printing of the current compute graph for this GPUTensor. Topological Depth is indicated via indents.
@@ -473,10 +489,12 @@ class GPUTensor<T> {
 
     using((Arena arena) {
       Pointer<Float> emptyData = arena<Float>(count);
-      Pointer<Float> emptyGrad = arena<Float>(count);
-
       GPUEngine.load(id, emptyData, shape);
-      GPUEngine.load('${id}_grad', emptyGrad, shape);
+
+      if (localGrad == true) {
+        Pointer<Float> emptyGrad = arena<Float>(count);
+        GPUEngine.load('${id}_grad', emptyGrad, shape);
+      }
     });
   }
 

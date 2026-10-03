@@ -63,7 +63,10 @@ The engine actively supports and bundles acceleration targets for:
 
 🟡**Android** (`Target.androidArm64`, `Target.androidX8664`) via bundled NDK objects.
 
-
+For declaring globally to not require gradient allocation the global variable 
+`dart
+  GPUTensor.globalGrad=false;
+` can be turned on and off. For local tensors, providing the local value in its instructor can be used.
 
 ```dart
 import 'package:flutter_ml/full_library.dart';
