@@ -176,11 +176,11 @@ class TapeDecoder {
           String namecMm = _readString();
           bool transA = _readBool();
           bool transB = _readBool();
-          //double alpha = _readFloat();
-          //double beta = _readFloat();
-          //bool tCores = _readBool();
+          double alpha = _readFloat();
+          double beta = _readFloat();
+          bool tCores = _readBool();
           Logger.cyan(
-              '$opName: $namecMm = matmul($nameaMm, $namebMm) transA:$transA transB:$transB');
+              '$opName: $namecMm = matmul($nameaMm, $namebMm) transA:$transA transB:$transB alpha:$alpha beta:$beta tCores:$tCores');
           break;
         case OP_TRANSPOSE:
           String nameInTr = _readString();
@@ -220,14 +220,14 @@ class TapeDecoder {
           break;
         case OP_SIGMOID_BACKWARD:
         case OP_TANH_BACKWARD:
-          String outData = _readString(); // C++ expects outData first here
+          String outData = _readString();
           String gradOutAct = _readString();
           String gradInAct = _readString();
           Logger.blue(
               '$opName: $gradInAct = act_bw($gradOutAct, outData: $outData)');
           break;
         case OP_SOFTMAX_BACKWARD:
-          String gradOutSm = _readString(); // C++ expects gradOut first here
+          String gradOutSm = _readString();
           String outDataSm = _readString();
           String gradInSm = _readString();
           Logger.blue(
@@ -263,17 +263,17 @@ class TapeDecoder {
           break;
         case OP_ADAM_UPDATE:
           String nameDataAdam = _readString();
-          //String nameGradAdam = _readString();
-          //String nameM = _readString();
-          //String nameV = _readString();
+          String nameGradAdam = _readString();
+          String nameM = _readString();
+          String nameV = _readString();
           double lrAdam = _readFloat();
-          //double b1 = _readFloat();
-          //double b2 = _readFloat();
-          //double epsAdam = _readFloat();
+          double b1 = _readFloat();
+          double b2 = _readFloat();
+          double epsAdam = _readFloat();
           int step = _readInt();
-          //double wd = _readFloat();
+          double wd = _readFloat();
           Logger.yellow(
-              '$opName: adam($nameDataAdam, step: $step, lr: $lrAdam)');
+              '$opName: adam($nameDataAdam, grad: $nameGradAdam, m: $nameM, v: $nameV, step: $step, lr: $lrAdam, b1: $b1, b2: $b2, eps: $epsAdam, wd: $wd)');
           break;
         case OP_CLIP_GRAD_VALUE:
           String nameBufferClip = _readString();
@@ -361,10 +361,10 @@ class TapeDecoder {
           String gradOutCat = _readString();
           String gradinaCat = _readString();
           String gradinbCat = _readString();
-          //int axisCatBw = _readInt();
+          int axisCatBw = _readInt();
           int split = _readInt();
           Logger.blue(
-              '$opName: bw_concat($gradOutCat -> $gradinaCat, $gradinbCat, split: $split)');
+              '$opName: bw_concat($gradOutCat -> $gradinaCat, $gradinbCat, split: $split, axisCat: $axisCatBw)');
           break;
         case OP_PAD2D:
         case OP_PAD2D_BACKWARD:
@@ -384,31 +384,32 @@ class TapeDecoder {
           String nameW = _readString();
           String namebMatmul = _readString();
           String nameReluOut = _readString();
-          //String namePreROut = _readString();
+          String namePreROut = _readString();
           Logger.cyan(
-              '$opName: $nameReluOut = matmul_bias_relu($nameX, $nameW, $namebMatmul)');
+              '$opName: $nameReluOut (preRelu: $namePreROut) = matmul_bias_relu($nameX, $nameW, $namebMatmul)');
           break;
         case OP_LAYER_NORM_FORWARD:
           String nameInNorm = _readString();
-          //String nameGamma = _readString();
-          //String nameBetaNorm = _readString();
+          String nameGamma = _readString();
+          String nameBetaNorm = _readString();
           String nameOutNorm = _readString();
-          //String nameMean = _readString();
-          //String nameRstd = _readString();
+          String nameMean = _readString();
+          String nameRstd = _readString();
           double eps = _readFloat();
           Logger.cyan(
-              '$opName: $nameOutNorm = layer_norm($nameInNorm) eps:$eps');
+              '$opName: $nameOutNorm = layer_norm($nameInNorm, gamma:$nameGamma, beta:$nameBetaNorm) mean:$nameMean rstd:$nameRstd eps:$eps');
           break;
         case OP_LAYER_NORM_BACKWARD:
           String gradOutNorm = _readString();
           String nameInNormBw = _readString();
-          //String nameGammaBw = _readString();
-          //String nameMeanBw = _readString();
-          //String nameRstdBw = _readString();
-          //String gradInNorm = _readString();
-          //String gradGamma = _readString();
-          //String gradBeta = _readString();
-          Logger.blue('$opName: bw($gradOutNorm, in:$nameInNormBw)');
+          String nameGammaBw = _readString();
+          String nameMeanBw = _readString();
+          String nameRstdBw = _readString();
+          String gradInNorm = _readString();
+          String gradGamma = _readString();
+          String gradBeta = _readString();
+          Logger.blue(
+              '$opName: bw($gradOutNorm, in:$nameInNormBw, gamma:$nameGammaBw, mean:$nameMeanBw, rstd:$nameRstdBw, gradIn:$gradInNorm, gradGamma:$gradGamma, gradBeta:$gradBeta)');
           break;
         case OP_CONV2D_FORWARD:
           String nameInConv = _readString();
@@ -433,50 +434,50 @@ class TapeDecoder {
           break;
         case OP_CONV2D_MULTI_FORWARD:
           String nameInMulti = _readString();
-          //String nameWeight = _readString();
-          //String nameBiasMulti = _readString();
+          String nameWeight = _readString();
+          String nameBiasMulti = _readString();
           String nameOutMulti = _readString();
           int inC = _readInt();
           int outC = _readInt();
-          //int kh = _readInt();
-          //int kw = _readInt();
+          int kh = _readInt();
+          int kw = _readInt();
           int pt = _readInt();
           int pl = _readInt();
           int sh = _readInt();
           int sw = _readInt();
           Logger.cyan(
-              '$opName: $nameOutMulti = conv2d_multi($nameInMulti, inC:$inC, outC:$outC) pad:${pt}x$pl stride:${sh}x$sw');
+              '$opName: $nameOutMulti = conv2d_multi($nameInMulti, weight:$nameWeight, bias:$nameBiasMulti, inC:$inC, outC:$outC, kernel:${kh}x$kw) pad:${pt}x$pl stride:${sh}x$sw');
           break;
         case OP_CONV2D_MULTI_BACKWARD_INPUT:
           String gradOutMulti = _readString();
-          //String nameWeightMulti = _readString();
+          String nameWeightMulti = _readString();
           String nameGradInMulti = _readString();
           int inCBw = _readInt();
           int outCBw = _readInt();
-          //int khBw = _readInt();
-          //int kwBw = _readInt();
-          //int ptBw = _readInt();
-          //int plBw = _readInt();
-          //int shBw = _readInt();
-          //int swBw = _readInt();
+          int khBw = _readInt();
+          int kwBw = _readInt();
+          int ptBw = _readInt();
+          int plBw = _readInt();
+          int shBw = _readInt();
+          int swBw = _readInt();
           Logger.blue(
-              '$opName: $nameGradInMulti = conv2d_multi_bw_in($gradOutMulti) inC:$inCBw, outC:$outCBw');
+              '$opName: $nameGradInMulti = conv2d_multi_bw_in($gradOutMulti, weight:$nameWeightMulti) inC:$inCBw, outC:$outCBw, kernel:${khBw}x$kwBw, pad:${ptBw}x$plBw, stride:${shBw}x$swBw');
           break;
         case OP_CONV2D_MULTI_BACKWARD_WEIGHT:
           String nameInMultiBw = _readString();
           String gradOutMultiBw = _readString();
           String nameGradWeight = _readString();
           String nameGradBias = _readString();
-          //int inCW = _readInt();
-          //int outCW = _readInt();
-          //int khW = _readInt();
-          //int kwW = _readInt();
-          //int ptW = _readInt();
-          //int plW = _readInt();
-          //int shW = _readInt();
-          //int swW = _readInt();
+          int inCW = _readInt();
+          int outCW = _readInt();
+          int khW = _readInt();
+          int kwW = _readInt();
+          int ptW = _readInt();
+          int plW = _readInt();
+          int shW = _readInt();
+          int swW = _readInt();
           Logger.blue(
-              '$opName: $nameGradWeight, $nameGradBias = conv2d_multi_bw_w($nameInMultiBw, $gradOutMultiBw)');
+              '$opName: $nameGradWeight, $nameGradBias = conv2d_multi_bw_w($nameInMultiBw, $gradOutMultiBw) inC:$inCW, outC:$outCW, kernel:${khW}x$kwW, pad:${ptW}x$plW, stride:${shW}x$swW');
           break;
         case OP_IM2COL:
           String nameInIm = _readString();
@@ -498,20 +499,20 @@ class TapeDecoder {
         case OP_MAX_POOL_2D_FORWARD:
           String nameInPool = _readString();
           String nameOutPool = _readString();
-          //String nameIndicesPool = _readString();
+          String nameIndicesPool = _readString();
           int poolSize = _readInt();
           int stridePool = _readInt();
           Logger.cyan(
-              '$opName: $nameOutPool = max_pool($nameInPool, size: $poolSize, stride: $stridePool)');
+              '$opName: $nameOutPool (indices: $nameIndicesPool) = max_pool($nameInPool, size: $poolSize, stride: $stridePool)');
           break;
         case OP_MAX_POOL_1D_BACKWARD:
         case OP_MAX_POOL_2D_BACKWARD:
           String gradOutPool = _readString();
-          //String nameIndicesPoolBw = _readString();
+          String nameIndicesPoolBw = _readString();
           String gradInPool = _readString();
-          Logger.blue('$opName: $gradInPool = max_pool_bw($gradOutPool)');
+          Logger.blue('$opName: $gradInPool = max_pool_bw($gradOutPool, indices: $nameIndicesPoolBw)');
           break;
-        case OP_AVG_POOL_2D_FORWARD: // Avg pool does NOT read indices in C++!
+        case OP_AVG_POOL_2D_FORWARD:
           String nameInAvg = _readString();
           String nameOutAvg = _readString();
           int avgPoolSize = _readInt();
@@ -519,12 +520,13 @@ class TapeDecoder {
           Logger.cyan(
               '$opName: $nameOutAvg = avg_pool($nameInAvg, size: $avgPoolSize, stride: $avgStridePool)');
           break;
-        case OP_AVG_POOL_2D_BACKWARD: // Avg pool does NOT read indices in C++!
+        case OP_AVG_POOL_2D_BACKWARD:
           String gradOutAvg = _readString();
           String gradInAvg = _readString();
-          //int avgPoolSizeBw = _readInt();
-          //int avgStridePoolBw = _readInt();
-          Logger.blue('$opName: $gradInAvg = avg_pool_bw($gradOutAvg)');
+          int avgPoolSizeBw = _readInt();
+          int avgStridePoolBw = _readInt();
+          Logger.blue(
+              '$opName: $gradInAvg = avg_pool_bw($gradOutAvg, size: $avgPoolSizeBw, stride: $avgStridePoolBw)');
           break;
         case OP_GLOBAL_AVG_POOL_FORWARD:
           String nameInGap = _readString();
@@ -539,39 +541,40 @@ class TapeDecoder {
         case OP_BATCH_NORM_1D_FORWARD:
         case OP_BATCH_NORM_2D_FORWARD:
           String nameInBn = _readString();
-          //String nameGammaBn = _readString();
-          //String nameBetaBn = _readString();
-          //String nameRm = _readString();
-          //String nameRv = _readString();
+          String nameGammaBn = _readString();
+          String nameBetaBn = _readString();
+          String nameRm = _readString();
+          String nameRv = _readString();
           String nameOutBn = _readString();
-          //String nameSm = _readString();
-          //String nameSiv = _readString();
-          //double momentum = _readFloat();
-          //double epsilonBn = _readFloat();
+          String nameSm = _readString();
+          String nameSiv = _readString();
+          double momentum = _readFloat();
+          double epsilonBn = _readFloat();
           bool isTraining = _readBool();
           Logger.cyan(
-              '$opName: $nameOutBn = batch_norm($nameInBn) train:$isTraining');
+              '$opName: $nameOutBn = batch_norm($nameInBn, gamma:$nameGammaBn, beta:$nameBetaBn, rm:$nameRm, rv:$nameRv) sm:$nameSm siv:$nameSiv momentum:$momentum eps:$epsilonBn train:$isTraining');
           break;
         case OP_BATCH_NORM_1D_BACKWARD:
         case OP_BATCH_NORM_2D_BACKWARD:
           String gradOutBn = _readString();
           String nameInBnBw = _readString();
-          //String nameGammaBnBw = _readString();
-          //String nameSmBw = _readString();
-          //String nameSivBw = _readString();
-          //String gradInBn = _readString();
-          //String gradGammaBn = _readString();
-          //String gradBetaBn = _readString();
-          Logger.blue('$opName: bw($gradOutBn, in:$nameInBnBw)');
+          String nameGammaBnBw = _readString();
+          String nameSmBw = _readString();
+          String nameSivBw = _readString();
+          String gradInBn = _readString();
+          String gradGammaBn = _readString();
+          String gradBetaBn = _readString();
+          Logger.blue(
+              '$opName: bw($gradOutBn, in:$nameInBnBw, gamma:$nameGammaBnBw, sm:$nameSmBw, siv:$nameSivBw, gradIn:$gradInBn, gradGamma:$gradGammaBn, gradBeta:$gradBetaBn)');
           break;
         case OP_DROPOUT_FORWARD:
           String nameInDrop = _readString();
           String nameOutDrop = _readString();
-          //String nameMaskDrop = _readString();
+          String nameMaskDrop = _readString();
           double dropRate = _readFloat();
           int seed = _readInt();
           Logger.cyan(
-              '$opName: $nameOutDrop = dropout($nameInDrop, rate: $dropRate, seed: $seed)');
+              '$opName: $nameOutDrop (mask: $nameMaskDrop) = dropout($nameInDrop, rate: $dropRate, seed: $seed)');
           break;
         case OP_DROPOUT_BACKWARD:
           String gradOutDrop = _readString();
