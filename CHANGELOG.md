@@ -35,3 +35,7 @@ Fixed claim in the readme.
 ## 3.0.5
 
 Added the ability to turn gradient allocation on and off.
+
+## 3.0.6
+
+TapeDeocder bug fixed for unaligned special functions.
