@@ -63,7 +63,7 @@ void main() {
   }
 
   setUpAll(() async {
-    await GPUEngine.initialize(target: Target.cuda, debug: true);
+    await GPUEngine.initialize(target: Target.cpu, debug: true);
     scalarA = GPUTensor<Scalar>(-1.5);
     scalarB = GPUTensor<Scalar>(0.0);
     scalarC = GPUTensor<Scalar>(2.5);

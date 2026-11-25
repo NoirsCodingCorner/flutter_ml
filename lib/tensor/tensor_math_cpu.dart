@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'error_handler.dart';
 import 'type_aliases.dart';
 
 import '../tensor/tensor.dart';
@@ -6,6 +7,241 @@ import '../tensor/tensor.dart';
 // ─────────────────────────────────────────────────────── //
 // UTILITY FUNCTIONS
 // ─────────────────────────────────────────────────────── //
+
+
+/// Helper that rebuilds a nested value structure (double, List<double>,
+/// List<List<double>> or List<List<List<double>>>) from a rolled out [flat]
+/// list using [shape]. Used by the general elementwise operations to construct
+/// output tensors with the same shape as their inputs.
+dynamic _nestedFromFlat(List<int> shape, List<double> flat) {
+  if (shape.isEmpty) {
+    return flat[0];
+  }
+
+  if (shape.length == 1) {
+    List<double> vec = [];
+    for (int i = 0; i < shape[0]; i = i + 1) {
+      vec.add(flat[i]);
+    }
+    return vec;
+  }
+
+  if (shape.length == 2) {
+    int rows = shape[0];
+    int cols = shape[1];
+    List<List<double>> mat = [];
+    for (int i = 0; i < rows; i = i + 1) {
+      List<double> row = [];
+      for (int j = 0; j < cols; j = j + 1) {
+        row.add(flat[(i * cols) + j]);
+      }
+      mat.add(row);
+    }
+    return mat;
+  }
+
+  if (shape.length == 3) {
+    int depth = shape[0];
+    int height = shape[1];
+    int width = shape[2];
+    List<List<List<double>>> tensor3d = [];
+    for (int d = 0; d < depth; d = d + 1) {
+      List<List<double>> matrix = [];
+      for (int h = 0; h < height; h = h + 1) {
+        List<double> row = [];
+        for (int w = 0; w < width; w = w + 1) {
+          row.add(flat[(d * height * width) + (h * width) + w]);
+        }
+        matrix.add(row);
+      }
+      tensor3d.add(matrix);
+    }
+    return tensor3d;
+  }
+
+  throw Exception('Unflattening beyond 3D is not supported.');
+}
+
+/// Adds two tensors of any shape elementwise. [a] and [b] are required to have the same shape.
+Tensor<T> addTensor<T>(Tensor<T> a, Tensor<T> b) {
+  TensorValidator.requireSameShape(a, b, 'add_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(a.data[i] + b.data[i]);
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a, b],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] + out.grad[i];
+        b.grad[i] = b.grad[i] + out.grad[i];
+      }
+    },
+    opName: 'add_tensor',
+    cost: n,
+  );
+  return out;
+}
+
+/// Subtracts the elements of [b] from the elements of [a] elementwise. Both tensors need to have the same shape.
+Tensor<T> subtractTensor<T>(Tensor<T> a, Tensor<T> b) {
+  TensorValidator.requireSameShape(a, b, 'subtract_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(a.data[i] - b.data[i]);
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a, b],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] + out.grad[i];
+        b.grad[i] = b.grad[i] - out.grad[i];
+      }
+    },
+    opName: 'subtract_tensor',
+    cost: n,
+  );
+  return out;
+}
+
+/// Multiplies the elements of [a] with the elements of [b] elementwise. This is NOT matrix multiplication.
+Tensor<T> multiplyTensor<T>(Tensor<T> a, Tensor<T> b) {
+  TensorValidator.requireSameShape(a, b, 'multiply_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(a.data[i] * b.data[i]);
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a, b],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] + out.grad[i] * b.data[i];
+        b.grad[i] = b.grad[i] + out.grad[i] * a.data[i];
+      }
+    },
+    opName: 'multiply_tensor',
+    cost: n,
+  );
+  return out;
+}
+
+/// Divides the elements of [a] by the elements of [b] elementwise. [b] must not contain zeros.
+Tensor<T> divideTensor<T>(Tensor<T> a, Tensor<T> b) {
+  TensorValidator.requireSameShape(a, b, 'divide_tensor');
+  TensorValidator.requireNonZero(b, 'divide_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(a.data[i] / b.data[i]);
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a, b],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] + out.grad[i] * (1.0 / b.data[i]);
+        b.grad[i] =
+            b.grad[i] - out.grad[i] * (a.data[i] / (b.data[i] * b.data[i]));
+      }
+    },
+    opName: 'divide_tensor',
+    cost: n,
+  );
+  return out;
+}
+
+/// Calculates the e^x exponent for every element of [a].
+Tensor<T> expTensor<T>(Tensor<T> a) {
+  TensorValidator.requireValidData(a, 'exp_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(exp(a.data[i]));
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] + out.grad[i] * out.data[i];
+      }
+    },
+    opName: 'exp_tensor',
+    cost: n,
+  );
+  return out;
+}
+
+/// Calculates the natural logarithm (ln) of every element of [a]. All elements need to be bigger than 0.
+Tensor<T> logTensor<T>(Tensor<T> a) {
+  TensorValidator.requireStrictlyPositive(a, 'log_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(log(a.data[i]));
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] + out.grad[i] * (1.0 / a.data[i]);
+      }
+    },
+    opName: 'log_tensor',
+    cost: n,
+  );
+  return out;
+}
+
+/// Negates every element of [a] (multiplies each element by -1).
+Tensor<T> negateTensor<T>(Tensor<T> a) {
+  TensorValidator.requireValidData(a, 'negate_tensor');
+
+  int n = a.data.length;
+  List<double> flat = [];
+  for (int i = 0; i < n; i = i + 1) {
+    flat.add(-a.data[i]);
+  }
+
+  Tensor<T> out = Tensor<T>(_nestedFromFlat(a.shape, flat));
+
+  out.creator = Node(
+    [a],
+        () {
+      for (int i = 0; i < n; i = i + 1) {
+        a.grad[i] = a.grad[i] - out.grad[i];
+      }
+    },
+    opName: 'negate_tensor',
+    cost: n,
+  );
+  return out;
+}
 
 /// Pads the matrix on all sides with the given [padding].
 Matrix padMatrix(Matrix input, int padding) {
@@ -37,11 +273,14 @@ Matrix padMatrix(Matrix input, int padding) {
 
 /// Simple addition of tensor [a] and [b].
 Tensor<Scalar> add(Tensor<Scalar> a, Tensor<Scalar> b) {
+  TensorValidator.requireValidData(a, 'add');
+  TensorValidator.requireValidData(b, 'add');
+
   Tensor<Scalar> out = Tensor<Scalar>(a.data[0] + b.data[0]);
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       a.grad[0] = a.grad[0] + out.grad[0];
       b.grad[0] = b.grad[0] + out.grad[0];
     },
@@ -51,13 +290,54 @@ Tensor<Scalar> add(Tensor<Scalar> a, Tensor<Scalar> b) {
   return out;
 }
 
+/// Subtracts tensor [b] from tensor [a].
+Tensor<Scalar> subtract(Tensor<Scalar> a, Tensor<Scalar> b) {
+  TensorValidator.requireValidData(a, 'subtract');
+  TensorValidator.requireValidData(b, 'subtract');
+
+  Tensor<Scalar> out = Tensor<Scalar>(a.data[0] - b.data[0]);
+
+  out.creator = Node(
+    [a, b],
+        () {
+      a.grad[0] = a.grad[0] + out.grad[0];
+      b.grad[0] = b.grad[0] - out.grad[0];
+    },
+    opName: 'subtract',
+    cost: 1,
+  );
+  return out;
+}
+
+/// Calculates the square-root of Scalar [s].
+Tensor<Scalar> scalarSqrt(Tensor<Scalar> s) {
+  TensorValidator.requireValidData(s, 'scalar_sqrt');
+  TensorValidator.requireNonNegative(s, 'scalar_sqrt');
+
+  Scalar outValue = sqrt(s.data[0]);
+
+  Tensor<Scalar> out = Tensor<Scalar>(outValue);
+  out.creator = Node(
+    [s],
+        () {
+      s.grad[0] = s.grad[0] + out.grad[0] * (1 / (2 * out.data[0]));
+    },
+    opName: 'exp_vector',
+    cost: 1,
+  );
+  return out;
+}
+
 /// Simple multiplication of tensor [a] and [b].
 Tensor<Scalar> multiply(Tensor<Scalar> a, Tensor<Scalar> b) {
+  TensorValidator.requireValidData(a, 'multiply_scalar');
+  TensorValidator.requireValidData(b, 'multiply_scalar');
+
   Tensor<Scalar> out = Tensor<Scalar>(a.data[0] * b.data[0]);
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       a.grad[0] = a.grad[0] + out.grad[0] * b.data[0];
       b.grad[0] = b.grad[0] + out.grad[0] * a.data[0];
     },
@@ -67,14 +347,90 @@ Tensor<Scalar> multiply(Tensor<Scalar> a, Tensor<Scalar> b) {
   return out;
 }
 
+/// Calculates the divide of two Scalars [dividend]/[divisor].
+Tensor<Scalar> divide(Tensor<Scalar> dividend, Tensor<Scalar> divisor) {
+  TensorValidator.requireValidData(dividend, 'divide_scalar');
+  TensorValidator.requireNonZero(divisor, 'divide_scalar');
+
+  Tensor<Scalar> out = Tensor<Scalar>(dividend.data[0] / divisor.data[0]);
+
+  out.creator = Node(
+    [dividend, divisor],
+        () {
+      dividend.grad[0] = dividend.grad[0] + out.grad[0] * 1 / divisor.data[0];
+      divisor.grad[0] = divisor.grad[0] +
+          out.grad[0] * -dividend.data[0] / (divisor.data[0] * divisor.data[0]);
+    },
+    opName: 'multiply_scalar',
+    cost: 1,
+  );
+  return out;
+}
+
+/// Calculates the e^x exponent for scalar [a].
+Tensor<Scalar> expScalar(Tensor<Scalar> a) {
+  TensorValidator.requireValidData(a, 'exp_scalar');
+
+  double val = exp(a.data[0]);
+  Tensor<Scalar> out = Tensor<Scalar>(val);
+
+  out.creator = Node(
+    [a],
+        () {
+      a.grad[0] = a.grad[0] + out.grad[0] * out.data[0];
+    },
+    opName: 'exp_scalar',
+    cost: 1,
+  );
+  return out;
+}
+
+/// Calculates the natural logarithm (ln) of scalar [a].
+Tensor<Scalar> lnScalar(Tensor<Scalar> a) {
+  TensorValidator.requireStrictlyPositive(a, 'ln_scalar');
+
+  double val = log(a.data[0]);
+  Tensor<Scalar> out = Tensor<Scalar>(val);
+
+  out.creator = Node(
+    [a],
+        () {
+      a.grad[0] = a.grad[0] + out.grad[0] * (1.0 / a.data[0]);
+    },
+    opName: 'ln_scalar',
+    cost: 1,
+  );
+  return out;
+}
+
+/// Calculates the base-10 logarithm of scalar [a].
+Tensor<Scalar> logScalar(Tensor<Scalar> a) {
+  TensorValidator.requireStrictlyPositive(a, 'log10_scalar');
+
+  double val = log(a.data[0]) / ln10;
+  Tensor<Scalar> out = Tensor<Scalar>(val);
+
+  out.creator = Node(
+    [a],
+        () {
+      a.grad[0] = a.grad[0] + out.grad[0] * (1.0 / (a.data[0] * ln10));
+    },
+    opName: 'log10_scalar',
+    cost: 1,
+  );
+  return out;
+}
+
 /// Applies the sigmoid activation function to a scalar tensor.
 Tensor<Scalar> sigmoidScalar(Tensor<Scalar> s) {
+  TensorValidator.requireValidData(s, 'sigmoidScalar');
+
   double val = 1.0 / (1.0 + exp(-s.data[0]));
   Tensor<Scalar> out = Tensor<Scalar>(val);
 
   out.creator = Node(
     [s],
-    () {
+        () {
       s.grad[0] = s.grad[0] + out.grad[0] * (val * (1.0 - val));
     },
     opName: 'sigmoidScalar',
@@ -86,16 +442,19 @@ Tensor<Scalar> sigmoidScalar(Tensor<Scalar> s) {
 /// Calculates the binary cross entropy by comparing the prediction of the network to the target required.
 Tensor<Scalar> binaryCrossEntropy(
     Tensor<Scalar> prediction, Tensor<Scalar> target) {
+  TensorValidator.requireOpenUnitInterval(prediction, 'binaryCrossEntropy');
+  TensorValidator.requireValidData(target, 'binaryCrossEntropy');
+
   double predVal = prediction.data[0];
   double targetVal = target.data[0];
 
   double outValue =
-      -(targetVal * log(predVal) + (1.0 - targetVal) * log(1.0 - predVal));
+  -(targetVal * log(predVal) + (1.0 - targetVal) * log(1.0 - predVal));
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
 
   out.creator = Node(
     [prediction, target],
-    () {
+        () {
       prediction.grad[0] = prediction.grad[0] +
           out.grad[0] * ((predVal - targetVal) / (predVal * (1.0 - predVal)));
     },
@@ -111,6 +470,8 @@ Tensor<Scalar> binaryCrossEntropy(
 
 /// Adds two vectors together element.
 Tensor<Vector> addVector(Tensor<Vector> a, Tensor<Vector> b) {
+  TensorValidator.requireSameShape(a, b, 'add_vector');
+
   int N = a.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -119,7 +480,7 @@ Tensor<Vector> addVector(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i];
         b.grad[i] = b.grad[i] + out.grad[i];
@@ -133,6 +494,8 @@ Tensor<Vector> addVector(Tensor<Vector> a, Tensor<Vector> b) {
 
 /// Adds a constant value to each element of a vector.
 Tensor<Vector> addScalar(Tensor<Vector> v, double s) {
+  TensorValidator.requireValidData(v, 'addScalar_vector');
+
   int N = v.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -141,7 +504,7 @@ Tensor<Vector> addScalar(Tensor<Vector> v, double s) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         v.grad[i] = v.grad[i] + out.grad[i];
       }
@@ -155,6 +518,9 @@ Tensor<Vector> addScalar(Tensor<Vector> v, double s) {
 
 /// Appends two vectors after each oder with [a] and [b] becoming [ab].
 Tensor<Vector> concatenate(Tensor<Vector> a, Tensor<Vector> b) {
+  TensorValidator.requireValidData(a, 'concat_vector');
+  TensorValidator.requireValidData(b, 'concat_vector');
+
   int aLength = a.data.length;
   int bLength = b.data.length;
   Vector outValue = [];
@@ -169,7 +535,7 @@ Tensor<Vector> concatenate(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < aLength; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i];
       }
@@ -185,6 +551,8 @@ Tensor<Vector> concatenate(Tensor<Vector> a, Tensor<Vector> b) {
 
 /// Calculates the eucledian dot product of [a] and [b].
 Tensor<Scalar> dot(Tensor<Vector> a, Tensor<Vector> b) {
+  TensorValidator.requireSameShape(a, b, 'dot');
+
   int N = a.data.length;
   double outValue = 0.0;
   for (int i = 0; i < N; i = i + 1) {
@@ -193,7 +561,7 @@ Tensor<Scalar> dot(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Scalar> out = Tensor<Scalar>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[0] * b.data[i];
         b.grad[i] = b.grad[i] + out.grad[0] * a.data[i];
@@ -207,6 +575,8 @@ Tensor<Scalar> dot(Tensor<Vector> a, Tensor<Vector> b) {
 
 /// Multiplies each element of [a] with each element of [b].
 Tensor<Vector> elementWiseMultiply(Tensor<Vector> a, Tensor<Vector> b) {
+  TensorValidator.requireSameShape(a, b, 'multiply_vector');
+
   int N = a.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -215,7 +585,7 @@ Tensor<Vector> elementWiseMultiply(Tensor<Vector> a, Tensor<Vector> b) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i] * b.data[i];
         b.grad[i] = b.grad[i] + out.grad[i] * a.data[i];
@@ -227,9 +597,12 @@ Tensor<Vector> elementWiseMultiply(Tensor<Vector> a, Tensor<Vector> b) {
   return out;
 }
 
+
 /// Calculates the mean square error/difference between the elements of [a] and [b].
 /// Both Tensors need to have the same size.
 Tensor<Scalar> mse(Tensor<Vector> predictions, Tensor<Vector> targets) {
+  TensorValidator.requireSameShape(predictions, targets, 'mse_vector');
+
   int N = predictions.data.length;
   double sumSquaredError = 0.0;
   for (int i = 0; i < N; i = i + 1) {
@@ -239,7 +612,7 @@ Tensor<Scalar> mse(Tensor<Vector> predictions, Tensor<Vector> targets) {
   Tensor<Scalar> out = Tensor<Scalar>(sumSquaredError / N);
   out.creator = Node(
     [predictions, targets],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         predictions.grad[i] = predictions.grad[i] +
             out.grad[0] * (2.0 * (predictions.data[i] - targets.data[i])) / N;
@@ -253,6 +626,8 @@ Tensor<Scalar> mse(Tensor<Vector> predictions, Tensor<Vector> targets) {
 
 /// Applies the ReLU function to each value of [v]. When the values is bigger then 0 it is the output, otherwise 0.
 Tensor<Vector> relu(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'relu_vector');
+
   int N = v.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -262,7 +637,7 @@ Tensor<Vector> relu(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         v.grad[i] = v.grad[i] + out.grad[i] * (v.data[i] > 0.0 ? 1.0 : 0.0);
       }
@@ -275,6 +650,8 @@ Tensor<Vector> relu(Tensor<Vector> v) {
 
 /// Applies the Sigmoid activation function to each value of a vector.
 Tensor<Vector> sigmoid(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'sigmoid_vector');
+
   int N = v.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -283,7 +660,7 @@ Tensor<Vector> sigmoid(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         double val = out.data[i];
         v.grad[i] = v.grad[i] + out.grad[i] * (val * (1.0 - val));
@@ -297,6 +674,8 @@ Tensor<Vector> sigmoid(Tensor<Vector> v) {
 
 /// Sums up all elements of the input vector tensor.
 Tensor<Scalar> sum(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'sum_vector');
+
   int N = v.data.length;
   double total = 0.0;
   for (int i = 0; i < N; i = i + 1) {
@@ -305,7 +684,7 @@ Tensor<Scalar> sum(Tensor<Vector> v) {
   Tensor<Scalar> out = Tensor<Scalar>(total);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         v.grad[i] = v.grad[i] + out.grad[0];
       }
@@ -318,6 +697,8 @@ Tensor<Scalar> sum(Tensor<Vector> v) {
 
 /// Applies the tanh activation function to every element of a vector.
 Tensor<Vector> vectorTanh(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'tanh_vector');
+
   int N = v.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -332,7 +713,7 @@ Tensor<Vector> vectorTanh(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         double val = out.data[i];
         v.grad[i] = v.grad[i] + out.grad[i] * (1.0 - (val * val));
@@ -346,6 +727,8 @@ Tensor<Vector> vectorTanh(Tensor<Vector> v) {
 
 /// Calculates the e^x exponent for each element [x] in [v].
 Tensor<Vector> vectorExp(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'exp_vector');
+
   int N = v.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -354,7 +737,7 @@ Tensor<Vector> vectorExp(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         v.grad[i] = v.grad[i] + out.grad[i] * out.data[i];
       }
@@ -367,6 +750,8 @@ Tensor<Vector> vectorExp(Tensor<Vector> v) {
 
 /// Calculates the log(x) exponent for each element [x] in [v].
 Tensor<Vector> vectorLog(Tensor<Vector> v) {
+  TensorValidator.requireStrictlyPositive(v, 'log_vector');
+
   int N = v.data.length;
   Vector outValue = [];
   for (int i = 0; i < N; i = i + 1) {
@@ -375,7 +760,7 @@ Tensor<Vector> vectorLog(Tensor<Vector> v) {
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         v.grad[i] = v.grad[i] + out.grad[i] * (1.0 / v.data[i]);
       }
@@ -388,12 +773,16 @@ Tensor<Vector> vectorLog(Tensor<Vector> v) {
 
 /// Differentiable approximation of the Relu function.
 Tensor<Vector> softplus(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'softplus');
+
   return vectorLog(addScalar(vectorExp(v), 1.0));
 }
 
 /// Slides a window of size [poolSize] over the vector with the step-size [stride].
 /// Returns a vector containing the averages of the observed windows.
 Tensor<Vector> avgPool1d(Tensor<Vector> input, int poolSize, int stride) {
+  TensorValidator.requirePool1D(input, poolSize, stride, 'avg_pool_1d');
+
   int inputSize = input.shape[0];
   int outputSize = (inputSize - poolSize) ~/ stride + 1;
 
@@ -411,7 +800,7 @@ Tensor<Vector> avgPool1d(Tensor<Vector> input, int poolSize, int stride) {
 
   out.creator = Node(
     [input],
-    () {
+        () {
       double gradDist = 1.0 / poolSize;
       for (int i = 0; i < outputSize; i = i + 1) {
         for (int p = 0; p < poolSize; p = p + 1) {
@@ -433,6 +822,8 @@ Tensor<Vector> avgPool1d(Tensor<Vector> input, int poolSize, int stride) {
 
 /// Adds a matrix [a] to a matrix [b].
 Tensor<Matrix> addMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
+  TensorValidator.requireSameShape(a, b, 'add_matrix');
+
   int numRows = a.shape[0];
   int numCols = a.shape[1];
 
@@ -452,7 +843,7 @@ Tensor<Matrix> addMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int length = a.data.length;
       for (int i = 0; i < length; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i];
@@ -467,6 +858,8 @@ Tensor<Matrix> addMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
 
 /// Adds a vector [v] to every row of matrix [m].
 Tensor<Matrix> addMatrixAndVector(Tensor<Matrix> m, Tensor<Vector> v) {
+  TensorValidator.requireMatrixColsMatchVector(m, v, 'addMatrixAndVector');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -486,7 +879,7 @@ Tensor<Matrix> addMatrixAndVector(Tensor<Matrix> m, Tensor<Vector> v) {
 
   out.creator = Node(
     [m, v],
-    () {
+        () {
       for (int i = 0; i < numRows; i = i + 1) {
         for (int j = 0; j < numCols; j = j + 1) {
           int idx = i * numCols + j;
@@ -508,6 +901,9 @@ Tensor<Matrix> addMatrixAndVector(Tensor<Matrix> m, Tensor<Vector> v) {
 
 /// Adds a scalar [s] to every element of a matrix [m].
 Tensor<Matrix> addScalarToMatrix(Tensor<Matrix> m, Tensor<Scalar> s) {
+  TensorValidator.requireValidData(m, 'addScalarToMatrix');
+  TensorValidator.requireValidData(s, 'addScalarToMatrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -527,7 +923,7 @@ Tensor<Matrix> addScalarToMatrix(Tensor<Matrix> m, Tensor<Scalar> s) {
 
   out.creator = Node(
     [m, s],
-    () {
+        () {
       double sGradSum = 0.0;
       for (int i = 0; i < numRows; i = i + 1) {
         for (int j = 0; j < numCols; j = j + 1) {
@@ -546,6 +942,12 @@ Tensor<Matrix> addScalarToMatrix(Tensor<Matrix> m, Tensor<Scalar> s) {
 
 /// Concatenates two matrices via their columns
 Tensor<Matrix> concatenateMatricesByColumn(List<Tensor<Matrix>> matrices) {
+  TensorValidator.requireMatrixListCompatible(
+    matrices,
+    'concat_matrix_col',
+    requireSameCols: false,
+  );
+
   int numRows = matrices[0].shape[0];
 
   List<Matrix> cachedMatrices = [];
@@ -590,6 +992,8 @@ Tensor<Matrix> concatenateMatricesByColumn(List<Tensor<Matrix>> matrices) {
 
 /// Multiplies the elements of matrix [a] with the elements of matrix [b]. This is NOT matrix multiplication.
 Tensor<Matrix> elementWiseMultiplyMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
+  TensorValidator.requireSameShape(a, b, 'multiply_matrix');
+
   int numRows = a.shape[0];
   int numCols = a.shape[1];
 
@@ -609,7 +1013,7 @@ Tensor<Matrix> elementWiseMultiplyMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int length = a.data.length;
       for (int i = 0; i < length; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i] * b.data[i];
@@ -625,10 +1029,20 @@ Tensor<Matrix> elementWiseMultiplyMatrix(Tensor<Matrix> a, Tensor<Matrix> b) {
 /// Slides a kernel [kernel] over the matrix and calculates the elementwise multiplication at each position.
 /// Allows for optional zero padding with [padding = 'same'] where input size equals output size.
 Tensor<Matrix> conv2d(
-  Tensor<Matrix> input,
-  Tensor<Matrix> kernel, {
-  String padding = 'valid',
-}) {
+    Tensor<Matrix> input,
+    Tensor<Matrix> kernel, {
+      String padding = 'valid',
+    }) {
+  TensorValidator.requireWindow2D(
+    input,
+    kernel.shape[0],
+    kernel.shape[1],
+    1,
+    'conv2d',
+    padding: padding,
+    kernel: kernel,
+  );
+
   Matrix inputMatrix = input.value;
   Matrix kernelMatrix = kernel.value;
 
@@ -674,7 +1088,7 @@ Tensor<Matrix> conv2d(
 
   out.creator = Node(
     [input, kernel],
-    () {
+        () {
       for (int y = 0; y < outputHeight; y = y + 1) {
         for (int x = 0; x < outputWidth; x = x + 1) {
           int outIdx = y * outputWidth + x;
@@ -715,6 +1129,8 @@ Tensor<Matrix> conv2d(
 
 /// Calculates the matrix multiplication of two matrices [a] and [b].
 Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
+  TensorValidator.requireMatMul(a, b, 'matMul');
+
   int M = a.shape[0];
   int N = a.shape[1];
   int P = b.shape[1];
@@ -751,7 +1167,7 @@ Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       for (int i = 0; i < M; i = i + 1) {
         for (int k = 0; k < N; k = k + 1) {
           int aIdx = i * N + k;
@@ -775,6 +1191,8 @@ Tensor<Matrix> matMul(Tensor<Matrix> a, Tensor<Matrix> b) {
 
 /// Multiplies a vector [v] with a matrix M, resulting in a new vector.
 Tensor<Vector> matVecMul(Tensor<Matrix> M, Tensor<Vector> v) {
+  TensorValidator.requireMatrixColsMatchVector(M, v, 'matVecMul');
+
   int numRows = M.shape[0];
   int numCols = M.shape[1];
 
@@ -794,7 +1212,7 @@ Tensor<Vector> matVecMul(Tensor<Matrix> M, Tensor<Vector> v) {
 
   out.creator = Node(
     [M, v],
-    () {
+        () {
       for (int i = 0; i < numRows; i = i + 1) {
         double outGrad = out.grad[i];
         for (int j = 0; j < numCols; j = j + 1) {
@@ -813,6 +1231,8 @@ Tensor<Vector> matVecMul(Tensor<Matrix> M, Tensor<Vector> v) {
 /// Calculates the mean squared error between two matrices [a] and [b]. Error here means the difference between each element of the matrices.
 /// The provided matrices are required to have the same shape.
 Tensor<Scalar> mseMatrix(Tensor<Matrix> predictions, Tensor<Matrix> targets) {
+  TensorValidator.requireSameShape(predictions, targets, 'mse_matrix');
+
   int length = predictions.data.length;
   double sumSquaredError = 0.0;
 
@@ -825,7 +1245,7 @@ Tensor<Scalar> mseMatrix(Tensor<Matrix> predictions, Tensor<Matrix> targets) {
 
   out.creator = Node(
     [predictions, targets],
-    () {
+        () {
       double factor = 2.0 / length;
       double outGrad = out.grad[0];
       for (int i = 0; i < length; i = i + 1) {
@@ -841,6 +1261,8 @@ Tensor<Scalar> mseMatrix(Tensor<Matrix> predictions, Tensor<Matrix> targets) {
 
 /// Applies the ReLU function to every element of a matrix. Every negative value is set to 0.
 Tensor<Matrix> reluMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'relu_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -860,7 +1282,7 @@ Tensor<Matrix> reluMatrix(Tensor<Matrix> m) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         m.grad[i] = m.grad[i] + out.grad[i] * (m.data[i] > 0.0 ? 1.0 : 0.0);
@@ -875,6 +1297,8 @@ Tensor<Matrix> reluMatrix(Tensor<Matrix> m) {
 /// Reformats a vector to a matrix with given dimensions [numRows]x[numCols].
 Tensor<Matrix> reshapeVectorToMatrix(
     Tensor<Vector> v, int numRows, int numCols) {
+  TensorValidator.requireReshape(v, [numRows, numCols], 'reshape');
+
   Vector vVec = v.value;
   Matrix outValue = [];
   int index = 0;
@@ -892,7 +1316,7 @@ Tensor<Matrix> reshapeVectorToMatrix(
 
   out.creator = Node(
     [v],
-    () {
+        () {
       int length = v.data.length;
       for (int i = 0; i < length; i = i + 1) {
         v.grad[i] = v.grad[i] + out.grad[i];
@@ -907,6 +1331,8 @@ Tensor<Matrix> reshapeVectorToMatrix(
 
 /// Multiplies each element of a matrix with a constant [s].
 Tensor<Matrix> scaleMatrix(Tensor<Matrix> m, double s) {
+  TensorValidator.requireValidData(m, 'scale_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -925,7 +1351,7 @@ Tensor<Matrix> scaleMatrix(Tensor<Matrix> m, double s) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         m.grad[i] = m.grad[i] + out.grad[i] * s;
@@ -940,6 +1366,8 @@ Tensor<Matrix> scaleMatrix(Tensor<Matrix> m, double s) {
 
 /// Returns the vector of the selected row of [rowIndex] inside of [m].
 Tensor<Vector> selectRow(Tensor<Matrix> m, int rowIndex) {
+  TensorValidator.requireIndex(rowIndex, m.shape[0], m, 'selectRow');
+
   int numCols = m.shape[1];
 
   Matrix mMat = m.value;
@@ -953,7 +1381,7 @@ Tensor<Vector> selectRow(Tensor<Matrix> m, int rowIndex) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < numCols; i = i + 1) {
         int mIdx = rowIndex * numCols + i;
         m.grad[mIdx] = m.grad[mIdx] + out.grad[i];
@@ -968,6 +1396,8 @@ Tensor<Vector> selectRow(Tensor<Matrix> m, int rowIndex) {
 
 /// Applies the sigmoid function to every value of matrix [m].
 Tensor<Matrix> sigmoidMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'sigmoid_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -986,7 +1416,7 @@ Tensor<Matrix> sigmoidMatrix(Tensor<Matrix> m) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         double val = out.data[i];
@@ -1001,6 +1431,8 @@ Tensor<Matrix> sigmoidMatrix(Tensor<Matrix> m) {
 
 /// Sums all elements of matrix [m] together.
 Tensor<Scalar> sumMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'sum_matrix');
+
   int length = m.data.length;
   double total = 0.0;
 
@@ -1012,7 +1444,7 @@ Tensor<Scalar> sumMatrix(Tensor<Matrix> m) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       for (int i = 0; i < length; i = i + 1) {
         m.grad[i] = m.grad[i] + out.grad[0];
       }
@@ -1025,6 +1457,8 @@ Tensor<Scalar> sumMatrix(Tensor<Matrix> m) {
 
 /// Applies the tanh fucntion to every values of matrix [m].
 Tensor<Matrix> tanhMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'tanh_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -1049,7 +1483,7 @@ Tensor<Matrix> tanhMatrix(Tensor<Matrix> m) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         double val = out.data[i];
@@ -1064,6 +1498,8 @@ Tensor<Matrix> tanhMatrix(Tensor<Matrix> m) {
 
 /// Switches rows and columns.
 Tensor<Matrix> transpose(Tensor<Matrix> a) {
+  TensorValidator.requireValidData(a, 'transpose');
+
   int M = a.shape[0];
   int N = a.shape[1];
 
@@ -1082,7 +1518,7 @@ Tensor<Matrix> transpose(Tensor<Matrix> a) {
 
   out.creator = Node(
     [a],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         for (int j = 0; j < M; j = j + 1) {
           int aIdx = j * N + i;
@@ -1099,6 +1535,8 @@ Tensor<Matrix> transpose(Tensor<Matrix> a) {
 
 /// Applies the softmax function to every element. Creates probability distribution over all values summing up to 1.
 Tensor<Matrix> softmaxMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'softmax_matrix');
+
   Matrix inputMatrix = m.value;
   int numRows = inputMatrix.length;
   int numCols = 0;
@@ -1162,6 +1600,8 @@ Tensor<Matrix> softmaxMatrix(Tensor<Matrix> m) {
 // ─────────────────────────────────────────────────────── //
 /// Adds the elements of [a] to the elements of [b]. [a] and [b] are required to have the same size.
 Tensor<Tensor3D> add3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
+  TensorValidator.requireSameShape(a, b, 'add_3d');
+
   int depth = a.shape[0];
   int height = a.shape[1];
   int width = a.shape[2];
@@ -1186,7 +1626,7 @@ Tensor<Tensor3D> add3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
   Tensor<Tensor3D> out = Tensor<Tensor3D>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int length = a.data.length;
       for (int i = 0; i < length; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i];
@@ -1201,6 +1641,8 @@ Tensor<Tensor3D> add3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
 
 /// Multiplies the elements of [a] with the elements of [b]. [a] and [b] are required to have the same size.
 Tensor<Tensor3D> elementWiseMultiply3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
+  TensorValidator.requireSameShape(a, b, 'multiply_3d');
+
   int depth = a.shape[0];
   int height = a.shape[1];
   int width = a.shape[2];
@@ -1225,7 +1667,7 @@ Tensor<Tensor3D> elementWiseMultiply3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
   Tensor<Tensor3D> out = Tensor<Tensor3D>(outValue);
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int length = a.data.length;
       for (int i = 0; i < length; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i] * b.data[i];
@@ -1240,6 +1682,8 @@ Tensor<Tensor3D> elementWiseMultiply3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
 
 /// Appends two [Tensor3D] objects together on their 0th axis.
 Tensor<Tensor3D> concatenate3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
+  TensorValidator.requireConcat3D(a, b, 'concat_3d');
+
   int aDepth = a.shape[0];
   int bDepth = b.shape[0];
 
@@ -1258,7 +1702,7 @@ Tensor<Tensor3D> concatenate3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
 
   out.creator = Node(
     [a, b],
-    () {
+        () {
       int aLen = a.data.length;
       for (int i = 0; i < aLen; i = i + 1) {
         a.grad[i] = a.grad[i] + out.grad[i];
@@ -1282,6 +1726,9 @@ Tensor<Tensor3D> concatenate3D(Tensor<Tensor3D> a, Tensor<Tensor3D> b) {
 /// Slides a 2 dimensional kernel over a Matrix averaging the window together.
 /// The sliding window size is defined by [poolSize]x[poolSize] with [stride] as the step size in both dimensions.
 Tensor<Matrix> avgPool2d(Tensor<Matrix> input, int poolSize, int stride) {
+  TensorValidator.requireWindow2D(
+      input, poolSize, poolSize, stride, 'avg_pool_2d');
+
   int inputHeight = input.shape[0];
   int inputWidth = input.shape[1];
 
@@ -1311,7 +1758,7 @@ Tensor<Matrix> avgPool2d(Tensor<Matrix> input, int poolSize, int stride) {
 
   out.creator = Node(
     [input],
-    () {
+        () {
       double gradDist = 1.0 / numElements;
       for (int y = 0; y < outputHeight; y = y + 1) {
         for (int x = 0; x < outputWidth; x = x + 1) {
@@ -1337,6 +1784,8 @@ Tensor<Matrix> avgPool2d(Tensor<Matrix> input, int poolSize, int stride) {
 
 /// Pools the average over each column in [input].
 Tensor<Vector> globalAveragePooling(Tensor<Matrix> input) {
+  TensorValidator.requireValidData(input, 'global_avg_pool');
+
   int sequenceLength = input.shape[0];
   int dModel = input.shape[1];
 
@@ -1359,7 +1808,7 @@ Tensor<Vector> globalAveragePooling(Tensor<Matrix> input) {
 
   out.creator = Node(
     [input],
-    () {
+        () {
       for (int r = 0; r < sequenceLength; r = r + 1) {
         for (int c = 0; c < dModel; c = c + 1) {
           int inIdx = r * dModel + c;
@@ -1395,16 +1844,27 @@ Tensor<Vector> globalAveragePooling(Tensor<Matrix> input) {
 ///
 /// Returns a `Tensor<Vector>` containing the normalized, scaled, and shifted result.
 Tensor<Vector> batchNorm1dMath(
-  Tensor<Vector> x,
-  Tensor<Vector> gamma,
-  Tensor<Vector> beta,
-  Vector runningMean,
-  Vector runningVariance,
-  int numFeatures,
-  bool isTraining,
-  double momentum,
-  double epsilon,
-) {
+    Tensor<Vector> x,
+    Tensor<Vector> gamma,
+    Tensor<Vector> beta,
+    Vector runningMean,
+    Vector runningVariance,
+    int numFeatures,
+    bool isTraining,
+    double momentum,
+    double epsilon,
+    ) {
+  TensorValidator.requireBatchNorm(
+    x,
+    gamma,
+    beta,
+    runningMean,
+    runningVariance,
+    numFeatures,
+    epsilon,
+    'batch_norm_1d',
+  );
+
   Vector xHat = [];
   Vector currentMean = [];
   Vector currentVariance = [];
@@ -1443,7 +1903,7 @@ Tensor<Vector> batchNorm1dMath(
   Tensor<Vector> out = Tensor<Vector>(outValue);
   out.creator = Node(
     [x, gamma, beta],
-    () {
+        () {
       for (int i = 0; i < numFeatures; i = i + 1) {
         double invStd = 1.0 / sqrt(varianceToUse[i] + epsilon);
         gamma.grad[i] = gamma.grad[i] + out.grad[i] * xHat[i];
@@ -1478,16 +1938,27 @@ Tensor<Vector> batchNorm1dMath(
 ///
 /// Returns a `Tensor<Tensor3D>` containing the normalized, scaled, and shifted result.
 Tensor<Tensor3D> batchNorm2dMath(
-  Tensor<Tensor3D> x,
-  Tensor<Vector> gamma,
-  Tensor<Vector> beta,
-  Vector runningMean,
-  Vector runningVariance,
-  int numChannels,
-  bool isTraining,
-  double momentum,
-  double epsilon,
-) {
+    Tensor<Tensor3D> x,
+    Tensor<Vector> gamma,
+    Tensor<Vector> beta,
+    Vector runningMean,
+    Vector runningVariance,
+    int numChannels,
+    bool isTraining,
+    double momentum,
+    double epsilon,
+    ) {
+  TensorValidator.requireBatchNorm(
+    x,
+    gamma,
+    beta,
+    runningMean,
+    runningVariance,
+    numChannels,
+    epsilon,
+    'batch_norm_2d',
+  );
+
   int height = x.shape[1];
   int width = x.shape[2];
   int planeSize = height * width;
@@ -1562,7 +2033,7 @@ Tensor<Tensor3D> batchNorm2dMath(
 
   out.creator = Node(
     [x, gamma, beta],
-    () {
+        () {
       for (int c = 0; c < numChannels; c = c + 1) {
         double invStd = 1.0 / sqrt(varianceToUse[c] + epsilon);
         double gVal = gamma.data[c];
@@ -1587,6 +2058,12 @@ Tensor<Tensor3D> batchNorm2dMath(
 
 /// Uses a stack of matrices to construct a [Tensor3D] by concatenating them. Gradient propagation is conserved.
 Tensor<Tensor3D> stackMatricesTo3D(List<Tensor<Matrix>> matrices) {
+  TensorValidator.requireMatrixListCompatible(
+    matrices,
+    'stack_to_3d',
+    requireSameCols: true,
+  );
+
   int depth = matrices.length;
   int height = matrices[0].shape[0];
   int width = matrices[0].shape[1];
@@ -1600,7 +2077,7 @@ Tensor<Tensor3D> stackMatricesTo3D(List<Tensor<Matrix>> matrices) {
 
   out.creator = Node(
     matrices,
-    () {
+        () {
       for (int d = 0; d < depth; d = d + 1) {
         Tensor<Matrix> m = matrices[d];
         int offset = d * height * width;
@@ -1620,6 +2097,8 @@ Tensor<Tensor3D> stackMatricesTo3D(List<Tensor<Matrix>> matrices) {
 /// The remaining values get scaled up tp conserve the total sum of the values.
 Tensor<Vector> dropoutVectorMath(
     Tensor<Vector> input, double rate, bool isTraining) {
+  TensorValidator.requireDropoutRate(rate, input, 'dropout_vector');
+
   if (isTraining == false || rate == 0.0) {
     return input;
   }
@@ -1645,7 +2124,7 @@ Tensor<Vector> dropoutVectorMath(
 
   out.creator = Node(
     [input],
-    () {
+        () {
       for (int i = 0; i < length; i = i + 1) {
         if (mask[i]) {
           input.grad[i] = input.grad[i] + out.grad[i] * scale;
@@ -1663,6 +2142,8 @@ Tensor<Vector> dropoutVectorMath(
 /// The remaining values get scaled up tp conserve the total sum of the values.
 Tensor<Matrix> dropoutMatrixMath(
     Tensor<Matrix> input, double rate, bool isTraining) {
+  TensorValidator.requireDropoutRate(rate, input, 'dropout_matrix');
+
   if (isTraining == false || rate == 0.0) {
     return input;
   }
@@ -1693,7 +2174,7 @@ Tensor<Matrix> dropoutMatrixMath(
 
   out.creator = Node(
     [input],
-    () {
+        () {
       int length = rows * cols;
       for (int i = 0; i < length; i = i + 1) {
         if (flatMask[i]) {
@@ -1711,6 +2192,8 @@ Tensor<Matrix> dropoutMatrixMath(
 /// Slides a window of size [poolSize] over the vector with the step-size [stride].
 /// Returns a vector containing the maximum in the observed windows.
 Tensor<Vector> maxPool1d(Tensor<Vector> input, int poolSize, int stride) {
+  TensorValidator.requirePool1D(input, poolSize, stride, 'max_pool_1d');
+
   int inputSize = input.shape[0];
   int outputSize = (inputSize - poolSize) ~/ stride + 1;
 
@@ -1736,7 +2219,7 @@ Tensor<Vector> maxPool1d(Tensor<Vector> input, int poolSize, int stride) {
 
   out.creator = Node(
     [input],
-    () {
+        () {
       int outLength = out.data.length;
       for (int i = 0; i < outLength; i = i + 1) {
         int mIdx = maxIndices[i];
@@ -1753,6 +2236,9 @@ Tensor<Vector> maxPool1d(Tensor<Vector> input, int poolSize, int stride) {
 /// Slides a window of size [poolSize] over the matrix with the step-size [stride].
 /// Returns a matrix containing the maximum in the observed windows.
 Tensor<Matrix> maxPool2d(Tensor<Matrix> input, int poolSize, int stride) {
+  TensorValidator.requireWindow2D(
+      input, poolSize, poolSize, stride, 'max_pool_2d');
+
   int inputHeight = input.shape[0];
   int inputWidth = input.shape[1];
 
@@ -1789,7 +2275,7 @@ Tensor<Matrix> maxPool2d(Tensor<Matrix> input, int poolSize, int stride) {
 
   out.creator = Node(
     [input],
-    () {
+        () {
       int outLength = out.data.length;
       for (int i = 0; i < outLength; i = i + 1) {
         int mIdx = maxIndices[i];
@@ -1805,6 +2291,8 @@ Tensor<Matrix> maxPool2d(Tensor<Matrix> input, int poolSize, int stride) {
 
 /// Applies the softmax function over a vector, converting them into a probability value.
 Tensor<Vector> softmaxVector(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'softmax_vector');
+
   int N = v.data.length;
   double maxVal = -double.infinity;
 
@@ -1831,7 +2319,7 @@ Tensor<Vector> softmaxVector(Tensor<Vector> v) {
 
   out.creator = Node(
     [v],
-    () {
+        () {
       double dotProduct = 0.0;
       for (int i = 0; i < N; i = i + 1) {
         dotProduct = dotProduct + (out.grad[i] * out.data[i]);
@@ -1851,6 +2339,8 @@ Tensor<Vector> softmaxVector(Tensor<Vector> v) {
 /// Applies the swish activation function to each element inside of [v].
 /// Swish mirrors Relu with a continuous curve.
 Tensor<Vector> swishVector(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'swish_vector');
+
   int N = v.data.length;
   Vector outValue = [];
 
@@ -1864,7 +2354,7 @@ Tensor<Vector> swishVector(Tensor<Vector> v) {
 
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         double x = v.data[i];
         double sigVal = 1.0 / (1.0 + exp(-x));
@@ -1882,6 +2372,8 @@ Tensor<Vector> swishVector(Tensor<Vector> v) {
 /// Applies the swish activation function to each element inside of [m].
 /// Swish mirrors Relu with a continuous curve.
 Tensor<Matrix> swishMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'swish_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
   Matrix mMat = m.value;
@@ -1902,7 +2394,7 @@ Tensor<Matrix> swishMatrix(Tensor<Matrix> m) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         double x = m.data[i];
@@ -1924,6 +2416,8 @@ Tensor<Matrix> swishMatrix(Tensor<Matrix> m) {
 
 /// Applies the elu activation function to each element inside of [v] with multiplying negative values of [v] with a small negative number [alpha] to prevent negatives.
 Tensor<Vector> eluVector(Tensor<Vector> v, double alpha) {
+  TensorValidator.requireValidData(v, 'elu_vector');
+
   int N = v.data.length;
   Vector outValue = [];
 
@@ -1940,7 +2434,7 @@ Tensor<Vector> eluVector(Tensor<Vector> v, double alpha) {
 
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         double x = v.data[i];
         double grad = x > 0.0 ? 1.0 : out.data[i] + alpha;
@@ -1956,6 +2450,8 @@ Tensor<Vector> eluVector(Tensor<Vector> v, double alpha) {
 
 /// Applies the elu activation function to each element inside of [m] with multiplying negative values of [m] with a small negative number [alpha] to prevent negatives.
 Tensor<Matrix> eluMatrix(Tensor<Matrix> m, double alpha) {
+  TensorValidator.requireValidData(m, 'elu_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
   Matrix mMat = m.value;
@@ -1978,7 +2474,7 @@ Tensor<Matrix> eluMatrix(Tensor<Matrix> m, double alpha) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         double x = m.data[i];
@@ -1999,6 +2495,8 @@ Tensor<Matrix> eluMatrix(Tensor<Matrix> m, double alpha) {
 
 /// Applies leaky ReLu over a matrix [v] with multiplying negative values with a small negative number alpha to prevent the dying gradient problem.
 Tensor<Vector> leakyReluVector(Tensor<Vector> v, double alpha) {
+  TensorValidator.requireValidData(v, 'leaky_relu_vector');
+
   int N = v.data.length;
   Vector outValue = [];
 
@@ -2015,7 +2513,7 @@ Tensor<Vector> leakyReluVector(Tensor<Vector> v, double alpha) {
 
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         double x = v.data[i];
         double grad = x > 0.0 ? 1.0 : alpha;
@@ -2031,6 +2529,8 @@ Tensor<Vector> leakyReluVector(Tensor<Vector> v, double alpha) {
 
 /// Applies leaky ReLu over a matrix [m] with multiplying negative values with a small negative number alpha to prevent the dying gradient problem.
 Tensor<Matrix> leakyReluMatrix(Tensor<Matrix> m, double alpha) {
+  TensorValidator.requireValidData(m, 'leaky_relu_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
   Matrix mMat = m.value;
@@ -2053,7 +2553,7 @@ Tensor<Matrix> leakyReluMatrix(Tensor<Matrix> m, double alpha) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         double x = m.data[i];
@@ -2075,6 +2575,8 @@ Tensor<Matrix> leakyReluMatrix(Tensor<Matrix> m, double alpha) {
 /// Applies the mish activation function (similar to swish) to each element inside of [v].
 /// Mish mirrors Relu with a continuous curve.
 Tensor<Vector> mishVector(Tensor<Vector> v) {
+  TensorValidator.requireValidData(v, 'mish_vector');
+
   int N = v.data.length;
   Vector outValue = [];
 
@@ -2090,7 +2592,7 @@ Tensor<Vector> mishVector(Tensor<Vector> v) {
 
   out.creator = Node(
     [v],
-    () {
+        () {
       for (int i = 0; i < N; i = i + 1) {
         double x = v.data[i];
         double sp = log(1.0 + exp(x));
@@ -2111,6 +2613,8 @@ Tensor<Vector> mishVector(Tensor<Vector> v) {
 /// Applies the mish activation function (similar to swish) to each element inside of [m].
 /// Mish mirrors Relu with a continuous curve.
 Tensor<Matrix> mishMatrix(Tensor<Matrix> m) {
+  TensorValidator.requireValidData(m, 'mish_matrix');
+
   int numRows = m.shape[0];
   int numCols = m.shape[1];
   Matrix mMat = m.value;
@@ -2132,7 +2636,7 @@ Tensor<Matrix> mishMatrix(Tensor<Matrix> m) {
 
   out.creator = Node(
     [m],
-    () {
+        () {
       int length = m.data.length;
       for (int i = 0; i < length; i = i + 1) {
         double x = m.data[i];

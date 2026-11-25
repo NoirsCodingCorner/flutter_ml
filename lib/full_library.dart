@@ -8,4 +8,5 @@ export 'tensor/tensor_gpu.dart';
 export 'tensor/tensor_math_cpu.dart';
 export 'tensor/tensor_math_gpu.dart';
 export 'tensor/type_aliases.dart';
+export 'tensor/error_handler.dart';
 export 'logger.dart';

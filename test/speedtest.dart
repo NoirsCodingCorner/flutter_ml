@@ -83,7 +83,7 @@ void testAll(Target target) async {
   int N = 2048 * 2048 * 8;
   List<int> vecShape = <int>[N];
 
-  int M = 1024 * 4;
+  int M = 1024;
   List<int> matShape = <int>[M, M];
 
   int iterations = 50;

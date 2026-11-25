@@ -39,3 +39,7 @@ Added the ability to turn gradient allocation on and off.
 ## 3.0.6
 
 TapeDeocder bug fixed for unaligned special functions.
+
+## 3.0.7
+
+Added a default fallback if the desired GPU backend could not be found.
