@@ -1,10 +1,5 @@
 import 'dart:typed_data';
 
-import '../gpu_version/ffi/op_codes.dart';
-import '../gpu_version/ffi/command_buffer.dart';
-import '../tensor/tensor_gpu.dart';
-import '../tensor/tensor_math_gpu.dart';
-import '../tensor/type_aliases.dart';
 import 'full_library.dart';
 
 void fillTensorGPU(GPUTensor tensor, double value, CommandBuffer tape) {
@@ -18,24 +13,29 @@ void runBenchmarkIsolated({
   required int iterations,
   required int bytesPerOp,
   required int flopsPerOp,
-  required void Function() allocateInputs,
-  required void Function() initData,
-  required CommandBuffer Function() buildTape,
-  required void Function() freeAll,
+  required void Function(AllocBuffer allocTape) allocateInputs,
+  required void Function(AllocBuffer allocTape) initData,
+  required CommandBuffer Function(AllocBuffer allocTape) buildTape,
 }) {
+  AllocBuffer inputAlloc = AllocBuffer();
+  AllocBuffer outputAlloc = AllocBuffer();
   Stopwatch allocSw = Stopwatch();
 
   // 1. Time Allocation of inputs
   allocSw.start();
-  allocateInputs();
+  allocateInputs(inputAlloc);
+  inputAlloc.execute();
   allocSw.stop();
 
   // 2. Initialize data (Excluded from overhead)
-  initData();
+  AllocBuffer initAlloc = AllocBuffer();
+  initData(initAlloc);
+  initAlloc.freeAll();
 
   // 3. Time Allocation of outputs and tape generation
   allocSw.start();
-  CommandBuffer tape = buildTape();
+  CommandBuffer tape = buildTape(outputAlloc);
+  outputAlloc.execute();
   allocSw.stop();
 
   Uint8List tapeBytes = tape.bytes();
@@ -56,7 +56,8 @@ void runBenchmarkIsolated({
   // 5. Time Deallocation
   Stopwatch freeSw = Stopwatch();
   freeSw.start();
-  freeAll();
+  outputAlloc.freeAll();
+  inputAlloc.freeAll();
   freeSw.stop();
 
   // Calculations
@@ -109,34 +110,30 @@ void testAll(Target target) async {
       {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "ADD",
-        iterations: iterations,
-        bytesPerOp: binaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-          vecB = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 2.0, t);
-          fillTensorGPU(vecB!, 3.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = addGPU<Vector>(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          out!.free();
-        });
+      name: "ADD",
+      iterations: iterations,
+      bytesPerOp: binaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+        vecB = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 2.0, t);
+        fillTensorGPU(vecB!, 3.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        addGPU<Vector>(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
+
   {
     int markovSeqLen = 67108864; // ~67 Million elements
     int numStates = 16;
@@ -146,49 +143,38 @@ void testAll(Target target) async {
     int buildFlops = markovSeqLen;
 
     GPUTensor<Vector>? sequence;
-    GPUTensor<Matrix>? probTable;
 
     runBenchmarkIsolated(
-        name: "MARKOV_TBL",
-        iterations: iterations,
-        bytesPerOp: buildBytes,
-        flopsPerOp: buildFlops,
-        allocateInputs: () {
-          // 1. Generate random floats in range [-8.0, 8.0] directly in VRAM
-          sequence = GPUTensor<Vector>.randomUniform(
-              <int>[markovSeqLen], numStates / 2.0);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
+      name: "MARKOV_TBL",
+      iterations: iterations,
+      bytesPerOp: buildBytes,
+      flopsPerOp: buildFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        sequence = GPUTensor<Vector>.randomUniform(
+            <int>[markovSeqLen], numStates / 2.0, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
 
-          // 2. Shift [-8.0, 8.0] to [0.0, 16.0]
-          GPUTensor<Vector> shifted =
-          addScalarVectorGPU(sequence!, numStates / 2.0, t);
+        GPUTensor<Vector> shifted =
+        addScalarVectorGPU(sequence!, numStates / 2.0, t, allocTape);
 
-          // 3. Clamp [0.0, 16.0] to [0.0, 15.0] to guarantee valid state indices
-          GPUTensor<Vector> clamped =
-          clampGPU<Vector>(shifted, 0.0, (numStates - 1).toDouble(), t);
+        GPUTensor<Vector> clamped = clampGPU<Vector>(
+            shifted, 0.0, (numStates - 1).toDouble(), t, allocTape);
 
-          // 4. Overwrite our sequence with the valid randomized states
-          t.putInt(OP_COPY);
-          t.putString(clamped.id);
-          t.putString(sequence!.id);
+        t.putInt(OP_COPY);
+        t.putString(clamped.id);
+        t.putString(sequence!.id);
 
-          GPUEngine.run(t.bytes());
-
-          // Clean up the temporary conversion tensors so VRAM doesn't leak
-          shifted.free();
-          clamped.free();
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          probTable = buildMarkovTableGPU(sequence!, order, numStates, tape);
-          return tape;
-        },
-        freeAll: () {
-          sequence!.free();
-          probTable!.free();
-        });
+        allocTape.execute();
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        buildMarkovTableGPU(sequence!, order, numStates, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
@@ -196,845 +182,724 @@ void testAll(Target target) async {
     int order = 2;
     int numHistories = 256; // 16^2
 
-    // 10 Million predictions per pass
     int predictBatchSize = 10000000;
 
-    // Read histories (batch * order * 4), Write Probs (batch * numStates * 4)
     int predictBytes =
         (predictBatchSize * order * 4) + (predictBatchSize * numStates * 4);
     int predictFlops = predictBatchSize * numStates;
 
     GPUTensor<Matrix>? historyBatch;
     GPUTensor<Matrix>? probTable;
-    GPUTensor<Matrix>? predictions;
 
     runBenchmarkIsolated(
-        name: "MARKOV_PRD",
-        iterations: iterations,
-        bytesPerOp: predictBytes,
-        flopsPerOp: predictFlops,
-        allocateInputs: () {
-          historyBatch =
-          GPUTensor<Matrix>.empty(<int>[predictBatchSize, order]);
-          probTable = GPUTensor<Matrix>.empty(<int>[numHistories, numStates]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(historyBatch!, 1.0, t);
-          fillTensorGPU(probTable!, 0.0625, t); // 1/16th uniform prob
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          predictions =
-              markovPredictGPU(historyBatch!, probTable!, numStates, tape);
-          return tape;
-        },
-        freeAll: () {
-          historyBatch!.free();
-          probTable!.free();
-          predictions!.free();
-        });
+      name: "MARKOV_PRD",
+      iterations: iterations,
+      bytesPerOp: predictBytes,
+      flopsPerOp: predictFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        historyBatch =
+        GPUTensor<Matrix>.empty(<int>[predictBatchSize, order], allocTape);
+        probTable =
+        GPUTensor<Matrix>.empty(<int>[numHistories, numStates], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(historyBatch!, 1.0, t);
+        fillTensorGPU(probTable!, 0.0625, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        markovPredictGPU(historyBatch!, probTable!, numStates, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "SUBTRACT",
-        iterations: iterations,
-        bytesPerOp: binaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-          vecB = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 5.0, t);
-          fillTensorGPU(vecB!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = subtractGPU<Vector>(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          out!.free();
-        });
+      name: "SUBTRACT",
+      iterations: iterations,
+      bytesPerOp: binaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+        vecB = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 5.0, t);
+        fillTensorGPU(vecB!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        subtractGPU<Vector>(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "MULTIPLY",
-        iterations: iterations,
-        bytesPerOp: binaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-          vecB = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 2.0, t);
-          fillTensorGPU(vecB!, 3.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = multiplyGPU<Vector>(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          out!.free();
-        });
+      name: "MULTIPLY",
+      iterations: iterations,
+      bytesPerOp: binaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+        vecB = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 2.0, t);
+        fillTensorGPU(vecB!, 3.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        multiplyGPU<Vector>(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "DIVIDE",
-        iterations: iterations,
-        bytesPerOp: binaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-          vecB = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 10.0, t);
-          fillTensorGPU(vecB!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = divideGPU<Vector>(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          out!.free();
-        });
+      name: "DIVIDE",
+      iterations: iterations,
+      bytesPerOp: binaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+        vecB = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 10.0, t);
+        fillTensorGPU(vecB!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        divideGPU<Vector>(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   // --- UNARY OPERATIONS ---
       {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "ABS",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, -2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = absGPU<Vector>(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "ABS",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, -2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        absGPU<Vector>(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "SQRT",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 4.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = sqrtGPU<Vector>(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "SQRT",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 4.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        sqrtGPU<Vector>(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "LOG",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 2.718, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = logGPU<Vector>(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "LOG",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 2.718, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        logGPU<Vector>(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "POW",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 3.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = powGPU<Vector>(vecA!, 3.0, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "POW",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 3.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        powGPU<Vector>(vecA!, 3.0, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "CLAMP",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 10.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = clampGPU<Vector>(vecA!, 0.0, 5.0, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "CLAMP",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 10.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        clampGPU<Vector>(vecA!, 0.0, 5.0, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   // --- MATMUL ---
       {
     GPUTensor<Matrix>? matA;
     GPUTensor<Matrix>? matB;
-    GPUTensor<Matrix>? outMatmul;
 
     runBenchmarkIsolated(
-        name: "MATMUL",
-        iterations: iterations,
-        bytesPerOp: matmulBytes,
-        flopsPerOp: matmulFlops,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(matShape);
-          matB = GPUTensor<Matrix>.empty(matShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          fillTensorGPU(matB!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outMatmul = GPUTensor<Matrix>.empty(matShape);
+      name: "MATMUL",
+      iterations: iterations,
+      bytesPerOp: matmulBytes,
+      flopsPerOp: matmulFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(matShape, allocTape);
+        matB = GPUTensor<Matrix>.empty(matShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        fillTensorGPU(matB!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        GPUTensor<Matrix> outMatmul =
+        GPUTensor<Matrix>.empty(matShape, allocTape);
 
-          tape.putInt(OP_MATMUL);
-          tape.putString(matA!.id);
-          tape.putString(matB!.id);
-          tape.putString(outMatmul!.id);
-          tape.putBool(false);
-          tape.putBool(false);
-          tape.putFloat(1.0);
-          tape.putFloat(0.0);
-          tape.putBool(true);
+        tape.putInt(OP_MATMUL);
+        tape.putString(matA!.id);
+        tape.putString(matB!.id);
+        tape.putString(outMatmul.id);
+        tape.putBool(false);
+        tape.putBool(false);
+        tape.putFloat(1.0);
+        tape.putFloat(0.0);
+        tape.putBool(true);
 
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          matB!.free();
-          outMatmul!.free();
-        });
+        return tape;
+      },
+    );
   }
-  // --- LINEAR ALGEBRA & BROADCASTING ---
 
+  // --- LINEAR ALGEBRA & BROADCASTING ---
       {
     GPUTensor<Matrix>? matA;
-    GPUTensor<Matrix>? out;
 
     runBenchmarkIsolated(
-        name: "TRANSPOSE",
-        iterations: iterations,
-        bytesPerOp: M * M * 8, // Read M (4 bytes), Write Out (4 bytes)
-        flopsPerOp: 0, // Zero math, purely memory bound
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = transposeGPU(matA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          out!.free();
-        });
+      name: "TRANSPOSE",
+      iterations: iterations,
+      bytesPerOp: M * M * 8,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        transposeGPU(matA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Matrix>? matA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "MAT_VEC",
-        iterations: iterations,
-        bytesPerOp: (M * M * 4) + (M * 4) + (M * 4),
-        flopsPerOp: 2 * M * M,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-          vecB = GPUTensor<Vector>.empty(<int>[M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          fillTensorGPU(vecB!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = matVecMulGPU(matA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          vecB!.free();
-          out!.free();
-        });
+      name: "MAT_VEC",
+      iterations: iterations,
+      bytesPerOp: (M * M * 4) + (M * 4) + (M * 4),
+      flopsPerOp: 2 * M * M,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        fillTensorGPU(vecB!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        matVecMulGPU(matA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Matrix>? matA;
     GPUTensor<Vector>? vecBias;
-    GPUTensor<Matrix>? out;
 
     runBenchmarkIsolated(
-        name: "ADD_BIAS",
-        iterations: iterations,
-        bytesPerOp: (M * M * 4) + (M * 4) + (M * M * 4),
-        flopsPerOp: M * M,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-          vecBias = GPUTensor<Vector>.empty(<int>[M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          fillTensorGPU(vecBias!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = addBiasToMatMulOutGPU(matA!, vecBias!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          vecBias!.free();
-          out!.free();
-        });
+      name: "ADD_BIAS",
+      iterations: iterations,
+      bytesPerOp: (M * M * 4) + (M * 4) + (M * M * 4),
+      flopsPerOp: M * M,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+        vecBias = GPUTensor<Vector>.empty(<int>[M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        fillTensorGPU(vecBias!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        addBiasToMatMulOutGPU(matA!, vecBias!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Matrix>? matA;
-    GPUTensor<Matrix>? out;
 
     runBenchmarkIsolated(
-        name: "SCALE_MAT",
-        iterations: iterations,
-        bytesPerOp: M * M * 8, // Read M, Write C
-        flopsPerOp: M * M,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = scaleMatrixGPU(matA!, 3.0, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          out!.free();
-        });
+      name: "SCALE_MAT",
+      iterations: iterations,
+      bytesPerOp: M * M * 8,
+      flopsPerOp: M * M,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        scaleMatrixGPU(matA!, 3.0, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "ADD_SCALAR",
-        iterations: iterations,
-        bytesPerOp: N * 8, // Using the giant Vector N
-        flopsPerOp: N,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]); // Giant Vector size
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = addScalarVectorGPU(vecA!, 5.0, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "ADD_SCALAR",
+      iterations: iterations,
+      bytesPerOp: N * 8,
+      flopsPerOp: N,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        addScalarVectorGPU(vecA!, 5.0, tape, allocTape);
+        return tape;
+      },
+    );
   }
+
   // --- ACTIVATIONS ---
       {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "RELU",
-        iterations: iterations,
-        bytesPerOp: unaryBytes, // Read N, Write N
-        flopsPerOp: elementFlops, // 1 max() operation per element
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          // Mix of values doesn't matter for memory bandwidth, fill with 1.0
-          fillTensorGPU(vecA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = reluGPU(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "RELU",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        reluGPU(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "SIGMOID",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops * 3, // exp, add, div
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 0.5, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = sigmoidGPU(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "SIGMOID",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops * 3,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 0.5, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        sigmoidGPU(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "TANH",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops * 3, // hardware dependent, roughly 3 ops
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 0.5, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = vectorTanhGPU(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "TANH",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops * 3,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 0.5, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        vectorTanhGPU(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Vector>? out;
 
     runBenchmarkIsolated(
-        name: "GELU",
-        iterations: iterations,
-        bytesPerOp: unaryBytes,
-        flopsPerOp: elementFlops * 5, // GELU is mathematically heavier
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(vecShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 0.5, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = geluGPU(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          out!.free();
-        });
+      name: "GELU",
+      iterations: iterations,
+      bytesPerOp: unaryBytes,
+      flopsPerOp: elementFlops * 5,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(vecShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 0.5, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        geluGPU(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    int softmaxBytes = M *
-        M *
-        12; // Reads row for max, reads for sum, writes out (rough approx)
+    int softmaxBytes = M * M * 12;
     int softmaxFlops = M * M * 3;
 
     GPUTensor<Matrix>? matA;
-    GPUTensor<Matrix>? out;
 
     runBenchmarkIsolated(
-        name: "SOFTMAX",
-        iterations: iterations,
-        bytesPerOp: softmaxBytes,
-        flopsPerOp: softmaxFlops,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(matShape);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          out = softmaxMatrixGPU(matA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          out!.free();
-        });
+      name: "SOFTMAX",
+      iterations: iterations,
+      bytesPerOp: softmaxBytes,
+      flopsPerOp: softmaxFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(matShape, allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        softmaxMatrixGPU(matA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
+
   // --- LOSS FUNCTIONS (Memory Bound) ---
       {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Scalar>? outLoss;
 
     runBenchmarkIsolated(
-        name: "BCE_LOSS",
-        iterations: iterations,
-        bytesPerOp: N * 8, // Read Preds (4), Read Targets (4), write 1 scalar
-        flopsPerOp: N * 4, // log, mul, add, mul
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-          vecB = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 0.5, t); // Preds between 0 and 1
-          fillTensorGPU(vecB!, 1.0, t); // Targets 0 or 1
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outLoss = binaryCrossEntropyGPU<Vector>(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outLoss!.free();
-        });
+      name: "BCE_LOSS",
+      iterations: iterations,
+      bytesPerOp: N * 8,
+      flopsPerOp: N * 4,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 0.5, t);
+        fillTensorGPU(vecB!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        binaryCrossEntropyGPU<Vector>(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Scalar>? outLoss;
 
     runBenchmarkIsolated(
-        name: "MSE_VEC",
-        iterations: iterations,
-        bytesPerOp: N * 8, // Read Preds, Read Targets
-        flopsPerOp: N * 3, // sub, square, add (reduction)
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-          vecB = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 2.0, t);
-          fillTensorGPU(vecB!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outLoss = mseGPU(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outLoss!.free();
-        });
+      name: "MSE_VEC",
+      iterations: iterations,
+      bytesPerOp: N * 8,
+      flopsPerOp: N * 3,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 2.0, t);
+        fillTensorGPU(vecB!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        mseGPU(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Matrix>? matA;
     GPUTensor<Matrix>? matB;
-    GPUTensor<Scalar>? outLoss;
 
     runBenchmarkIsolated(
-        name: "MSE_MAT",
-        iterations: iterations,
-        bytesPerOp: M * M * 8,
-        flopsPerOp: M * M * 3,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-          matB = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 2.0, t);
-          fillTensorGPU(matB!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outLoss = mseMatrixGPU(matA!, matB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          matB!.free();
-          outLoss!.free();
-        });
+      name: "MSE_MAT",
+      iterations: iterations,
+      bytesPerOp: M * M * 8,
+      flopsPerOp: M * M * 3,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+        matB = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 2.0, t);
+        fillTensorGPU(matB!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        mseMatrixGPU(matA!, matB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   // --- REDUCTIONS (Memory Bound) ---
       {
     GPUTensor<Vector>? vecA;
-    GPUTensor<Scalar>? outSum;
 
     runBenchmarkIsolated(
-        name: "SUM_VEC",
-        iterations: iterations,
-        bytesPerOp: N * 4, // Read N, write 1
-        flopsPerOp: N,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outSum = sumGPU(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          outSum!.free();
-        });
+      name: "SUM_VEC",
+      iterations: iterations,
+      bytesPerOp: N * 4,
+      flopsPerOp: N,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        sumGPU(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Matrix>? matA;
-    GPUTensor<Vector>? outCols;
 
     runBenchmarkIsolated(
-        name: "SUM_COLS",
-        iterations: iterations,
-        bytesPerOp: (M * M * 4) + (M * 4), // Read MxM, Write M
-        flopsPerOp: M * M,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outCols = sumReduceColumnsGPU(matA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          outCols!.free();
-        });
+      name: "SUM_COLS",
+      iterations: iterations,
+      bytesPerOp: (M * M * 4) + (M * 4),
+      flopsPerOp: M * M,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        sumReduceColumnsGPU(matA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     GPUTensor<Matrix>? matA;
-    GPUTensor<Vector>? outRows;
 
     runBenchmarkIsolated(
-        name: "SUM_ROWS",
-        iterations: iterations,
-        bytesPerOp: (M * M * 4) + (M * 4), // Read MxM, Write M
-        flopsPerOp: M * M,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outRows = sumReduceRowsGPU(matA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          outRows!.free();
-        });
+      name: "SUM_ROWS",
+      iterations: iterations,
+      bytesPerOp: (M * M * 4) + (M * 4),
+      flopsPerOp: M * M,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        sumReduceRowsGPU(matA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   // --- EMBEDDING LOOKUPS (Memory Scatter/Gather Bound) ---
       {
     int vocabSize = 32000;
-    int embedDim = 768; // Standard LLM/BERT hidden size
-    int numTokens = 1048576; // 1 Million tokens
+    int embedDim = 768;
+    int numTokens = 1048576;
 
-    int embedBytes = (numTokens * 4) + // Read indices
-        (numTokens * embedDim * 4) + // Gather from weights
-        (numTokens * embedDim * 4); // Write output
-    int embedFlops = 0; // Pure memory routing
+    int embedBytes = (numTokens * 4) +
+        (numTokens * embedDim * 4) +
+        (numTokens * embedDim * 4);
+    int embedFlops = 0;
 
     GPUTensor<Vector>? indices;
     GPUTensor<Matrix>? weights;
-    GPUTensor<Matrix>? outEmbed;
 
     runBenchmarkIsolated(
-        name: "EMBED_VEC",
-        iterations: iterations,
-        bytesPerOp: embedBytes,
-        flopsPerOp: embedFlops,
-        allocateInputs: () {
-          indices = GPUTensor<Vector>.empty(<int>[numTokens]);
-          weights = GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          // We MUST fill indices with a valid vocab index (e.g., 0) so we don't segfault
-          fillTensorGPU(indices!, 0.0, t);
-          fillTensorGPU(weights!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outEmbed = embeddingLookupGPU(indices!, weights!, tape);
-          return tape;
-        },
-        freeAll: () {
-          indices!.free();
-          weights!.free();
-          outEmbed!.free();
-        });
+      name: "EMBED_VEC",
+      iterations: iterations,
+      bytesPerOp: embedBytes,
+      flopsPerOp: embedFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        indices = GPUTensor<Vector>.empty(<int>[numTokens], allocTape);
+        weights =
+        GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(indices!, 0.0, t);
+        fillTensorGPU(weights!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        embeddingLookupGPU(indices!, weights!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
@@ -1049,99 +914,86 @@ void testAll(Target target) async {
 
     GPUTensor<Matrix>? batchIndices;
     GPUTensor<Matrix>? weights;
-    GPUTensor<Tensor3D>? outBatchEmbed;
 
     runBenchmarkIsolated(
-        name: "EMBED_MAT",
-        iterations: iterations,
-        bytesPerOp: embedBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          batchIndices = GPUTensor<Matrix>.empty(<int>[batchSize, seqLength]);
-          weights = GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(batchIndices!, 0.0, t); // Safe valid index
-          fillTensorGPU(weights!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outBatchEmbed =
-              embeddingLookupBatchGPU(batchIndices!, weights!, tape);
-          return tape;
-        },
-        freeAll: () {
-          batchIndices!.free();
-          weights!.free();
-          outBatchEmbed!.free();
-        });
+      name: "EMBED_MAT",
+      iterations: iterations,
+      bytesPerOp: embedBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        batchIndices =
+        GPUTensor<Matrix>.empty(<int>[batchSize, seqLength], allocTape);
+        weights =
+        GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(batchIndices!, 0.0, t);
+        fillTensorGPU(weights!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        embeddingLookupBatchGPU(batchIndices!, weights!, tape, allocTape);
+        return tape;
+      },
+    );
   }
-  // --- TENSOR MANIPULATION & ROUTING (Memory Bound) ---
 
+  // --- TENSOR MANIPULATION & ROUTING (Memory Bound) ---
       {
     int sliceRows = M;
-    int sliceCols = M ~/ 2; // Slice half the matrix
-    int sliceBytes = (sliceRows * sliceCols * 4) * 2; // Read slice, Write slice
+    int sliceCols = M ~/ 2;
+    int sliceBytes = (sliceRows * sliceCols * 4) * 2;
 
     GPUTensor<Matrix>? matA;
-    GPUTensor<Matrix>? outSlice;
 
     runBenchmarkIsolated(
-        name: "SLICE_COL",
-        iterations: iterations,
-        bytesPerOp: sliceBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outSlice = sliceColumnGPU(matA!, 0, sliceCols, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          outSlice!.free();
-        });
+      name: "SLICE_COL",
+      iterations: iterations,
+      bytesPerOp: sliceBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        sliceColumnGPU(matA!, 0, sliceCols, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    // Make a very wide matrix so the row extraction moves enough bytes to measure properly
-    int wideCols = 1048576; // 1 Million elements per row
-    int rowBytes = wideCols * 4 * 2; // Read row, Write vector
+    int wideCols = 1048576;
+    int rowBytes = wideCols * 4 * 2;
 
     GPUTensor<Matrix>? matA;
-    GPUTensor<Vector>? outRow;
 
     runBenchmarkIsolated(
-        name: "SLICE_ROW",
-        iterations: iterations,
-        bytesPerOp: rowBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[128, wideCols]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outRow = selectRowGPU(matA!, 64, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          outRow!.free();
-        });
+      name: "SLICE_ROW",
+      iterations: iterations,
+      bytesPerOp: rowBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[128, wideCols], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        selectRowGPU(matA!, 64, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
@@ -1150,65 +1002,56 @@ void testAll(Target target) async {
     int slice3DBytes = (size * size * 4) * 2;
 
     GPUTensor<Tensor3D>? t3D;
-    GPUTensor<Matrix>? outMat;
 
     runBenchmarkIsolated(
-        name: "SLICE_3D",
-        iterations: iterations,
-        bytesPerOp: slice3DBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          t3D = GPUTensor<Tensor3D>.empty(<int>[depth, size, size]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(t3D!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outMat = selectMatrixFrom3DGPU(t3D!, 32, tape);
-          return tape;
-        },
-        freeAll: () {
-          t3D!.free();
-          outMat!.free();
-        });
+      name: "SLICE_3D",
+      iterations: iterations,
+      bytesPerOp: slice3DBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        t3D = GPUTensor<Tensor3D>.empty(<int>[depth, size, size], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(t3D!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        selectMatrixFrom3DGPU(t3D!, 32, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     int halfN = N ~/ 2;
-    int concatBytes = N * 4 * 2; // Read N total, Write N total
+    int concatBytes = N * 4 * 2;
 
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Vector>? outConcat;
 
     runBenchmarkIsolated(
-        name: "CONCAT_VEC",
-        iterations: iterations,
-        bytesPerOp: concatBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[halfN]);
-          vecB = GPUTensor<Vector>.empty(<int>[halfN]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 1.0, t);
-          fillTensorGPU(vecB!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outConcat = concatenateGPU(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outConcat!.free();
-        });
+      name: "CONCAT_VEC",
+      iterations: iterations,
+      bytesPerOp: concatBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[halfN], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[halfN], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 1.0, t);
+        fillTensorGPU(vecB!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        concatenateGPU(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
@@ -1218,379 +1061,319 @@ void testAll(Target target) async {
     int stackBytes = (numMatrices * rows * cols * 4) * 2;
 
     List<GPUTensor<Matrix>>? matrices;
-    GPUTensor<Tensor3D>? outStack;
 
     runBenchmarkIsolated(
-        name: "STACK_MAT",
-        iterations: iterations,
-        bytesPerOp: stackBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          matrices = List.generate(
-              numMatrices, (_) => GPUTensor<Matrix>.empty(<int>[rows, cols]));
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          for (var m in matrices!) {
-            fillTensorGPU(m, 1.0, t);
-          }
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outStack = stackMatricesGPU(matrices!, tape);
-          return tape;
-        },
-        freeAll: () {
-          for (var m in matrices!) {
-            m.free();
-          }
-          outStack!.free();
-        });
+      name: "STACK_MAT",
+      iterations: iterations,
+      bytesPerOp: stackBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        matrices = <GPUTensor<Matrix>>[];
+        for (int i = 0; i < numMatrices; i = i + 1) {
+          matrices!.add(GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape));
+        }
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        for (int i = 0; i < matrices!.length; i = i + 1) {
+          fillTensorGPU(matrices![i], 1.0, t);
+        }
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        stackMatricesGPU(matrices!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    // Simulating Multi-Head Attention Head Scattering
     int seqLen = 4096;
     int dHead = 64;
     int numHeads = 12;
     int dModel = numHeads * dHead;
 
-    int scatterBytes = (seqLen * dModel * 4) *
-        2; // Gather from 12 heads, write to 1 model tensor
+    int scatterBytes = (seqLen * dModel * 4) * 2;
 
     List<GPUTensor<Matrix>>? heads;
-    GPUTensor<Matrix>? outScatter;
 
     runBenchmarkIsolated(
-        name: "SCAT_HEADS",
-        iterations: iterations,
-        bytesPerOp: scatterBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          heads = List.generate(
-              numHeads, (_) => GPUTensor<Matrix>.empty(<int>[seqLen, dHead]));
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          for (var h in heads!) {
-            fillTensorGPU(h, 1.0, t);
-          }
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outScatter = scatterHeadsGPU(heads!, dModel, tape);
-          return tape;
-        },
-        freeAll: () {
-          for (var h in heads!) {
-            h.free();
-          }
-          outScatter!.free();
-        });
+      name: "SCAT_HEADS",
+      iterations: iterations,
+      bytesPerOp: scatterBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        heads = <GPUTensor<Matrix>>[];
+        for (int i = 0; i < numHeads; i = i + 1) {
+          heads!.add(GPUTensor<Matrix>.empty(<int>[seqLen, dHead], allocTape));
+        }
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        for (int i = 0; i < heads!.length; i = i + 1) {
+          fillTensorGPU(heads![i], 1.0, t);
+        }
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        scatterHeadsGPU(heads!, dModel, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
     int inSize = 4000;
-    int pad = 48; // Total out size = 4096 x 4096
+    int pad = 48;
     int outSize = inSize + (2 * pad);
 
-    int padBytes = (inSize * inSize * 4) +
-        (outSize *
-            outSize *
-            4); // Read inner, write outer (padded zeros are free)
+    int padBytes = (inSize * inSize * 4) + (outSize * outSize * 4);
 
     GPUTensor<Matrix>? matA;
-    GPUTensor<Matrix>? outPad;
 
     runBenchmarkIsolated(
-        name: "PAD_2D",
-        iterations: iterations,
-        bytesPerOp: padBytes,
-        flopsPerOp: 0,
-        allocateInputs: () {
-          matA = GPUTensor<Matrix>.empty(<int>[inSize, inSize]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(matA!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outPad = padMatrixGPU(matA!, pad, tape);
-          return tape;
-        },
-        freeAll: () {
-          matA!.free();
-          outPad!.free();
-        });
+      name: "PAD_2D",
+      iterations: iterations,
+      bytesPerOp: padBytes,
+      flopsPerOp: 0,
+      allocateInputs: (AllocBuffer allocTape) {
+        matA = GPUTensor<Matrix>.empty(<int>[inSize, inSize], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(matA!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        padMatrixGPU(matA!, pad, tape, allocTape);
+        return tape;
+      },
+    );
   }
+
   // --- NORMALIZATION & REGULARIZATION ---
       {
-    int dModel = M; // 8192
-    int normBytes = (M * M * 4) +
-        (dModel * 4 * 4) +
-        (M *
-            M *
-            4); // Read Input, Read Params (Gamma, Beta, Mean, Var), Write Output
-    int normFlops = M * M * 8; // Mean, Var, Normalize, Scale, Shift
+    int dModel = M;
+    int normBytes = (M * M * 4) + (dModel * 4 * 4) + (M * M * 4);
+    int normFlops = M * M * 8;
 
     GPUTensor<Matrix>? input;
     GPUTensor<Vector>? gamma;
     GPUTensor<Vector>? beta;
     GPUTensor<Vector>? mean;
     GPUTensor<Vector>? rstd;
-    GPUTensor<Matrix>? outNorm;
 
     runBenchmarkIsolated(
-        name: "LAYER_NORM",
-        iterations: iterations,
-        bytesPerOp: normBytes,
-        flopsPerOp: normFlops,
-        allocateInputs: () {
-          input = GPUTensor<Matrix>.empty(<int>[M, M]);
-          gamma = GPUTensor<Vector>.empty(<int>[dModel]);
-          beta = GPUTensor<Vector>.empty(<int>[dModel]);
-          mean = GPUTensor<Vector>.empty(<int>[dModel]);
-          rstd = GPUTensor<Vector>.empty(<int>[dModel]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(input!, 1.0, t);
-          fillTensorGPU(gamma!, 1.0, t);
-          fillTensorGPU(beta!, 0.0, t);
-          fillTensorGPU(mean!, 0.0, t);
-          fillTensorGPU(rstd!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outNorm = layerNormMatrixGPU(
-              input!, gamma!, beta!, mean!, rstd!, 1e-5, tape);
-          return tape;
-        },
-        freeAll: () {
-          input!.free();
-          gamma!.free();
-          beta!.free();
-          mean!.free();
-          rstd!.free();
-          outNorm!.free();
-        });
+      name: "LAYER_NORM",
+      iterations: iterations,
+      bytesPerOp: normBytes,
+      flopsPerOp: normFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        input = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+        gamma = GPUTensor<Vector>.empty(<int>[dModel], allocTape);
+        beta = GPUTensor<Vector>.empty(<int>[dModel], allocTape);
+        mean = GPUTensor<Vector>.empty(<int>[dModel], allocTape);
+        rstd = GPUTensor<Vector>.empty(<int>[dModel], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(input!, 1.0, t);
+        fillTensorGPU(gamma!, 1.0, t);
+        fillTensorGPU(beta!, 0.0, t);
+        fillTensorGPU(mean!, 0.0, t);
+        fillTensorGPU(rstd!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        layerNormMatrixGPU(
+            input!, gamma!, beta!, mean!, rstd!, 1e-5, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    int dropBytes = (M * M * 4) +
-        (M * M * 4) +
-        (M * M * 4); // Read Input, Write Mask, Write Output
-    int dropFlops = M * M; // Random RNG comparison per element
+    int dropBytes = (M * M * 4) + (M * M * 4) + (M * M * 4);
+    int dropFlops = M * M;
 
     GPUTensor<Matrix>? input;
-    GPUTensor<Matrix>? outDrop;
 
     runBenchmarkIsolated(
-        name: "DROPOUT",
-        iterations: iterations,
-        bytesPerOp: dropBytes,
-        flopsPerOp: dropFlops,
-        allocateInputs: () {
-          input = GPUTensor<Matrix>.empty(<int>[M, M]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(input!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outDrop = dropoutGPU<Matrix>(input!, 0.5, tape);
-          return tape;
-        },
-        freeAll: () {
-          input!.free();
-          outDrop!.free();
-        });
+      name: "DROPOUT",
+      iterations: iterations,
+      bytesPerOp: dropBytes,
+      flopsPerOp: dropFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        input = GPUTensor<Matrix>.empty(<int>[M, M], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(input!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        dropoutGPU<Matrix>(input!, 0.5, tape, allocTape);
+        return tape;
+      },
+    );
   }
+
   // --- ADVANCED METRICS & LOSSES (Compositional) ---
       {
-    int dotBytes =
-        N * 16; // Multiply (Read 2N, Write 1N), Sum (Read 1N, Write 1)
+    int dotBytes = N * 16;
     int dotFlops = N * 2;
 
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Scalar>? outDot;
 
     runBenchmarkIsolated(
-        name: "DOT_PROD",
-        iterations: iterations,
-        bytesPerOp: dotBytes,
-        flopsPerOp: dotFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-          vecB = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 2.0, t);
-          fillTensorGPU(vecB!, 3.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outDot = dotProductGPU(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outDot!.free();
-        });
+      name: "DOT_PROD",
+      iterations: iterations,
+      bytesPerOp: dotBytes,
+      flopsPerOp: dotFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 2.0, t);
+        fillTensorGPU(vecB!, 3.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        dotProductGPU(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    int normBytes = N * 12; // Pow (Read 1N, Write 1N), Sum (Read 1N, Write 1)
+    int normBytes = N * 12;
     int normFlops = N * 2;
 
     GPUTensor<Vector>? vecA;
-    GPUTensor<Scalar>? outNorm;
 
     runBenchmarkIsolated(
-        name: "L2_NORM",
-        iterations: iterations,
-        bytesPerOp: normBytes,
-        flopsPerOp: normFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outNorm = l2NormGPU(vecA!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          outNorm!.free();
-        });
+      name: "L2_NORM",
+      iterations: iterations,
+      bytesPerOp: normBytes,
+      flopsPerOp: normFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        l2NormGPU(vecA!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    int distBytes = N * 24; // Sub (3N), Pow (2N), Sum (1N)
+    int distBytes = N * 24;
     int distFlops = N * 3;
 
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Scalar>? outDist;
 
     runBenchmarkIsolated(
-        name: "EUC_DIST",
-        iterations: iterations,
-        bytesPerOp: distBytes,
-        flopsPerOp: distFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-          vecB = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 5.0, t);
-          fillTensorGPU(vecB!, 2.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outDist = euclideanDistanceGPU(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outDist!.free();
-        });
+      name: "EUC_DIST",
+      iterations: iterations,
+      bytesPerOp: distBytes,
+      flopsPerOp: distFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 5.0, t);
+        fillTensorGPU(vecB!, 2.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        euclideanDistanceGPU(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    int cosBytes =
-        N * 40; // Dot (4N), NormA (3N), NormB (3N) -> Total 10N reads/writes
+    int cosBytes = N * 40;
     int cosFlops = N * 6;
 
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Scalar>? outCos;
 
     runBenchmarkIsolated(
-        name: "COS_SIM",
-        iterations: iterations,
-        bytesPerOp: cosBytes,
-        flopsPerOp: cosFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-          vecB = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 1.0, t);
-          fillTensorGPU(vecB!, 1.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outCos = cosineSimilarityGPU(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outCos!.free();
-        });
+      name: "COS_SIM",
+      iterations: iterations,
+      bytesPerOp: cosBytes,
+      flopsPerOp: cosFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 1.0, t);
+        fillTensorGPU(vecB!, 1.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        cosineSimilarityGPU(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   {
-    int maeBytes = N * 24; // Sub (3N), Abs (2N), Sum (1N)
+    int maeBytes = N * 24;
     int maeFlops = N * 3;
 
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
-    GPUTensor<Scalar>? outMae;
 
     runBenchmarkIsolated(
-        name: "MAE_LOSS",
-        iterations: iterations,
-        bytesPerOp: maeBytes,
-        flopsPerOp: maeFlops,
-        allocateInputs: () {
-          vecA = GPUTensor<Vector>.empty(<int>[N]);
-          vecB = GPUTensor<Vector>.empty(<int>[N]);
-        },
-        initData: () {
-          CommandBuffer t = CommandBuffer();
-          fillTensorGPU(vecA!, 5.0, t);
-          fillTensorGPU(vecB!, 3.0, t);
-          GPUEngine.run(t.bytes());
-        },
-        buildTape: () {
-          CommandBuffer tape = CommandBuffer();
-          outMae = maeLossGPU(vecA!, vecB!, tape);
-          return tape;
-        },
-        freeAll: () {
-          vecA!.free();
-          vecB!.free();
-          outMae!.free();
-        });
+      name: "MAE_LOSS",
+      iterations: iterations,
+      bytesPerOp: maeBytes,
+      flopsPerOp: maeFlops,
+      allocateInputs: (AllocBuffer allocTape) {
+        vecA = GPUTensor<Vector>.empty(<int>[N], allocTape);
+        vecB = GPUTensor<Vector>.empty(<int>[N], allocTape);
+      },
+      initData: (AllocBuffer allocTape) {
+        CommandBuffer t = CommandBuffer();
+        fillTensorGPU(vecA!, 5.0, t);
+        fillTensorGPU(vecB!, 3.0, t);
+        GPUEngine.run(t.bytes());
+      },
+      buildTape: (AllocBuffer allocTape) {
+        CommandBuffer tape = CommandBuffer();
+        maeLossGPU(vecA!, vecB!, tape, allocTape);
+        return tape;
+      },
+    );
   }
 
   GPUEngine.dispose();
 }
 
-
-void main(){
-  testAll(Target.cpu);
+void main() {
+  testAll(Target.cuda);
 }

@@ -5,7 +5,7 @@ import 'package:ffi/ffi.dart';
 import '/full_library.dart';
 
 /// Targeted device architecture
-enum Target { androidArm64, androidX8664, cuda, cpu }
+enum Target { auto, androidArm64, androidX8664, cuda, cpu }
 
 /// FFI- Binding for creating a tensor on the GPU
 typedef NativeCreate = Int64 Function(Bool);
@@ -54,7 +54,7 @@ typedef DartInitRandom = void Function(int, Pointer<Utf8>, double, int);
 /// In order to use the engine, at the very beginning of the program it is required to call [initialize] with the [Target] provided to load the relevant backend.
 /// This class is to be used globally as a sole instance of communication and data transfer.
 /// Its [handle] acts as the id of the executor instance. If there is currently no instance running this value will be 0.
-/// Supported targets are `android_arm64`, `android_x86_64`, `cuda`, and `cpu` (Dart fallback).
+/// Supported targets are `auto`, `android_arm64`, `android_x86_64`, `cuda`, and `cpu` (Dart fallback).
 /// Use [dispose] to delete the currently running instance of GPUEngine and free all memory again.
 class GPUEngine {
   /// Id of the currently running GPUEngine. If its value is 0, no engine is running.
@@ -74,13 +74,41 @@ class GPUEngine {
   static late DartAddPointers _addPointers;
   static late DartInitRandom _initRandom;
 
-  /// Initialises the [GPUEngine]. If no target platform is provided initialising with `cuda` is attempted.
-  /// If [target] is [Target.cpu] or the requested native backend cannot be loaded on the current platform,
-  /// the engine falls back to [DartTapeEngine].
+  /// Detects the matching native [Target] for the current OS and CPU architecture.
+  static Target _detectTarget() {
+    if (Platform.isWindows || Platform.isLinux) {
+      return Target.cuda;
+    }
+    if (Platform.isAndroid) {
+      Abi abi = Abi.current();
+      if (abi == Abi.androidArm64) {
+        return Target.androidArm64;
+      }
+      if (abi == Abi.androidX64) {
+        return Target.androidX8664;
+      }
+    }
+    return Target.cpu;
+  }
+
+  /// Initialises the [GPUEngine]. Defaults to [Target.auto], which detects the current platform,
+  /// attempts to load and initialize its native GPU backend, and falls back to [DartTapeEngine] with a warning if unavailable.
   /// [debug] enables full printout of every interaction for debugging. Initialize has to be called at least once before using the GPUEngine.
   static Future<void> initialize(
-      {bool debug = false, Target target = Target.cuda}) async {
-    if (target == Target.cpu) {
+      {bool debug = false, Target target = Target.auto}) async {
+    Target resolvedTarget = target;
+
+    if (target == Target.auto) {
+      resolvedTarget = _detectTarget();
+      if (resolvedTarget == Target.cpu) {
+        Logger.yellow(
+            "GPUEngine: No native GPU backend available for ${Platform.operatingSystem} (${Abi.current()}). Falling back to Dart CPU backend.");
+        _initCpuFallback(debug);
+        return;
+      }
+    }
+
+    if (resolvedTarget == Target.cpu) {
       _initCpuFallback(debug);
       Logger.green("GPUEngine: Successfully loaded cpu (Dart) backend.");
       return;
@@ -88,21 +116,22 @@ class GPUEngine {
 
     String libName = "";
 
-    if (target == Target.cuda) {
+    if (resolvedTarget == Target.cuda) {
       if (Platform.isWindows) {
         libName = "cuda_executor.dll";
       } else if (Platform.isLinux) {
         libName = "libcuda_executor.so";
       }
-    } else if (target == Target.androidArm64) {
+    } else if (resolvedTarget == Target.androidArm64) {
       libName = "libandroid_arm64.so";
-    } else if (target == Target.androidX8664) {
+    } else if (resolvedTarget == Target.androidX8664) {
       libName = "libandroid_x86_64.so";
     }
 
     try {
       if (libName.isEmpty) {
-        throw Exception("No native binary configured for ${target.name} on this OS");
+        throw Exception(
+            "No native binary configured for ${resolvedTarget.name} on this OS");
       }
 
       if (!Platform.isAndroid && !Platform.isWindows && !Platform.isLinux) {
@@ -134,10 +163,11 @@ class GPUEngine {
       }
 
       useCpu = false;
-      Logger.green("GPUEngine: Successfully loaded ${target.name} backend.");
+      Logger.green(
+          "GPUEngine: Successfully loaded ${resolvedTarget.name} backend.");
     } catch (e) {
       Logger.yellow(
-          "GPUEngine: Native backend (${target.name}) unavailable ($e). Falling back to Dart CPU backend.");
+          "GPUEngine: Native backend (${resolvedTarget.name}) unavailable ($e). Falling back to Dart CPU backend.");
       _initCpuFallback(debug);
     }
   }

@@ -3,6 +3,7 @@ import 'dart:math';
 import '../../tensor/tensor_gpu.dart';
 import '../../tensor/tensor_math_gpu.dart';
 import '../../tensor/type_aliases.dart';
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -48,7 +49,7 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
   /// Weights are initialized using He normal initialization for stabilization.
   /// Works for Matrix and Tensor3D inputs. On Matrix Input it is assumed to contain 1 channel.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     inChannels = input.shape.length == 2 ? 1 : input.shape[0];
     Random rnd = Random();
 
@@ -72,8 +73,8 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
       biasData.add(0.0);
     }
 
-    weights = GPUTensor<Tensor3D>(weightData);
-    biases = GPUTensor<Vector>(biasData);
+    weights = GPUTensor<Tensor3D>(weightData, allocTape, sourceOp: '$name:weights');
+    biases = GPUTensor<Vector>(biasData, allocTape, sourceOp: '$name:biases');
 
     built = true;
   }
@@ -82,7 +83,7 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Tensor3D> forward(GPUTensor<dynamic> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     // Safely free the old cache if the batch size changes
@@ -95,7 +96,7 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
     }
 
     cachedOut = conv2dMultiChannelGPU(
-        input, weights, biases, kernelSize, kernelSize, tape,
+        input, weights, biases, kernelSize, kernelSize, tape, allocTape,
         padding: padding, outTensor: cachedOut);
 
     return cachedOut!;
@@ -141,29 +142,18 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
   /// Sets [weights] and [biases] using the provided map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      weights.free();
-      biases.free();
-    }
-
     List<dynamic> rawWeights = newWeights['weights']!;
     List<dynamic> rawBiases = newWeights['biases']!;
 
-    List<List<List<double>>> weightData = <List<List<double>>>[];
+    List<double> flatWeights = <double>[];
     for (int oc = 0; oc < outChannels; oc = oc + 1) {
-      List<List<double>> cInList = <List<double>>[];
       List<dynamic> rawInMap = rawWeights[oc] as List<dynamic>;
-
       for (int ic = 0; ic < inChannels; ic = ic + 1) {
-        List<double> hwList = <double>[];
         List<dynamic> rawHwMap = rawInMap[ic] as List<dynamic>;
-
         for (int h = 0; h < kernelSize * kernelSize; h = h + 1) {
-          hwList.add(rawHwMap[h] as double);
+          flatWeights.add(rawHwMap[h] as double);
         }
-        cInList.add(hwList);
       }
-      weightData.add(cInList);
     }
 
     List<double> biasData = <double>[];
@@ -171,9 +161,7 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
       biasData.add(rawBiases[i] as double);
     }
 
-    weights = GPUTensor<Tensor3D>(weightData);
-    biases = GPUTensor<Vector>(biasData);
-
-    built = true;
+    weights.pushData(flatWeights);
+    biases.pushData(biasData);
   }
 }

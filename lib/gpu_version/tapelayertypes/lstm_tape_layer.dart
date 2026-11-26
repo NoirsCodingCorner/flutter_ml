@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/op_codes.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
@@ -66,7 +67,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for all gates and initializes them with random values.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     int inputSize = input.shape[1];
     Random random = Random();
 
@@ -93,19 +94,27 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
       return values;
     }
 
-    wXf = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize));
-    wHf = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize));
-    wXi = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize));
-    wHi = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize));
-    wXc = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize));
-    wHc = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize));
-    wXo = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize));
-    wHo = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize));
+    wXf = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize), allocTape,
+        sourceOp: '$name:wXf');
+    wHf = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize), allocTape,
+        sourceOp: '$name:wHf');
+    wXi = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize), allocTape,
+        sourceOp: '$name:wXi');
+    wHi = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize), allocTape,
+        sourceOp: '$name:wHi');
+    wXc = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize), allocTape,
+        sourceOp: '$name:wXc');
+    wHc = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize), allocTape,
+        sourceOp: '$name:wHc');
+    wXo = GPUTensor<Matrix>(initWeights(inputSize, hiddenSize), allocTape,
+        sourceOp: '$name:wXo');
+    wHo = GPUTensor<Matrix>(initWeights(hiddenSize, hiddenSize), allocTape,
+        sourceOp: '$name:wHo');
 
-    bf = GPUTensor<Matrix>(initBias());
-    bi = GPUTensor<Matrix>(initBias());
-    bc = GPUTensor<Matrix>(initBias());
-    bo = GPUTensor<Matrix>(initBias());
+    bf = GPUTensor<Matrix>(initBias(), allocTape, sourceOp: '$name:bf');
+    bi = GPUTensor<Matrix>(initBias(), allocTape, sourceOp: '$name:bi');
+    bc = GPUTensor<Matrix>(initBias(), allocTape, sourceOp: '$name:bc');
+    bo = GPUTensor<Matrix>(initBias(), allocTape, sourceOp: '$name:bo');
 
     built = true;
   }
@@ -113,13 +122,15 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
   // Helper to strictly slice a sequence row into a 1xN Matrix.
   // Added outTensor support for static unrolling caching.
   GPUTensor<Matrix> sliceRowToMatrix(
-    GPUTensor<Matrix> sequence,
-    int rowIdx,
-    CommandBuffer tape, {
-    GPUTensor<Matrix>? outTensor,
-  }) {
-    GPUTensor<Matrix> out =
-        outTensor ?? GPUTensor<Matrix>.empty(<int>[1, sequence.shape[1]]);
+      GPUTensor<Matrix> sequence,
+      int rowIdx,
+      CommandBuffer tape,
+      AllocBuffer allocTape, {
+        GPUTensor<Matrix>? outTensor,
+      }) {
+    GPUTensor<Matrix> out = outTensor ??
+        GPUTensor<Matrix>.empty(<int>[1, sequence.shape[1]], allocTape,
+            sourceOp: '$name:sliceRowToMatrix');
     tape.putInt(OP_SLICE_ROW);
     tape.putString(sequence.id);
     tape.putString(out.id);
@@ -142,21 +153,22 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
   /// and bypasses the external [intermediates] list. It dynamically reallocates memory only if the sequence length changes.
   @override
   GPUTensor<Matrix> forward(
-    GPUTensor<Matrix> input,
-    CommandBuffer tape,
-    List<GPUTensor> intermediates,
-  ) {
+      GPUTensor<Matrix> input,
+      CommandBuffer tape,
+      AllocBuffer allocTape,
+      List<GPUTensor> intermediates,
+      ) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
     if (!useCache) {
-      for (var t in hStates) {
+      for (GPUTensor<Matrix> t in hStates) {
         t.free();
       }
-      for (var t in cStates) {
+      for (GPUTensor<Matrix> t in cStates) {
         t.free();
       }
-      for (var t in stepCache) {
+      for (GPUTensor<dynamic> t in stepCache) {
         t.free();
       }
 
@@ -165,15 +177,12 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
       stepCache.clear();
       cacheSeqLength = seqLength;
 
-      List<List<double>> zeroMatrix = <List<double>>[];
-      List<double> zeroRow = <double>[];
-      for (int i = 0; i < hiddenSize; i = i + 1) {
-        zeroRow.add(0.0);
-      }
-      zeroMatrix.add(zeroRow);
+      List<int> stateShape = <int>[1, hiddenSize];
 
-      hStates.add(GPUTensor<Matrix>(zeroMatrix));
-      cStates.add(GPUTensor<Matrix>(zeroMatrix));
+      hStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initH'));
+      cStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initC'));
     }
 
     int cIdx = 0;
@@ -198,6 +207,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         input,
         t,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(xT);
@@ -210,6 +220,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         xT,
         wXf,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(fTX);
@@ -217,6 +228,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         prevH,
         wHf,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(fTH);
@@ -224,6 +236,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         fTX,
         fTH,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(fTSum);
@@ -231,12 +244,14 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         fTSum,
         bf,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(fTBiased);
       GPUTensor<Matrix> fT = sigmoidMatrixGPU(
         fTBiased,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(fT);
@@ -246,6 +261,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         xT,
         wXi,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(iTX);
@@ -253,6 +269,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         prevH,
         wHi,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(iTH);
@@ -260,6 +277,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         iTX,
         iTH,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(iTSum);
@@ -267,12 +285,14 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         iTSum,
         bi,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(iTBiased);
       GPUTensor<Matrix> iT = sigmoidMatrixGPU(
         iTBiased,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(iT);
@@ -282,6 +302,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         xT,
         wXc,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cTildeTX);
@@ -289,6 +310,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         prevH,
         wHc,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cTildeTH);
@@ -296,6 +318,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         cTildeTX,
         cTildeTH,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cTildeTSum);
@@ -303,12 +326,14 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         cTildeTSum,
         bc,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cTildeTBiased);
       GPUTensor<Matrix> cTildeT = tanhMatrixGPU(
         cTildeTBiased,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cTildeT);
@@ -318,6 +343,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         fT,
         prevC,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cRetained);
@@ -325,6 +351,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         iT,
         cTildeT,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cNewInfo);
@@ -334,6 +361,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         cRetained,
         cNewInfo,
         tape,
+        allocTape,
         outTensor: outNewC,
       );
       if (!useCache) cStates.add(newC);
@@ -343,6 +371,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         xT,
         wXo,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(oTX);
@@ -350,6 +379,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         prevH,
         wHo,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(oTH);
@@ -357,6 +387,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         oTX,
         oTH,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(oTSum);
@@ -364,12 +395,14 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         oTSum,
         bo,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(oTBiased);
       GPUTensor<Matrix> oT = sigmoidMatrixGPU(
         oTBiased,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(oT);
@@ -378,6 +411,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
       GPUTensor<Matrix> cActivated = tanhMatrixGPU(
         newC,
         tape,
+        allocTape,
         outTensor: getCached<GPUTensor<Matrix>>(),
       );
       saveCached(cActivated);
@@ -387,6 +421,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
         oT,
         cActivated,
         tape,
+        allocTape,
         outTensor: outNewH,
       );
       if (!useCache) hStates.add(newH);
@@ -444,13 +479,13 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
       wHo.free();
       bo.free();
 
-      for (var t in hStates) {
+      for (GPUTensor<Matrix> t in hStates) {
         t.free();
       }
-      for (var t in cStates) {
+      for (GPUTensor<Matrix> t in cStates) {
         t.free();
       }
-      for (var t in stepCache) {
+      for (GPUTensor<dynamic> t in stepCache) {
         t.free();
       }
 
@@ -497,37 +532,31 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) free();
-
-    List<List<double>> extractMatrix(List<dynamic> raw) {
-      List<List<double>> m = <List<double>>[];
+    List<double> extractFlatMatrix(List<dynamic> raw) {
+      List<double> flat = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
-        List<double> row = <double>[];
         List<dynamic> rawRow = raw[i] as List<dynamic>;
         for (int j = 0; j < rawRow.length; j = j + 1) {
-          row.add(rawRow[j] as double);
+          flat.add(rawRow[j] as double);
         }
-        m.add(row);
       }
-      return m;
+      return flat;
     }
 
-    wXf = GPUTensor<Matrix>(extractMatrix(newWeights['W_xf']!));
-    wHf = GPUTensor<Matrix>(extractMatrix(newWeights['W_hf']!));
-    bf = GPUTensor<Matrix>(extractMatrix(newWeights['b_f']!));
+    wXf.pushData(extractFlatMatrix(newWeights['W_xf']!));
+    wHf.pushData(extractFlatMatrix(newWeights['W_hf']!));
+    bf.pushData(extractFlatMatrix(newWeights['b_f']!));
 
-    wXi = GPUTensor<Matrix>(extractMatrix(newWeights['W_xi']!));
-    wHi = GPUTensor<Matrix>(extractMatrix(newWeights['W_hi']!));
-    bi = GPUTensor<Matrix>(extractMatrix(newWeights['b_i']!));
+    wXi.pushData(extractFlatMatrix(newWeights['W_xi']!));
+    wHi.pushData(extractFlatMatrix(newWeights['W_hi']!));
+    bi.pushData(extractFlatMatrix(newWeights['b_i']!));
 
-    wXc = GPUTensor<Matrix>(extractMatrix(newWeights['W_xc']!));
-    wHc = GPUTensor<Matrix>(extractMatrix(newWeights['W_hc']!));
-    bc = GPUTensor<Matrix>(extractMatrix(newWeights['b_c']!));
+    wXc.pushData(extractFlatMatrix(newWeights['W_xc']!));
+    wHc.pushData(extractFlatMatrix(newWeights['W_hc']!));
+    bc.pushData(extractFlatMatrix(newWeights['b_c']!));
 
-    wXo = GPUTensor<Matrix>(extractMatrix(newWeights['W_xo']!));
-    wHo = GPUTensor<Matrix>(extractMatrix(newWeights['W_ho']!));
-    bo = GPUTensor<Matrix>(extractMatrix(newWeights['b_o']!));
-
-    built = true;
+    wXo.pushData(extractFlatMatrix(newWeights['W_xo']!));
+    wHo.pushData(extractFlatMatrix(newWeights['W_ho']!));
+    bo.pushData(extractFlatMatrix(newWeights['b_o']!));
   }
 }

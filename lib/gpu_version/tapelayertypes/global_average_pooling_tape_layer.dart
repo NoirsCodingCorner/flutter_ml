@@ -2,6 +2,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -22,7 +23,7 @@ class GlobalAveragePooling1DTL extends TapeLayer<Matrix, Vector> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -30,7 +31,7 @@ class GlobalAveragePooling1DTL extends TapeLayer<Matrix, Vector> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Vector> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -41,7 +42,8 @@ class GlobalAveragePooling1DTL extends TapeLayer<Matrix, Vector> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = globalAveragePoolingGPU(input, tape, outTensor: cachedOut);
+    cachedOut =
+        globalAveragePoolingGPU(input, tape, allocTape, outTensor: cachedOut);
     return cachedOut!;
   }
 

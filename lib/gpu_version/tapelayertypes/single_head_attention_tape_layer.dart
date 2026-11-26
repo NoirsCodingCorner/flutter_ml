@@ -4,12 +4,13 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
 /// Applies Scaled Dot-Product Attention over a sequence.
-/// Projects the input into Query, Key, and Value matrices to determine contextual relationships
-/// between tokens before re-combining them based on the calculated attention scores.
+/// Projects the input into Query, Key, and Value matrices, splits them into multiple heads,
+/// calculates scaled dot-product attention, and projects the concatenated results back to the original dimension.
 class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   @override
   String get name => 'SingleHeadAttentionTapeLayer';
@@ -54,7 +55,7 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for the Query, Key, and Value projection matrices.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     Random random = Random();
 
     List<List<double>> initWeights(int rows, int cols) {
@@ -70,9 +71,12 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       return values;
     }
 
-    wq = GPUTensor<Matrix>(initWeights(dModel, dK));
-    wk = GPUTensor<Matrix>(initWeights(dModel, dK));
-    wv = GPUTensor<Matrix>(initWeights(dModel, dV));
+    wq = GPUTensor<Matrix>(initWeights(dModel, dK), allocTape,
+        sourceOp: '$name:wq');
+    wk = GPUTensor<Matrix>(initWeights(dModel, dK), allocTape,
+        sourceOp: '$name:wk');
+    wv = GPUTensor<Matrix>(initWeights(dModel, dV), allocTape,
+        sourceOp: '$name:wv');
 
     built = true;
   }
@@ -81,7 +85,7 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches all intermediates to guarantee static unroll-ability.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
@@ -110,37 +114,39 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       }
     }
 
-    GPUTensor<Matrix> q =
-        matMulGPU(input, wq, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> q = matMulGPU(input, wq, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(q);
 
-    GPUTensor<Matrix> k =
-        matMulGPU(input, wk, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> k = matMulGPU(input, wk, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(k);
 
-    GPUTensor<Matrix> v =
-        matMulGPU(input, wv, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> v = matMulGPU(input, wv, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(v);
 
-    GPUTensor<Matrix> kT =
-        transposeGPU(k, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> kT = transposeGPU(k, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(kT);
 
-    GPUTensor<Matrix> scores =
-        matMulGPU(q, kT, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(scores);
 
     double scaleFactor = 1.0 / sqrt(dK);
-    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(scores, scaleFactor, tape,
+    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(
+        scores, scaleFactor, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(scaledScores);
 
-    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(scaledScores, tape,
+    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(
+        scaledScores, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(attentionWeights);
     lastAttentionWeights = attentionWeights;
 
-    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape,
+    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(output);
 
@@ -191,27 +197,19 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      free();
-    }
-
-    List<List<double>> extractMatrix(List<dynamic> raw) {
-      List<List<double>> result = <List<double>>[];
+    List<double> extractFlatMatrix(List<dynamic> raw) {
+      List<double> flat = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
-        List<double> row = <double>[];
         List<dynamic> rawRow = raw[i] as List<dynamic>;
         for (int j = 0; j < rawRow.length; j = j + 1) {
-          row.add(rawRow[j] as double);
+          flat.add(rawRow[j] as double);
         }
-        result.add(row);
       }
-      return result;
+      return flat;
     }
 
-    wq = GPUTensor<Matrix>(extractMatrix(newWeights['Wq']!));
-    wk = GPUTensor<Matrix>(extractMatrix(newWeights['Wk']!));
-    wv = GPUTensor<Matrix>(extractMatrix(newWeights['Wv']!));
-
-    built = true;
+    wq.pushData(extractFlatMatrix(newWeights['Wq']!));
+    wk.pushData(extractFlatMatrix(newWeights['Wk']!));
+    wv.pushData(extractFlatMatrix(newWeights['Wv']!));
   }
 }

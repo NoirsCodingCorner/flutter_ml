@@ -17,15 +17,21 @@ class SeqModel<InputType, OutputType> {
   GPUTensor<Scalar>? loss;
 
   /// The function used to calculate the loss between the network's output and the [target].
-  GPUTensor<Scalar> Function(
-      GPUTensor<OutputType>, GPUTensor<OutputType>, CommandBuffer,
+  GPUTensor<Scalar> Function(GPUTensor<OutputType>, GPUTensor<OutputType>,
+      CommandBuffer, AllocBuffer,
       {GPUTensor<Scalar>? outTensor})? lossFunction;
 
-  /// A callback that builds the optimizer once all layer parameters are allocated in VRAM.
-  OptimizerGPU Function(List<GPUTensor>)? optimizerBuilder;
+  /// A callback that builds the optimizer once all layer parameters are recorded in [allocTape].
+  OptimizerGPU Function(List<GPUTensor>, AllocBuffer)? optimizerBuilder;
 
   /// The optimizer responsible for updating layer weights based on calculated gradients.
   OptimizerGPU? optimizer;
+
+  /// The static allocation buffer collecting all layer weights, caches, and optimizer states.
+  late AllocBuffer allocTape;
+
+  /// The allocation buffer used for inference-specific intermediate caches.
+  AllocBuffer? inferAllocTape;
 
   /// The compiled static command buffer for the forward pass during training.
   late CommandBuffer trainForward;
@@ -51,16 +57,18 @@ class SeqModel<InputType, OutputType> {
       {this.target, this.lossFunction, this.optimizerBuilder});
 
   /// Compiles the static training tapes for forward execution, backpropagation, and optimization.
-  /// It allocates all layer parameters in VRAM, chains their forward passes, and records the gradient memory lifecycle.
+  /// Records all layer, loss, and optimizer allocations into [allocTape] and executes them once at the end.
   void compile() {
+    allocTape = AllocBuffer();
     trainForward = CommandBuffer();
     trainBackward = CommandBuffer();
     trainOptimize = CommandBuffer();
 
     GPUTensor<dynamic> current = input;
     for (int i = 0; i < layers.length; i = i + 1) {
-      layers[i].build(current);
-      current = layers[i].forward(current, trainForward, <GPUTensor>[]);
+      layers[i].build(current, allocTape);
+      current = layers[i].forward(
+          current, trainForward, allocTape, <GPUTensor>[]);
     }
 
     if (lossFunction != null && target != null) {
@@ -70,7 +78,7 @@ class SeqModel<InputType, OutputType> {
             'but the final layer returned a ${current.runtimeType}.\n'
             'Please ensure the last TapeLayer matches your SeqModel definition.');
       }
-      loss = lossFunction!(current, target!, trainForward);
+      loss = lossFunction!(current, target!, trainForward, allocTape);
     }
 
     if (loss != null) {
@@ -85,7 +93,7 @@ class SeqModel<InputType, OutputType> {
           allParams.add(layerParams[j]);
         }
       }
-      optimizer = optimizerBuilder!(allParams);
+      optimizer = optimizerBuilder!(allParams, allocTape);
     }
 
     if (optimizer != null) {
@@ -101,17 +109,25 @@ class SeqModel<InputType, OutputType> {
     if (loss != null) {
       loss!.zeroGrad(trainOptimize);
     }
+
+    allocTape.execute();
   }
 
   /// Compiles a lightweight static inference tape tailored to the shape of [newInferInput].
-  /// This safely resizes internal layer VRAM caches (e.g., matching a batch size of 1) and returns the output tensor reference.
+  /// Records any resized layer caches into [inferAllocTape] and executes them before returning the output tensor.
   GPUTensor<OutputType> predict(GPUTensor<InputType> newInferInput) {
+    if (inferAllocTape != null) {
+      inferAllocTape!.freeAll();
+    }
+
     inferInput = newInferInput;
+    inferAllocTape = AllocBuffer();
     inferTape = CommandBuffer();
     GPUTensor<dynamic> current = inferInput!;
 
     for (int i = 0; i < layers.length; i = i + 1) {
-      current = layers[i].forward(current, inferTape!, <GPUTensor>[]);
+      current = layers[i].forward(
+          current, inferTape!, inferAllocTape!, <GPUTensor>[]);
     }
 
     if (current is! GPUTensor<OutputType>) {
@@ -119,6 +135,8 @@ class SeqModel<InputType, OutputType> {
           'The Sequential Model is defined to return a GPUTensor<$OutputType>, '
           'but the final layer produced a ${current.runtimeType}.');
     }
+
+    inferAllocTape!.execute();
 
     inferResult = current;
     return inferResult!;
@@ -156,6 +174,10 @@ class SeqModel<InputType, OutputType> {
   void free() {
     for (int i = 0; i < layers.length; i = i + 1) {
       layers[i].free();
+    }
+    if (inferAllocTape != null) {
+      inferAllocTape!.freeAll();
+      inferAllocTape = null;
     }
   }
 }

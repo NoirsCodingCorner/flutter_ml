@@ -50,17 +50,17 @@ class GPUNode {
 /// These values are stored on the GPU (usually inside the VRAM) with a unique identifier `id`.
 /// Globally a counter called `idCounter` ensures uniqueness of Tensors up to the integer limit of instances.
 ///
-/// Each GPUTensor is boath holding gradient value and its actual data value. Initialisation is to be done via its constructor.
+/// Each GPUTensor is both holding gradient value and its actual data value. Initialisation is to be done via its constructor.
 ///
 /// IMPORTANT: The datatype [T] is not predefined as a standard value. To ensure compatibility with the framework the use of [Scalar],[Vector],[Matrix] and [Tensor3D] is recommended.
 ///
-/// GPUTensors are NOT managed automatically. Allocating is done on construction. To free the tensor again use the [free] method.
+/// GPUTensors are NOT allocated on construction. Every constructor records its allocation into the provided [AllocBuffer], which must be executed via [AllocBuffer.execute] before running tapes.
 /// Accessing GPUTensor values can be done via its local Buffers [data] and [grad] after [toCpu] was called to update the buffers. Forgetting to update will result in outdated or empty buffers.
 class GPUTensor<T> {
   static int _idCounter = 0;
 
   /// Global default for saying if allocated GPUTensors should hold gradient by default.
-  static bool globalGrad=true;
+  static bool globalGrad = true;
 
   /// Global identifier to find and query tensors. [id] is set to "t_gpu_[_idCounter] by default. It is recommended NOT to set this value manually outside of creation.
   /// Uniqueness is to be handled manually when setting the name.
@@ -74,123 +74,133 @@ class GPUTensor<T> {
   GPUNode? creator;
 
   /// Unoptimised List of the retrieved last value of the GPUTensor.
-  List<double> data = [];
+  List<double> data = <double>[];
 
   /// Unoptimised List of the retrieved last gradient of the GPUTensor.
-  List<double> grad = [];
+  List<double> grad = <double>[];
 
   /// Map to capture the sub GPUTensors that may have been allocate during creation.
-  Map<String, GPUTensor> subMap = {};
+  Map<String, GPUTensor> subMap = <String, GPUTensor>{};
 
   late bool localGrad;
 
-  /// Creates a [GPUTensor] object storing and managing the value [initialValue] given. Supported types for GPUTensors are:
-  /// [Scalar],[Vector],[Matrix] and [Tensor3D]. Short versions of those types are [Sc],[Vec],[Mat] and [T3D].
-  /// GPUTensors can be created the following ways:
-  /// ```dart
-  /// GPUTensor<Scalar>scalar=GPUTensor<Scalar>(3.0);
-  /// GPUTensor<Vector>vector=GPUTensor<Vector>([1.0,2.0,3.0]);
-  /// GPUTensor<Matrix>matrix=GPUTensor<Matrix>([[1.0,2.0],[3.0,4.0],);
-  /// ```
-  ///
-  /// Additionally for faster allocation, the following methods can be used:
-  /// ```dart
-  /// GPUTensor<T>a=GPUTensor.empty([1]);
-  /// GPUTensor<T>a=GPUTensor.randomUniform([1,2,3],1.0);
-  /// ```
-  ///
-  /// Regardless of creation method, a [GPUNode] [creator] can be given. This parameter will be used for calculation of connected input GPUTensors gradient values.
-  /// If no [creator] is given, this GPUTensor can only be used as an input inside of the computational structure.
-  ///
-  /// Connecting GPUTensors is one of the main focus points of this engine to enable automatic gradient calculation and can be done like the following example:
-  /// ```dart
-  /// GPUTensor<T> addGPU<T>(GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape) {
-  ///   GPUTensor<T> out = GPUTensor<T>.empty(a.shape);
-  ///
-  ///   tape.putInt(OP_ADD);
-  ///   tape.putString(a.id);
-  ///   tape.putString(b.id);
-  ///   tape.putString(out.id);
-  ///
-  ///   out.creator = GPUNode(
-  ///     <GPUTensor>[a, b],
-  ///         (CommandBuffer bTape) {
-  ///       bTape.putInt(OP_ADD_INTO);
-  ///       bTape.putString('${out.id}_grad');
-  ///       bTape.putString('${a.id}_grad');
-  ///
-  ///       bTape.putInt(OP_ADD_INTO);
-  ///       bTape.putString('${out.id}_grad');
-  ///       bTape.putString('${b.id}_grad');
-  ///     },
-  ///     opName: 'addGPU',
-  ///   );
-  ///   return out;
-  /// }
-  /// ```
-  /// The raw [data] can be accessed via [.data]. To return a structured value [.value] converts it via [shape] into [T].
-  /// The raw [grad] can be accessed via [.grad]. To return a structured value [.gradValue] converts it via [shape] into [T].
-  /// Both require [toCpu] to be called directly before that if the value is to be pulled from VRAM.
-  ///
-  GPUTensor(T initialValue, {this.creator, String? id, bool? requiresGrad}) {
+  GPUTensor(
+      T initialValue,
+      AllocBuffer allocTape, {
+        this.creator,
+        String? id,
+        bool? requiresGrad,
+        String? sourceOp,
+      }) {
     localGrad = requiresGrad ?? globalGrad;
     this.id = id ?? _generateId();
-    // 1. Determine Shape
+
     if (initialValue is double) {
-      shape = [];
+      shape = <int>[];
     } else if (initialValue is List<double>) {
-      shape = [initialValue.length];
+      shape = <int>[initialValue.length];
     } else if (initialValue is List<List<double>>) {
       int rows = initialValue.length;
       int cols = rows > 0 ? initialValue[0].length : 0;
-      shape = [rows, cols];
+      shape = <int>[rows, cols];
     } else if (initialValue is List<List<List<double>>>) {
       int depth = initialValue.length;
       int height = depth > 0 ? initialValue[0].length : 0;
       int width = height > 0 ? initialValue[0][0].length : 0;
-      shape = [depth, height, width];
+      shape = <int>[depth, height, width];
     } else {
       throw ArgumentError("Invalid initialization for GPUTensor<$T>. "
           "Expected Scalar, Vector, Matrix, or Tensor3D, got: ${initialValue.runtimeType}");
     }
 
-    // 2. Allocate VRAM
-    _allocateEmptyInVram();
-
-    // 3. Push Initial Data if provided
-    _pushInitialValue(initialValue);
+    String opTag = sourceOp ?? creator?.opName ?? 'tensor';
+    allocTape.putData(this.id, shape, _flattenToFloat32(initialValue),
+        sourceOp: opTag);
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
-  GPUTensor.scalar(Scalar? initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+
+  GPUTensor.scalar(
+      Scalar? initialValue,
+      AllocBuffer allocTape, {
+        this.creator,
+        this.id = "EMPTY",
+        bool? requiresGrad,
+        String? sourceOp,
+      }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
-    shape = [];
-    _allocateEmptyInVram();
-    _pushInitialValue(initialValue);
+    shape = <int>[];
+
+    String opTag = sourceOp ?? creator?.opName ?? 'scalar';
+    if (initialValue != null) {
+      allocTape.putData(id, shape, _flattenToFloat32(initialValue),
+          sourceOp: opTag);
+    } else {
+      allocTape.putEmpty(id, shape, sourceOp: opTag);
+    }
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
-  GPUTensor.vector(Vector initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+
+  GPUTensor.vector(
+      Vector initialValue,
+      AllocBuffer allocTape, {
+        this.creator,
+        this.id = "EMPTY",
+        bool? requiresGrad,
+        String? sourceOp,
+      }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
-    shape = [initialValue.length];
-    _allocateEmptyInVram();
-    _pushInitialValue(initialValue);
+    shape = <int>[initialValue.length];
+
+    String opTag = sourceOp ?? creator?.opName ?? 'vector';
+    allocTape.putData(id, shape, _flattenToFloat32(initialValue),
+        sourceOp: opTag);
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
 
-  GPUTensor.matrix(Matrix initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+  GPUTensor.matrix(
+      Matrix initialValue,
+      AllocBuffer allocTape, {
+        this.creator,
+        this.id = "EMPTY",
+        bool? requiresGrad,
+        String? sourceOp,
+      }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
     }
     int rows = initialValue.length;
     int cols = rows > 0 ? initialValue[0].length : 0;
-    shape = [rows, cols];
-    _allocateEmptyInVram();
-    _pushInitialValue(initialValue);
+    shape = <int>[rows, cols];
+
+    String opTag = sourceOp ?? creator?.opName ?? 'matrix';
+    allocTape.putData(id, shape, _flattenToFloat32(initialValue),
+        sourceOp: opTag);
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
-  GPUTensor.tensor3D(Tensor3D initialValue, {this.creator, this.id = "EMPTY", bool? requiresGrad}) {
+
+  GPUTensor.tensor3D(
+      Tensor3D initialValue,
+      AllocBuffer allocTape, {
+        this.creator,
+        this.id = "EMPTY",
+        bool? requiresGrad,
+        String? sourceOp,
+      }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
@@ -198,35 +208,63 @@ class GPUTensor<T> {
     int depth = initialValue.length;
     int height = depth > 0 ? initialValue[0].length : 0;
     int width = height > 0 ? initialValue[0][0].length : 0;
-    shape = [depth, height, width];
-    _allocateEmptyInVram();
-    _pushInitialValue(initialValue);
+    shape = <int>[depth, height, width];
+
+    String opTag = sourceOp ?? creator?.opName ?? 'tensor3D';
+    allocTape.putData(id, shape, _flattenToFloat32(initialValue),
+        sourceOp: opTag);
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
 
-  /// Create a GPUTensor with the given shape and fills the GPUTensor with 0.0.
+  /// Create a GPUTensor with the given shape and records an empty allocation in [allocTape].
   /// Additionally the [creator] GPUNode can be set.
-  GPUTensor.empty(List<int> initialShape, {this.creator, bool? requiresGrad}) : id = _generateId() {
+  GPUTensor.empty(
+      List<int> initialShape,
+      AllocBuffer allocTape, {
+        this.creator,
+        bool? requiresGrad,
+        String? sourceOp,
+      }) : id = _generateId() {
     localGrad = requiresGrad ?? globalGrad;
     shape = <int>[];
     for (int i = 0; i < initialShape.length; i = i + 1) {
       shape.add(initialShape[i]);
     }
-    _allocateEmptyInVram();
+
+    String opTag = sourceOp ?? creator?.opName ?? 'empty';
+    allocTape.putEmpty(id, shape, sourceOp: opTag);
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
-  /// Create a GPUTensor with the given shape and fills the GPUTensor with random initialised values in range of provided scale parameter.
+
+  /// Create a GPUTensor with the given shape and records a random uniform initialization in [allocTape].
   /// Additionally the [creator] GPUNode can be set as well as a seed for randomization.
-  GPUTensor.randomUniform(List<int> initialShape, double scale,
-      {int? seed, this.creator, bool? requiresGrad})
-      : id = _generateId() {
+  GPUTensor.randomUniform(
+      List<int> initialShape,
+      double scale,
+      AllocBuffer allocTape, {
+        int? seed,
+        this.creator,
+        bool? requiresGrad,
+        String? sourceOp,
+      }) : id = _generateId() {
     localGrad = requiresGrad ?? globalGrad;
     shape = <int>[];
     for (int i = 0; i < initialShape.length; i = i + 1) {
       shape.add(initialShape[i]);
     }
-    _allocateEmptyInVram();
 
     int finalSeed = seed ?? Random().nextInt(9999999);
-    GPUEngine.initRandomUniform(id, scale, finalSeed);
+    String opTag = sourceOp ?? creator?.opName ?? 'randomUniform';
+
+    allocTape.putEmpty(id, shape, sourceOp: opTag);
+    allocTape.putRandomUniform(id, shape, scale, finalSeed, sourceOp: opTag);
+    if (localGrad == true) {
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+    }
   }
 
   /// Converts [data] via [shape] and returns the value as [T].
@@ -282,7 +320,7 @@ class GPUTensor<T> {
     });
   }
 
-  /// Staring point of gradient calculation. The network of GPUNodes and GPUTensors traverses in topological oder over all GPUTensors writing their given commands to calculate the gradients to [backwardsTape].
+  /// Starting point of gradient calculation. The network of GPUNodes and GPUTensors traverses in topological order over all GPUTensors writing their given commands to calculate the gradients to [backwardTape].
   /// To actually calculate the values this tape is required to be executed via [GPUEngine.run(backwardTape)].
   /// If [fillOnes] is set to true, it pushes a command to fill the gradient of this tensor with 1.0.
   void backward(CommandBuffer backwardTape, {bool fillOnes = true}) {
@@ -294,8 +332,8 @@ class GPUTensor<T> {
 
     if (creator == null) return;
 
-    List<GPUNode> topo = [];
-    Set<GPUNode> visited = {};
+    List<GPUNode> topo = <GPUNode>[];
+    Set<GPUNode> visited = <GPUNode>{};
 
     void buildTopo(GPUNode? node) {
       if (node == null || visited.contains(node)) return;
@@ -330,35 +368,13 @@ class GPUTensor<T> {
   }
 
   /// Allows the exact printing of the current compute graph for this GPUTensor. Topological Depth is indicated via indents.
-  /// Colors indicate tensor types. Green is indication of an input Tensor, blue an intermediate Tensor and Yellow the resulting output of the Network.
-  /// Tensor name and shape are listed as `t_tensorid [1,4,5,...]`
-  /// Example for a simple neuronal network:
-  /// ```dart
-  /// --- Inspecting Computational Graph ---
-  /// 🚀 GPU Computational Graph:
-  /// └──  t_gpu_4 [3] [GPU] (Op: elementWiseMultiplyGPU)
-  ///     ├──  t_gpu_2 [3] [GPU] (Leaf: VRAM Input)
-  ///     └──  t_gpu_3 [3] [GPU] (Op: addVectorGPU)
-  ///         ├──  t_gpu_0 [3] [GPU] (Leaf: VRAM Input)
-  ///         └──  t_gpu_1 [3] [GPU] (Leaf: VRAM Input)
-  /// ```
-  /// For decoding od the CommandBuffer to inspect what gets calculated in what order on the gpu a TapeDecoder can be used:
-  /// ```dart
-  /// TapeDecoder(buffer.bytes()).decode();
-  /// ->
-  /// 📜 --- Decoding Execution Tape (62 bytes) ---
-  /// ℹ️ OP_ADD: t_gpu_3 = t_gpu_0 op t_gpu_1
-  /// ℹ️ OP_MULTIPLY: t_gpu_4 = t_gpu_2 op t_gpu_3
-  /// 📜 --- End of Tape ---
-  ///
-  /// ```
   void printGraph() {
     Logger.yellow('GPU Computational Graph:', prefix: '🚀');
-    Set<String> visited = {};
+    Set<String> visited = <String>{};
     _buildGPUGraphString(this, '', true, visited);
   }
 
-  /// Traverses the graph and returns a list of all GPUTensors this root GPUTensor is build from.
+  /// Traverses the graph and returns a list of all GPUTensors this root GPUTensor is built from.
   List<GPUTensor> getAllTensorsInGraph(GPUTensor root) {
     List<GPUTensor> all = <GPUTensor>[];
     Set<String> visited = <String>{};
@@ -399,7 +415,7 @@ class GPUTensor<T> {
     if (shape.isEmpty) return source[0] as T;
 
     if (shape.length == 1) {
-      List<double> vec = [];
+      List<double> vec = <double>[];
       for (int i = 0; i < shape[0]; i = i + 1) {
         vec.add(source[i]);
       }
@@ -409,9 +425,9 @@ class GPUTensor<T> {
     if (shape.length == 2) {
       int rows = shape[0];
       int cols = shape[1];
-      List<List<double>> mat = [];
+      List<List<double>> mat = <List<double>>[];
       for (int i = 0; i < rows; i = i + 1) {
-        List<double> row = [];
+        List<double> row = <double>[];
         for (int j = 0; j < cols; j = j + 1) {
           row.add(source[(i * cols) + j]);
         }
@@ -424,11 +440,11 @@ class GPUTensor<T> {
       int depth = shape[0];
       int height = shape[1];
       int width = shape[2];
-      List<List<List<double>>> tensor3d = [];
+      List<List<List<double>>> tensor3d = <List<List<double>>>[];
       for (int d = 0; d < depth; d = d + 1) {
-        List<List<double>> matrix = [];
+        List<List<double>> matrix = <List<double>>[];
         for (int h = 0; h < height; h = h + 1) {
-          List<double> row = [];
+          List<double> row = <double>[];
           for (int w = 0; w < width; w = w + 1) {
             row.add(source[(d * height * width) + (h * width) + w]);
           }
@@ -484,52 +500,37 @@ class GPUTensor<T> {
     return count;
   }
 
-  void _allocateEmptyInVram() {
+  /// Helper method to flatten data to be stored in the buffer itself.
+  Float32List _flattenToFloat32(dynamic initialValue) {
     int count = _getElementCount();
+    Float32List flat = Float32List(count);
 
-    using((Arena arena) {
-      Pointer<Float> emptyData = arena<Float>(count);
-      GPUEngine.load(id, emptyData, shape);
-
-      if (localGrad == true) {
-        Pointer<Float> emptyGrad = arena<Float>(count);
-        GPUEngine.load('${id}_grad', emptyGrad, shape);
+    if (initialValue is double) {
+      flat[0] = initialValue;
+    } else if (initialValue is List<double>) {
+      for (int i = 0; i < initialValue.length; i = i + 1) {
+        flat[i] = initialValue[i];
       }
-    });
-  }
-
-  void _pushInitialValue(dynamic initialValue) {
-    int count = _getElementCount();
-
-    using((Arena arena) {
-      Pointer<Float> ptr = arena<Float>(count);
-      Float32List view = ptr.asTypedList(count);
-
-      if (initialValue is double) {
-        view[0] = initialValue;
-      } else if (initialValue is List<double>) {
-        view.setAll(0, initialValue);
-      } else if (initialValue is List<List<double>>) {
-        int cols = shape[1];
-        for (int i = 0; i < initialValue.length; i = i + 1) {
-          for (int j = 0; j < initialValue[i].length; j = j + 1) {
-            view[(i * cols) + j] = initialValue[i][j];
-          }
+    } else if (initialValue is List<List<double>>) {
+      int cols = shape[1];
+      for (int i = 0; i < initialValue.length; i = i + 1) {
+        for (int j = 0; j < initialValue[i].length; j = j + 1) {
+          flat[(i * cols) + j] = initialValue[i][j];
         }
-      } else if (initialValue is List<List<List<double>>>) {
-        int height = shape[1];
-        int width = shape[2];
-        for (int d = 0; d < initialValue.length; d = d + 1) {
-          for (int h = 0; h < initialValue[d].length; h = h + 1) {
-            for (int w = 0; w < initialValue[d][h].length; w = w + 1) {
-              view[(d * height * width) + (h * width) + w] =
-                  initialValue[d][h][w];
-            }
+      }
+    } else if (initialValue is List<List<List<double>>>) {
+      int height = shape[1];
+      int width = shape[2];
+      for (int d = 0; d < initialValue.length; d = d + 1) {
+        for (int h = 0; h < initialValue[d].length; h = h + 1) {
+          for (int w = 0; w < initialValue[d][h].length; w = w + 1) {
+            flat[(d * height * width) + (h * width) + w] =
+            initialValue[d][h][w];
           }
         }
       }
+    }
 
-      GPUEngine.load(id, ptr, shape);
-    });
+    return flat;
   }
 }

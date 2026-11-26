@@ -3,14 +3,19 @@
 import 'package:flutter_ml/full_library.dart';
 
 void main() async {
-  // Swap for Target.android_arm64 / Target.android_x86_64 when running on device.
-  await GPUEngine.initialize(target: Target.cuda);
+  // Swap for Target.androidArm64 / Target.androidX8664 when running on device.
+  await GPUEngine.initialize(target: Target.auto);
+
+  AllocBuffer dataAlloc = AllocBuffer();
 
   // A tiny 1-channel 8x8 "image" and a 2-class target. Both are fixed, so this is
   // deliberately an overfit-one-example sanity check: if it's wired up right, the
   // loss should drop toward 0 over the 50 steps below.
-  GPUTensor<Tensor3D> input = GPUTensor<Tensor3D>.empty(<int>[1, 8, 8]);
-  GPUTensor<Matrix> target = GPUTensor<Matrix>.empty(<int>[1, 2]);
+  GPUTensor<Tensor3D> input =
+  GPUTensor<Tensor3D>.empty(<int>[1, 8, 8], dataAlloc);
+  GPUTensor<Matrix> target = GPUTensor<Matrix>.empty(<int>[1, 2], dataAlloc);
+
+  dataAlloc.execute();
 
   SeqModel<Tensor3D, Matrix> model = SeqModel<Tensor3D, Matrix>(
     <TapeLayer>[
@@ -23,7 +28,8 @@ void main() async {
     input,
     target: target,
     lossFunction: mseMatrixGPU,
-    optimizerBuilder: (List<GPUTensor> params) => AdamGPU(params, 0.01),
+    optimizerBuilder: (List<GPUTensor> params, AllocBuffer allocTape) =>
+        AdamGPU(params, 0.01, allocTape),
   );
 
   model.compile();
@@ -41,6 +47,7 @@ void main() async {
   }
 
   model.free();
+  dataAlloc.freeAll();
   GPUEngine.dispose();
 }
 

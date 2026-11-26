@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -64,18 +65,21 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for child layers and the FFN components.
   @override
-  void build(GPUTensor<Matrix> input) {
-    mha.build(input);
-    norm1.build(input);
-    norm2.build(input);
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
+    mha.build(input, allocTape);
+    norm1.build(input, allocTape);
+    norm2.build(input, allocTape);
 
     double scaleW1 = sqrt(2.0 / (dModel + dff));
-    w1 = GPUTensor<Matrix>.randomUniform(<int>[dModel, dff], scaleW1);
-    b1 = GPUTensor<Vector>.empty(<int>[dff]);
+    w1 = GPUTensor<Matrix>.randomUniform(<int>[dModel, dff], scaleW1, allocTape,
+        sourceOp: '$name:w1');
+    b1 = GPUTensor<Vector>.empty(<int>[dff], allocTape, sourceOp: '$name:b1');
 
     double scaleW2 = sqrt(2.0 / (dff + dModel));
-    w2 = GPUTensor<Matrix>.randomUniform(<int>[dff, dModel], scaleW2);
-    b2 = GPUTensor<Vector>.empty(<int>[dModel]);
+    w2 = GPUTensor<Matrix>.randomUniform(<int>[dff, dModel], scaleW2, allocTape,
+        sourceOp: '$name:w2');
+    b2 = GPUTensor<Vector>.empty(<int>[dModel], allocTape,
+        sourceOp: '$name:b2');
 
     built = true;
   }
@@ -100,7 +104,7 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
   /// Relies on the internal persistent caches of its child layers and caches its own FFN math.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
@@ -130,43 +134,48 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     }
 
     // 1. Multi-Head Attention (MHA manages its own persistent cache)
-    GPUTensor<Matrix> attnOut = mha.forward(input, tape, intermediates);
+    GPUTensor<Matrix> attnOut =
+    mha.forward(input, tape, allocTape, intermediates);
 
     // 2. Residual Add & Layer Norm 1
     GPUTensor<Matrix> add1 =
-        addMatrixGPU(input, attnOut, tape, outTensor: getCached());
+    addMatrixGPU(input, attnOut, tape, allocTape, outTensor: getCached());
     saveCached(add1);
 
-    GPUTensor<Matrix> norm1Out = norm1.forward(add1, tape, intermediates);
+    GPUTensor<Matrix> norm1Out =
+    norm1.forward(add1, tape, allocTape, intermediates);
 
     // 3. FFN Layer 1
     GPUTensor<Matrix> ffn1MatMul =
-        matMulGPU(norm1Out, w1, tape, outTensor: getCached());
+    matMulGPU(norm1Out, w1, tape, allocTape, outTensor: getCached());
     saveCached(ffn1MatMul);
 
-    GPUTensor<Matrix> ffn1Bias =
-        addBiasToMatMulOutGPU(ffn1MatMul, b1, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn1Bias = addBiasToMatMulOutGPU(
+        ffn1MatMul, b1, tape, allocTape,
+        outTensor: getCached());
     saveCached(ffn1Bias);
 
     GPUTensor<Matrix> ffn1 =
-        geluMatrixGPU(ffn1Bias, tape, outTensor: getCached());
+    geluMatrixGPU(ffn1Bias, tape, allocTape, outTensor: getCached());
     saveCached(ffn1);
 
     // 4. FFN Layer 2 (MatMul + Bias)
     GPUTensor<Matrix> ffn2MatMul =
-        matMulGPU(ffn1, w2, tape, outTensor: getCached());
+    matMulGPU(ffn1, w2, tape, allocTape, outTensor: getCached());
     saveCached(ffn2MatMul);
 
-    GPUTensor<Matrix> ffn2 =
-        addBiasToMatMulOutGPU(ffn2MatMul, b2, tape, outTensor: getCached());
+    GPUTensor<Matrix> ffn2 = addBiasToMatMulOutGPU(
+        ffn2MatMul, b2, tape, allocTape,
+        outTensor: getCached());
     saveCached(ffn2);
 
     // 5. Residual Add & Layer Norm 2
     GPUTensor<Matrix> add2 =
-        addMatrixGPU(norm1Out, ffn2, tape, outTensor: getCached());
+    addMatrixGPU(norm1Out, ffn2, tape, allocTape, outTensor: getCached());
     saveCached(add2);
 
-    GPUTensor<Matrix> out = norm2.forward(add2, tape, intermediates);
+    GPUTensor<Matrix> out =
+    norm2.forward(add2, tape, allocTape, intermediates);
 
     return out;
   }
@@ -218,7 +227,6 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     wMap['W2'] = w2.value;
     wMap['b2'] = b2.value;
 
-    // Flatten child weights to maintain Map<String, List<dynamic>> strict typing
     Map<String, List<dynamic>> mhaWeights = mha.getWeights();
     List<String> mhaKeys = mhaWeights.keys.toList();
     for (int i = 0; i < mhaKeys.length; i = i + 1) {
@@ -242,17 +250,13 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) free();
-
-    List<List<double>> extractMatrix(List<dynamic> raw) {
-      List<List<double>> result = <List<double>>[];
+    List<double> extractFlatMatrix(List<dynamic> raw) {
+      List<double> result = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
-        List<double> row = <double>[];
         List<dynamic> rawRow = raw[i] as List<dynamic>;
         for (int j = 0; j < rawRow.length; j = j + 1) {
-          row.add(rawRow[j] as double);
+          result.add(rawRow[j] as double);
         }
-        result.add(row);
       }
       return result;
     }
@@ -265,12 +269,11 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
       return result;
     }
 
-    w1 = GPUTensor<Matrix>(extractMatrix(newWeights['W1']!));
-    b1 = GPUTensor<Vector>(extractVector(newWeights['b1']!));
-    w2 = GPUTensor<Matrix>(extractMatrix(newWeights['W2']!));
-    b2 = GPUTensor<Vector>(extractVector(newWeights['b2']!));
+    w1.pushData(extractFlatMatrix(newWeights['W1']!));
+    b1.pushData(extractVector(newWeights['b1']!));
+    w2.pushData(extractFlatMatrix(newWeights['W2']!));
+    b2.pushData(extractVector(newWeights['b2']!));
 
-    // Extract child weights based on the flattened prefixes
     Map<String, List<dynamic>> mhaWeights = <String, List<dynamic>>{};
     Map<String, List<dynamic>> norm1Weights = <String, List<dynamic>>{};
     Map<String, List<dynamic>> norm2Weights = <String, List<dynamic>>{};
@@ -290,7 +293,5 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     mha.setWeights(mhaWeights);
     norm1.setWeights(norm1Weights);
     norm2.setWeights(norm2Weights);
-
-    built = true;
   }
 }

@@ -2,6 +2,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -42,7 +43,7 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for gamma and beta, initializing to 1.0 and 0.0 respectively.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     List<double> ones = <double>[];
     List<double> zeros = <double>[];
 
@@ -51,8 +52,8 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
       zeros.add(0.0);
     }
 
-    gamma = GPUTensor<Vector>(ones);
-    beta = GPUTensor<Vector>(zeros);
+    gamma = GPUTensor<Vector>(ones, allocTape, sourceOp: '$name:gamma');
+    beta = GPUTensor<Vector>(zeros, allocTape, sourceOp: '$name:beta');
 
     built = true;
   }
@@ -71,7 +72,7 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches intermediate tensors to avoid VRAM reallocation between batches.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int batchSize = input.shape[0];
 
     if (cacheBatchSize != batchSize) {
@@ -80,15 +81,17 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
       if (cachedOut != null) cachedOut!.free();
 
       List<int> cacheShape = <int>[batchSize];
-      cachedMean = GPUTensor<Vector>.empty(cacheShape);
-      cachedRstd = GPUTensor<Vector>.empty(cacheShape);
+      cachedMean = GPUTensor<Vector>.empty(cacheShape, allocTape,
+          requiresGrad: false, sourceOp: '$name:cachedMean');
+      cachedRstd = GPUTensor<Vector>.empty(cacheShape, allocTape,
+          requiresGrad: false, sourceOp: '$name:cachedRstd');
       cachedOut = null;
       cacheBatchSize = batchSize;
     }
 
     // Reuse persistent buffers, bypassing the external intermediates list
     cachedOut = layerNormMatrixGPU(
-        input, gamma, beta, cachedMean!, cachedRstd!, epsilon, tape,
+        input, gamma, beta, cachedMean!, cachedRstd!, epsilon, tape, allocTape,
         outTensor: cachedOut);
 
     return cachedOut!;
@@ -100,14 +103,6 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
   void zeroStates(CommandBuffer tape) {
     if (cachedOut != null) {
       cachedOut!.zeroGrad(tape);
-    }
-    // Note: Technically mean and rstd don't accumulate standard backprop gradients from the loss,
-    // but zeroing them here is safe and thorough if the kernel ever uses their buffers.
-    if (cachedMean != null) {
-      cachedMean!.zeroGrad(tape);
-    }
-    if (cachedRstd != null) {
-      cachedRstd!.zeroGrad(tape);
     }
   }
 
@@ -143,11 +138,6 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
   /// Sets this layer's weights [gamma] and [beta] from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      gamma.free();
-      beta.free();
-    }
-
     List<double> gammaValues = <double>[];
     List<double> betaValues = <double>[];
 
@@ -159,9 +149,7 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
       betaValues.add(rawBeta[i] as double);
     }
 
-    gamma = GPUTensor<Vector>(gammaValues);
-    beta = GPUTensor<Vector>(betaValues);
-
-    built = true;
+    gamma.pushData(gammaValues);
+    beta.pushData(betaValues);
   }
 }

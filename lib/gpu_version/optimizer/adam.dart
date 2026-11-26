@@ -26,33 +26,31 @@ class AdamGPU extends OptimizerGPU {
   /// Exposed publicly so training can be perfectly paused, saved, and resumed.
   int currentStep = 1;
 
-  /// Initializes the Adam optimizer and allocates VRAM for the moment caches.
-  /// Requires the list of trainable [parameters] and the [learningRate].
+  /// Initializes the Adam optimizer and records moment cache allocations into [allocTape].
+  /// Requires the list of trainable [parameters], the [learningRate], and [allocTape].
   /// Optional parameters [beta1], [beta2], [epsilon], and [weightDecay] allow fine-tuning of the algorithm.
   AdamGPU(
       super.parameters,
-      super.learningRate, {
+      super.learningRate,
+      AllocBuffer allocTape, {
         this.beta1 = 0.9,
         this.beta2 = 0.999,
         this.epsilon = 1e-7,
         this.weightDecay = 0.0,
       }) {
     for (int i = 0; i < parameters.length; i = i + 1) {
-      int totalElements = 1;
-      for (int s = 0; s < parameters[i].shape.length; s = s + 1) {
-        totalElements = totalElements * parameters[i].shape[s];
-      }
-
-      GPUTensor<dynamic> m = GPUTensor<dynamic>.empty(parameters[i].shape);
-      GPUTensor<dynamic> v = GPUTensor<dynamic>.empty(parameters[i].shape);
-
-      List<double> zeroData = <double>[];
-      for (int e = 0; e < totalElements; e = e + 1) {
-        zeroData.add(0.0);
-      }
-
-      m.pushData(zeroData);
-      v.pushData(zeroData);
+      GPUTensor<dynamic> m = GPUTensor<dynamic>.empty(
+        parameters[i].shape,
+        allocTape,
+        requiresGrad: false,
+        sourceOp: 'AdamGPU:m',
+      );
+      GPUTensor<dynamic> v = GPUTensor<dynamic>.empty(
+        parameters[i].shape,
+        allocTape,
+        requiresGrad: false,
+        sourceOp: 'AdamGPU:v',
+      );
 
       mCaches.add(m);
       vCaches.add(v);
@@ -76,7 +74,7 @@ class AdamGPU extends OptimizerGPU {
       tape.putFloat(beta1);
       tape.putFloat(beta2);
       tape.putFloat(epsilon);
-      _stepOffsets.add(tape.reserveInt()); // was: tape.putInt(currentStep);
+      _stepOffsets.add(tape.reserveInt());
       tape.putFloat(weightDecay);
     }
   }

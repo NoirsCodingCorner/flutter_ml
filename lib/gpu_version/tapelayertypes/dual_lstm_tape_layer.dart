@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -52,7 +53,7 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
 
   /// Allocates VRAM for all kernels and biases. Weights are initialized using scaled random values.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     int inputSize = input.shape[1];
 
     int lowerCombinedSize = hiddenSize + hiddenSize + inputSize;
@@ -64,10 +65,8 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       double stddev = sqrt(1.0 / fanIn);
       List<List<double>> values = <List<double>>[];
       for (int i = 0; i < fanIn; i = i + 1) {
-        // Rows = fanIn
         List<double> row = <double>[];
         for (int j = 0; j < fanOut; j = j + 1) {
-          // Cols = fanOut
           row.add((random.nextDouble() * 2.0 - 1.0) * stddev);
         }
         values.add(row);
@@ -83,33 +82,49 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       return <List<double>>[values];
     }
 
-    lWf =
-        GPUTensor<Matrix>(initWeightsTransposed(lowerCombinedSize, hiddenSize));
-    lWi =
-        GPUTensor<Matrix>(initWeightsTransposed(lowerCombinedSize, hiddenSize));
-    lWc =
-        GPUTensor<Matrix>(initWeightsTransposed(lowerCombinedSize, hiddenSize));
-    lWo =
-        GPUTensor<Matrix>(initWeightsTransposed(lowerCombinedSize, hiddenSize));
+    lWf = GPUTensor<Matrix>(
+        initWeightsTransposed(lowerCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:lWf');
+    lWi = GPUTensor<Matrix>(
+        initWeightsTransposed(lowerCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:lWi');
+    lWc = GPUTensor<Matrix>(
+        initWeightsTransposed(lowerCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:lWc');
+    lWo = GPUTensor<Matrix>(
+        initWeightsTransposed(lowerCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:lWo');
 
-    lbf = GPUTensor<Matrix>(initBiasRow(hiddenSize));
-    lbi = GPUTensor<Matrix>(initBiasRow(hiddenSize));
-    lbc = GPUTensor<Matrix>(initBiasRow(hiddenSize));
-    lbo = GPUTensor<Matrix>(initBiasRow(hiddenSize));
+    lbf = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:lbf');
+    lbi = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:lbi');
+    lbc = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:lbc');
+    lbo = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:lbo');
 
     hWf = GPUTensor<Matrix>(
-        initWeightsTransposed(higherCombinedSize, hiddenSize));
+        initWeightsTransposed(higherCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:hWf');
     hWi = GPUTensor<Matrix>(
-        initWeightsTransposed(higherCombinedSize, hiddenSize));
+        initWeightsTransposed(higherCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:hWi');
     hWc = GPUTensor<Matrix>(
-        initWeightsTransposed(higherCombinedSize, hiddenSize));
+        initWeightsTransposed(higherCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:hWc');
     hWo = GPUTensor<Matrix>(
-        initWeightsTransposed(higherCombinedSize, hiddenSize));
+        initWeightsTransposed(higherCombinedSize, hiddenSize), allocTape,
+        sourceOp: '$name:hWo');
 
-    hbf = GPUTensor<Matrix>(initBiasRow(hiddenSize));
-    hbi = GPUTensor<Matrix>(initBiasRow(hiddenSize));
-    hbc = GPUTensor<Matrix>(initBiasRow(hiddenSize));
-    hbo = GPUTensor<Matrix>(initBiasRow(hiddenSize));
+    hbf = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:hbf');
+    hbi = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:hbi');
+    hbc = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:hbc');
+    hbo = GPUTensor<Matrix>(initBiasRow(hiddenSize), allocTape,
+        sourceOp: '$name:hbo');
 
     built = true;
   }
@@ -120,26 +135,26 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
   /// and bypasses the external [intermediates] list. It dynamically reallocates memory only if the sequence length changes.
   @override
   GPUTensor<Vector> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int totalSteps = input.shape[0];
     int inputSize = input.shape[1];
 
     bool useCache = (cacheSeqLength == totalSteps);
 
     if (!useCache) {
-      for (var t in lhStates.toSet()) {
+      for (GPUTensor<Matrix> t in lhStates.toSet()) {
         t.free();
       }
-      for (var t in lcStates.toSet()) {
+      for (GPUTensor<Matrix> t in lcStates.toSet()) {
         t.free();
       }
-      for (var t in hhStates.toSet()) {
+      for (GPUTensor<Matrix> t in hhStates.toSet()) {
         t.free();
       }
-      for (var t in hcStates.toSet()) {
+      for (GPUTensor<Matrix> t in hcStates.toSet()) {
         t.free();
       }
-      for (var t in stepCache) {
+      for (GPUTensor<dynamic> t in stepCache) {
         t.free();
       }
 
@@ -150,16 +165,16 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       stepCache.clear();
       cacheSeqLength = totalSteps;
 
-      List<double> zeros = <double>[];
-      for (int i = 0; i < hiddenSize; i = i + 1) {
-        zeros.add(0.0);
-      }
-      List<List<double>> initialState = <List<double>>[zeros];
+      List<int> stateShape = <int>[1, hiddenSize];
 
-      lhStates.add(GPUTensor<Matrix>(initialState));
-      lcStates.add(GPUTensor<Matrix>(initialState));
-      hhStates.add(GPUTensor<Matrix>(initialState));
-      hcStates.add(GPUTensor<Matrix>(initialState));
+      lhStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initLH'));
+      lcStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initLC'));
+      hhStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initHH'));
+      hcStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initHC'));
     }
 
     int cIdx = 0;
@@ -180,10 +195,11 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
     }
 
     for (int i = 0; i < totalSteps; i = i + 1) {
-      GPUTensor<Vector> xVec = selectRowGPU(input, i, tape,
+      GPUTensor<Vector> xVec = selectRowGPU(input, i, tape, allocTape,
           outTensor: getCached<GPUTensor<Vector>>());
       saveCached(xVec);
-      GPUTensor<Matrix> xT = reshapeVectorToMatrixGPU(xVec, 1, inputSize, tape,
+      GPUTensor<Matrix> xT = reshapeVectorToMatrixGPU(
+          xVec, 1, inputSize, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(xT);
 
@@ -193,145 +209,147 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       GPUTensor<Matrix> prevHC = hcStates[i];
 
       //  LOWER TIER
-      // [1, H] + [1, H] + [1, I] = [1, C]
       GPUTensor<Matrix> combLow = concatenateMatricesByColumnGPU(
-          <GPUTensor<Matrix>>[prevLH, prevHC, xT], tape,
+          <GPUTensor<Matrix>>[prevLH, prevHC, xT], tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(combLow);
 
-      // [1, C] * [C, H] = [1, H]
-      GPUTensor<Matrix> lfLinear = matMulGPU(combLow, lWf, tape,
+      GPUTensor<Matrix> lfLinear = matMulGPU(combLow, lWf, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lfLinear);
-      GPUTensor<Matrix> lfBiased = addMatrixGPU(lfLinear, lbf, tape,
+      GPUTensor<Matrix> lfBiased = addMatrixGPU(lfLinear, lbf, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lfBiased);
-      GPUTensor<Matrix> lfT = sigmoidMatrixGPU(lfBiased, tape,
+      GPUTensor<Matrix> lfT = sigmoidMatrixGPU(lfBiased, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lfT);
 
-      GPUTensor<Matrix> liLinear = matMulGPU(combLow, lWi, tape,
+      GPUTensor<Matrix> liLinear = matMulGPU(combLow, lWi, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(liLinear);
-      GPUTensor<Matrix> liBiased = addMatrixGPU(liLinear, lbi, tape,
+      GPUTensor<Matrix> liBiased = addMatrixGPU(liLinear, lbi, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(liBiased);
-      GPUTensor<Matrix> liT = sigmoidMatrixGPU(liBiased, tape,
+      GPUTensor<Matrix> liT = sigmoidMatrixGPU(liBiased, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(liT);
 
-      GPUTensor<Matrix> lcTildeLinear = matMulGPU(combLow, lWc, tape,
+      GPUTensor<Matrix> lcTildeLinear = matMulGPU(combLow, lWc, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lcTildeLinear);
-      GPUTensor<Matrix> lcTildeBiased = addMatrixGPU(lcTildeLinear, lbc, tape,
+      GPUTensor<Matrix> lcTildeBiased = addMatrixGPU(
+          lcTildeLinear, lbc, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lcTildeBiased);
-      GPUTensor<Matrix> lcTilde = tanhMatrixGPU(lcTildeBiased, tape,
+      GPUTensor<Matrix> lcTilde = tanhMatrixGPU(lcTildeBiased, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lcTilde);
 
       GPUTensor<Matrix> lcRetained = elementWiseMultiplyMatrixGPU(
-          lfT, prevLC, tape,
+          lfT, prevLC, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lcRetained);
       GPUTensor<Matrix> lcNewInfo = elementWiseMultiplyMatrixGPU(
-          liT, lcTilde, tape,
+          liT, lcTilde, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lcNewInfo);
 
       GPUTensor<Matrix>? outNewLC = useCache ? lcStates[i + 1] : null;
       GPUTensor<Matrix> newLC =
-          addMatrixGPU(lcRetained, lcNewInfo, tape, outTensor: outNewLC);
+      addMatrixGPU(lcRetained, lcNewInfo, tape, allocTape, outTensor: outNewLC);
       if (!useCache) lcStates.add(newLC);
 
-      GPUTensor<Matrix> loLinear = matMulGPU(combLow, lWo, tape,
+      GPUTensor<Matrix> loLinear = matMulGPU(combLow, lWo, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(loLinear);
-      GPUTensor<Matrix> loBiased = addMatrixGPU(loLinear, lbo, tape,
+      GPUTensor<Matrix> loBiased = addMatrixGPU(loLinear, lbo, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(loBiased);
-      GPUTensor<Matrix> loT = sigmoidMatrixGPU(loBiased, tape,
+      GPUTensor<Matrix> loT = sigmoidMatrixGPU(loBiased, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(loT);
 
-      GPUTensor<Matrix> lcActivated =
-          tanhMatrixGPU(newLC, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> lcActivated = tanhMatrixGPU(newLC, tape, allocTape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(lcActivated);
 
       GPUTensor<Matrix>? outNewLH = useCache ? lhStates[i + 1] : null;
       GPUTensor<Matrix> newLH = elementWiseMultiplyMatrixGPU(
-          loT, lcActivated, tape,
+          loT, lcActivated, tape, allocTape,
           outTensor: outNewLH);
       if (!useCache) lhStates.add(newLH);
 
       //  HIGHER TIER
       if (i > 0 && (i + 1) % lowerTierClockCycle == 0) {
         GPUTensor<Matrix> combHigh = concatenateMatricesByColumnGPU(
-            <GPUTensor<Matrix>>[prevHH, newLH], tape,
+            <GPUTensor<Matrix>>[prevHH, newLH], tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(combHigh);
 
-        GPUTensor<Matrix> hfLinear = matMulGPU(combHigh, hWf, tape,
+        GPUTensor<Matrix> hfLinear = matMulGPU(combHigh, hWf, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hfLinear);
-        GPUTensor<Matrix> hfBiased = addMatrixGPU(hfLinear, hbf, tape,
+        GPUTensor<Matrix> hfBiased = addMatrixGPU(hfLinear, hbf, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hfBiased);
-        GPUTensor<Matrix> hfT = sigmoidMatrixGPU(hfBiased, tape,
+        GPUTensor<Matrix> hfT = sigmoidMatrixGPU(hfBiased, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hfT);
 
-        GPUTensor<Matrix> hiLinear = matMulGPU(combHigh, hWi, tape,
+        GPUTensor<Matrix> hiLinear = matMulGPU(combHigh, hWi, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hiLinear);
-        GPUTensor<Matrix> hiBiased = addMatrixGPU(hiLinear, hbi, tape,
+        GPUTensor<Matrix> hiBiased = addMatrixGPU(hiLinear, hbi, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hiBiased);
-        GPUTensor<Matrix> hiT = sigmoidMatrixGPU(hiBiased, tape,
+        GPUTensor<Matrix> hiT = sigmoidMatrixGPU(hiBiased, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hiT);
 
-        GPUTensor<Matrix> hcTildeLinear = matMulGPU(combHigh, hWc, tape,
+        GPUTensor<Matrix> hcTildeLinear = matMulGPU(
+            combHigh, hWc, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hcTildeLinear);
-        GPUTensor<Matrix> hcTildeBiased = addMatrixGPU(hcTildeLinear, hbc, tape,
+        GPUTensor<Matrix> hcTildeBiased = addMatrixGPU(
+            hcTildeLinear, hbc, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hcTildeBiased);
-        GPUTensor<Matrix> hcTilde = tanhMatrixGPU(hcTildeBiased, tape,
+        GPUTensor<Matrix> hcTilde = tanhMatrixGPU(hcTildeBiased, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hcTilde);
 
         GPUTensor<Matrix> hcRetained = elementWiseMultiplyMatrixGPU(
-            hfT, prevHC, tape,
+            hfT, prevHC, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hcRetained);
         GPUTensor<Matrix> hcNewInfo = elementWiseMultiplyMatrixGPU(
-            hiT, hcTilde, tape,
+            hiT, hcTilde, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hcNewInfo);
 
         GPUTensor<Matrix>? outNewHC = useCache ? hcStates[i + 1] : null;
-        GPUTensor<Matrix> newHC =
-            addMatrixGPU(hcRetained, hcNewInfo, tape, outTensor: outNewHC);
+        GPUTensor<Matrix> newHC = addMatrixGPU(
+            hcRetained, hcNewInfo, tape, allocTape,
+            outTensor: outNewHC);
         if (!useCache) hcStates.add(newHC);
 
-        GPUTensor<Matrix> hoLinear = matMulGPU(combHigh, hWo, tape,
+        GPUTensor<Matrix> hoLinear = matMulGPU(combHigh, hWo, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hoLinear);
-        GPUTensor<Matrix> hoBiased = addMatrixGPU(hoLinear, hbo, tape,
+        GPUTensor<Matrix> hoBiased = addMatrixGPU(hoLinear, hbo, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hoBiased);
-        GPUTensor<Matrix> hoT = sigmoidMatrixGPU(hoBiased, tape,
+        GPUTensor<Matrix> hoT = sigmoidMatrixGPU(hoBiased, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hoT);
 
-        GPUTensor<Matrix> hcActivated = tanhMatrixGPU(newHC, tape,
+        GPUTensor<Matrix> hcActivated = tanhMatrixGPU(newHC, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(hcActivated);
 
         GPUTensor<Matrix>? outNewHH = useCache ? hhStates[i + 1] : null;
         GPUTensor<Matrix> newHH = elementWiseMultiplyMatrixGPU(
-            hoT, hcActivated, tape,
+            hoT, hcActivated, tape, allocTape,
             outTensor: outNewHH);
         if (!useCache) hhStates.add(newHH);
       } else {
@@ -342,7 +360,7 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       }
     }
 
-    GPUTensor<Vector> finalVector = selectRowGPU(lhStates.last, 0, tape,
+    GPUTensor<Vector> finalVector = selectRowGPU(lhStates.last, 0, tape, allocTape,
         outTensor: getCached<GPUTensor<Vector>>());
     saveCached(finalVector);
 
@@ -390,19 +408,19 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       hWo.free();
       hbo.free();
 
-      for (var t in lhStates.toSet()) {
+      for (GPUTensor<Matrix> t in lhStates.toSet()) {
         t.free();
       }
-      for (var t in lcStates.toSet()) {
+      for (GPUTensor<Matrix> t in lcStates.toSet()) {
         t.free();
       }
-      for (var t in hhStates.toSet()) {
+      for (GPUTensor<Matrix> t in hhStates.toSet()) {
         t.free();
       }
-      for (var t in hcStates.toSet()) {
+      for (GPUTensor<Matrix> t in hcStates.toSet()) {
         t.free();
       }
-      for (var t in stepCache) {
+      for (GPUTensor<dynamic> t in stepCache) {
         t.free();
       }
 
@@ -475,9 +493,7 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) free();
-
-    List<List<double>> extractAndTranspose(List<dynamic> raw) {
+    List<double> extractAndTransposeFlat(List<dynamic> raw) {
       List<List<double>> m = <List<double>>[];
       for (int i = 0; i < raw.length; i = i + 1) {
         List<double> row = <double>[];
@@ -487,37 +503,42 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
         }
         m.add(row);
       }
-      return transposeForCpu(m);
+      List<List<double>> transposed = transposeForCpu(m);
+      List<double> flat = <double>[];
+      for (int i = 0; i < transposed.length; i = i + 1) {
+        for (int j = 0; j < transposed[i].length; j = j + 1) {
+          flat.add(transposed[i][j]);
+        }
+      }
+      return flat;
     }
 
-    List<List<double>> wrapVectorToRow(List<dynamic> raw) {
+    List<double> extractVector(List<dynamic> raw) {
       List<double> res = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
         res.add(raw[i] as double);
       }
-      return <List<double>>[res];
+      return res;
     }
 
-    lWf = GPUTensor<Matrix>(extractAndTranspose(newWeights['lW_f']!));
-    lWi = GPUTensor<Matrix>(extractAndTranspose(newWeights['lW_i']!));
-    lWc = GPUTensor<Matrix>(extractAndTranspose(newWeights['lW_c']!));
-    lWo = GPUTensor<Matrix>(extractAndTranspose(newWeights['lW_o']!));
+    lWf.pushData(extractAndTransposeFlat(newWeights['lW_f']!));
+    lWi.pushData(extractAndTransposeFlat(newWeights['lW_i']!));
+    lWc.pushData(extractAndTransposeFlat(newWeights['lW_c']!));
+    lWo.pushData(extractAndTransposeFlat(newWeights['lW_o']!));
 
-    lbf = GPUTensor<Matrix>(wrapVectorToRow(newWeights['lb_f']!));
-    lbi = GPUTensor<Matrix>(wrapVectorToRow(newWeights['lb_i']!));
-    lbc = GPUTensor<Matrix>(wrapVectorToRow(newWeights['lb_c']!));
-    lbo = GPUTensor<Matrix>(wrapVectorToRow(newWeights['lb_o']!));
+    lbf.pushData(extractVector(newWeights['lb_f']!));
+    lbi.pushData(extractVector(newWeights['lb_i']!));
+    lbc.pushData(extractVector(newWeights['lb_c']!));
+    lbo.pushData(extractVector(newWeights['lb_o']!));
 
-    hWf = GPUTensor<Matrix>(extractAndTranspose(newWeights['hW_f']!));
-    hWi = GPUTensor<Matrix>(extractAndTranspose(newWeights['hW_i']!));
-    hWc = GPUTensor<Matrix>(extractAndTranspose(newWeights['hW_c']!));
-    hWo = GPUTensor<Matrix>(extractAndTranspose(newWeights['hW_o']!));
+    hWf.pushData(extractAndTransposeFlat(newWeights['hW_f']!));
+    hWi.pushData(extractAndTransposeFlat(newWeights['hW_i']!));
+    hWc.pushData(extractAndTransposeFlat(newWeights['hW_c']!));
+    hWo.pushData(extractAndTransposeFlat(newWeights['hW_o']!));
 
-    hbf = GPUTensor<Matrix>(wrapVectorToRow(newWeights['hb_f']!));
-    hbi = GPUTensor<Matrix>(wrapVectorToRow(newWeights['hb_i']!));
-    hbc = GPUTensor<Matrix>(wrapVectorToRow(newWeights['hb_c']!));
-    hbo = GPUTensor<Matrix>(wrapVectorToRow(newWeights['hb_o']!));
-
-    built = true;
+    hbf.pushData(extractVector(newWeights['hb_f']!));
+    hbi.pushData(extractVector(newWeights['hb_i']!));
+    hbc.pushData(extractVector(newWeights['hb_c']!));
+    hbo.pushData(extractVector(newWeights['hb_o']!));
   }
 }

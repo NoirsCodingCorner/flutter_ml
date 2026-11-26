@@ -1,3 +1,4 @@
+import '../ffi/allocation_buffer.dart';
 import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
@@ -30,7 +31,7 @@ class AveragePooling2DTL extends TapeLayer<Matrix, Matrix> {
 
   /// Uses the inherent size of the [input] as its bounds. No additional allocation needs to be done.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     inputHeight = input.shape[0];
     inputWidth = input.shape[1];
     built = true;
@@ -39,9 +40,9 @@ class AveragePooling2DTL extends TapeLayer<Matrix, Matrix> {
   /// Writes the [avgPool2dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape,
       List<GPUTensor> intermediates) {
-    GPUTensor<Matrix> out = avgPool2dGPU(input, poolSize, stride, tape);
+    GPUTensor<Matrix> out = avgPool2dGPU(input, poolSize, stride, tape, allocTape);
     return out;
   }
 
@@ -81,16 +82,16 @@ class GlobalAveragePoolingTL extends TapeLayer<Matrix, Vector> {
 
   /// No allocations or parameters are set in this layer.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     built = true;
   }
 
   /// Writes the [globalAveragePoolingGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Vector> forward(GPUTensor<Matrix> input, CommandBuffer tape,
+  GPUTensor<Vector> forward(GPUTensor<Matrix> input, CommandBuffer tape,AllocBuffer allocTape,
       List<GPUTensor> intermediates) {
-    GPUTensor<Vector> out = globalAveragePoolingGPU(input, tape);
+    GPUTensor<Vector> out = globalAveragePoolingGPU(input, tape, allocTape);
     return out;
   }
 

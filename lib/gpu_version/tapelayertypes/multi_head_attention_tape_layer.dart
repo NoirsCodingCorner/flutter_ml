@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -55,20 +56,28 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   /// Allocates VRAM for the Query, Key, Value, and Output projections.
   /// Uses a scaled random uniform distribution for initial weights and zeros for biases.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     double scale = sqrt(2.0 / (dModel + dModel));
 
-    wq = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale);
-    bq = GPUTensor<Vector>.empty(<int>[dModel]);
+    wq = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale, allocTape,
+        sourceOp: '$name:wq');
+    bq = GPUTensor<Vector>.empty(<int>[dModel], allocTape,
+        sourceOp: '$name:bq');
 
-    wk = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale);
-    bk = GPUTensor<Vector>.empty(<int>[dModel]);
+    wk = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale, allocTape,
+        sourceOp: '$name:wk');
+    bk = GPUTensor<Vector>.empty(<int>[dModel], allocTape,
+        sourceOp: '$name:bk');
 
-    wv = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale);
-    bv = GPUTensor<Vector>.empty(<int>[dModel]);
+    wv = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale, allocTape,
+        sourceOp: '$name:wv');
+    bv = GPUTensor<Vector>.empty(<int>[dModel], allocTape,
+        sourceOp: '$name:bv');
 
-    wo = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale);
-    bo = GPUTensor<Vector>.empty(<int>[dModel]);
+    wo = GPUTensor<Matrix>.randomUniform(<int>[dModel, dModel], scale, allocTape,
+        sourceOp: '$name:wo');
+    bo = GPUTensor<Vector>.empty(<int>[dModel], allocTape,
+        sourceOp: '$name:bo');
 
     built = true;
   }
@@ -96,11 +105,10 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches all intermediates to guarantee static unroll-ability.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool hasMask = (attentionMask != null);
 
-    // The cache is only valid if sequence length AND masking state are identical to the previous pass
     bool useCache = (cacheSeqLength == seqLength && cacheUsedMask == hasMask);
 
     if (!useCache) {
@@ -130,24 +138,24 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
     }
 
     // 1. Compute Full Q, K, V
-    GPUTensor<Matrix> qMatMul =
-        matMulGPU(input, wq, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> qMatMul = matMulGPU(input, wq, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(qMatMul);
-    GPUTensor<Matrix> Q = addBiasToMatMulOutGPU(qMatMul, bq, tape,
+    GPUTensor<Matrix> Q = addBiasToMatMulOutGPU(qMatMul, bq, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(Q);
 
-    GPUTensor<Matrix> kMatMul =
-        matMulGPU(input, wk, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> kMatMul = matMulGPU(input, wk, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(kMatMul);
-    GPUTensor<Matrix> K = addBiasToMatMulOutGPU(kMatMul, bk, tape,
+    GPUTensor<Matrix> K = addBiasToMatMulOutGPU(kMatMul, bk, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(K);
 
-    GPUTensor<Matrix> vMatMul =
-        matMulGPU(input, wv, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> vMatMul = matMulGPU(input, wv, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(vMatMul);
-    GPUTensor<Matrix> V = addBiasToMatMulOutGPU(vMatMul, bv, tape,
+    GPUTensor<Matrix> V = addBiasToMatMulOutGPU(vMatMul, bv, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(V);
 
@@ -159,41 +167,45 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       int startCol = i * dHead;
       int endCol = startCol + dHead;
 
-      GPUTensor<Matrix> qHead = sliceColumnGPU(Q, startCol, endCol, tape,
+      GPUTensor<Matrix> qHead = sliceColumnGPU(
+          Q, startCol, endCol, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(qHead);
-      GPUTensor<Matrix> kHead = sliceColumnGPU(K, startCol, endCol, tape,
+      GPUTensor<Matrix> kHead = sliceColumnGPU(
+          K, startCol, endCol, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(kHead);
-      GPUTensor<Matrix> vHead = sliceColumnGPU(V, startCol, endCol, tape,
+      GPUTensor<Matrix> vHead = sliceColumnGPU(
+          V, startCol, endCol, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(vHead);
 
       // Attention Equation: Softmax(Q * K^T / sqrt(dHead)) * V
-      GPUTensor<Matrix> kHeadT =
-          transposeGPU(kHead, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> kHeadT = transposeGPU(kHead, tape, allocTape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(kHeadT);
-      GPUTensor<Matrix> scores = matMulGPU(qHead, kHeadT, tape,
+      GPUTensor<Matrix> scores = matMulGPU(qHead, kHeadT, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(scores);
-      GPUTensor<Matrix> scaledScores = scaleMatrixGPU(scores, scaleFactor, tape,
+      GPUTensor<Matrix> scaledScores = scaleMatrixGPU(
+          scores, scaleFactor, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(scaledScores);
 
       GPUTensor<Matrix> maskedScores;
       if (hasMask) {
         maskedScores = broadcastAddVectorToMatrixGPU(
-            scaledScores, attentionMask!, tape,
+            scaledScores, attentionMask!, tape, allocTape,
             outTensor: getCached<GPUTensor<Matrix>>());
         saveCached(maskedScores);
       } else {
         maskedScores = scaledScores;
       }
 
-      GPUTensor<Matrix> probs = softmaxMatrixGPU(maskedScores, tape,
+      GPUTensor<Matrix> probs = softmaxMatrixGPU(maskedScores, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(probs);
-      GPUTensor<Matrix> headOut = matMulGPU(probs, vHead, tape,
+      GPUTensor<Matrix> headOut = matMulGPU(probs, vHead, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(headOut);
 
@@ -202,15 +214,16 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
 
     // 3. Concatenate all heads horizontally
     GPUTensor<Matrix> concatOut = concatenateMatricesByColumnGPU(
-        headOutputs, tape,
+        headOutputs, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(concatOut);
 
     // 4. Final Output Projection
-    GPUTensor<Matrix> oMatMul = matMulGPU(concatOut, wo, tape,
+    GPUTensor<Matrix> oMatMul = matMulGPU(concatOut, wo, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(oMatMul);
-    GPUTensor<Matrix> finalOut = addBiasToMatMulOutGPU(oMatMul, bo, tape,
+    GPUTensor<Matrix> finalOut = addBiasToMatMulOutGPU(
+        oMatMul, bo, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(finalOut);
 
@@ -274,19 +287,15 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) free();
-
-    List<List<double>> extractMatrix(List<dynamic> raw) {
-      List<List<double>> m = <List<double>>[];
+    List<double> extractFlatMatrix(List<dynamic> raw) {
+      List<double> flat = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
-        List<double> row = <double>[];
         List<dynamic> rawRow = raw[i] as List<dynamic>;
         for (int j = 0; j < rawRow.length; j = j + 1) {
-          row.add(rawRow[j] as double);
+          flat.add(rawRow[j] as double);
         }
-        m.add(row);
       }
-      return m;
+      return flat;
     }
 
     List<double> extractVector(List<dynamic> raw) {
@@ -297,15 +306,13 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       return v;
     }
 
-    wq = GPUTensor<Matrix>(extractMatrix(newWeights['Wq']!));
-    bq = GPUTensor<Vector>(extractVector(newWeights['bq']!));
-    wk = GPUTensor<Matrix>(extractMatrix(newWeights['Wk']!));
-    bk = GPUTensor<Vector>(extractVector(newWeights['bk']!));
-    wv = GPUTensor<Matrix>(extractMatrix(newWeights['Wv']!));
-    bv = GPUTensor<Vector>(extractVector(newWeights['bv']!));
-    wo = GPUTensor<Matrix>(extractMatrix(newWeights['Wo']!));
-    bo = GPUTensor<Vector>(extractVector(newWeights['bo']!));
-
-    built = true;
+    wq.pushData(extractFlatMatrix(newWeights['Wq']!));
+    bq.pushData(extractVector(newWeights['bq']!));
+    wk.pushData(extractFlatMatrix(newWeights['Wk']!));
+    bk.pushData(extractVector(newWeights['bk']!));
+    wv.pushData(extractFlatMatrix(newWeights['Wv']!));
+    bv.pushData(extractVector(newWeights['bv']!));
+    wo.pushData(extractFlatMatrix(newWeights['Wo']!));
+    bo.pushData(extractVector(newWeights['bo']!));
   }
 }

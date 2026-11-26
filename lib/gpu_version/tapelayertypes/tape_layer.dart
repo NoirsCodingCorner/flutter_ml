@@ -26,6 +26,7 @@ export 'transformer_encoder_block_tape_layer.dart';
 import '/cpu_version/cpu_version.dart';
 
 import '/tensor/tensor_gpu.dart';
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 
 /// TapeLayer is built to be an additional abstraction that allows for complex mathematical bundling.
@@ -40,7 +41,7 @@ import '../ffi/command_buffer.dart';
 ///
 /// The TapeLayer supports the following functions:
 ///
-/// -[built]: Responsible for allocating and reserving VRAM on the selected device based on the provided [GPUTensor] input shape.
+/// -[build]: Responsible for recording VRAM allocations on the selected device into [AllocBuffer] based on the provided [GPUTensor] input shape.
 ///
 /// -[forward]: Appends the given forward instructions to the provided tape.
 ///
@@ -58,24 +59,32 @@ abstract class TapeLayer<InputType, OutputType> {
   /// Bool flag to register whether a TapeLayer has already been built, or rather whether the required VRAM has been allocated at least once.
   bool built = false;
 
-  /// Allocates VRAM for weights/biases based on the incoming input shape. The GPUTensor [input] will be used for the construction of the [CommandBuffer] and therefore
+  /// Records VRAM allocations for weights/biases into [allocTape] based on the incoming input shape. The GPUTensor [input] will be used for the construction of the [CommandBuffer] and therefore
   /// should match the exact GPUTensor used in [forward]. All operations of a TapeLayer are in place, so this shape must not change during training or inference.
-  void build(GPUTensor<InputType> input) {
+  void build(GPUTensor<InputType> input, AllocBuffer allocTape) {
     built = true;
   }
 
-  /// Appends this layer's forward operations to the [tape]. The intermediates list captures transient tensors to prevent VRAM creep on complex architectures.
+  /// Appends this layer's forward operations to the [tape] and records transient tensor allocations into [allocTape]. The intermediates list captures transient tensors to prevent VRAM creep on complex architectures.
   /// The input tensor should match the tensor provided in the [build] method.
-  GPUTensor<OutputType> forward(GPUTensor<InputType> input, CommandBuffer tape,
-      List<GPUTensor> intermediates);
+  GPUTensor<OutputType> forward(
+      GPUTensor<InputType> input,
+      CommandBuffer tape,
+      AllocBuffer allocTape,
+      List<GPUTensor> intermediates,
+      );
 
   /// Helper function that, if not overwritten, checks whether [build] has already been called; if not, it calls [build] and only then [forward].
-  GPUTensor<OutputType> call(GPUTensor<InputType> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+  GPUTensor<OutputType> call(
+      GPUTensor<InputType> input,
+      CommandBuffer tape,
+      AllocBuffer allocTape,
+      List<GPUTensor> intermediates,
+      ) {
     if (built == false) {
-      build(input);
+      build(input, allocTape);
     }
-    return forward(input, tape, intermediates);
+    return forward(input, tape, allocTape, intermediates);
   }
 
   void zeroStates(CommandBuffer tape);
@@ -84,7 +93,7 @@ abstract class TapeLayer<InputType, OutputType> {
   void free() {
     List<GPUTensor> params = parameters;
     for (int i = 0; i < params.length; i = i + 1) {
-      params[i].free(); //
+      params[i].free();
     }
   }
 

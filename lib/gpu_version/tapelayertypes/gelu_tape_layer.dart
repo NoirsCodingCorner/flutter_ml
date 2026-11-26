@@ -2,6 +2,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -23,7 +24,7 @@ class GeluLayerTL extends TapeLayer<Vector, Vector> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -31,7 +32,7 @@ class GeluLayerTL extends TapeLayer<Vector, Vector> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -42,7 +43,7 @@ class GeluLayerTL extends TapeLayer<Vector, Vector> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = geluGPU(input, tape, outTensor: cachedOut);
+    cachedOut = geluGPU(input, tape, allocTape, outTensor: cachedOut);
     return cachedOut!;
   }
 
@@ -92,7 +93,7 @@ class GeluLayerMatrixTL extends TapeLayer<Matrix, Matrix> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -100,7 +101,7 @@ class GeluLayerMatrixTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -111,7 +112,7 @@ class GeluLayerMatrixTL extends TapeLayer<Matrix, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = geluMatrixGPU(input, tape, outTensor: cachedOut);
+    cachedOut = geluMatrixGPU(input, tape, allocTape, outTensor: cachedOut);
     return cachedOut!;
   }
 

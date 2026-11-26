@@ -3,7 +3,7 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   exclude:
-    - "test/**"
+    #- "test/**"
     - "example/**"
   errors:
     # Primary culprits based on your pana logs and file structure:

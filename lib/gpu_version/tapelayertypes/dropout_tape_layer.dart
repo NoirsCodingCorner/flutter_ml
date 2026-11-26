@@ -1,5 +1,6 @@
 import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -33,7 +34,7 @@ class DropoutTL extends TapeLayer {
 
   /// Does not allocate any additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -42,12 +43,11 @@ class DropoutTL extends TapeLayer {
   /// When [isTraining] is set to false it passes the input Tensor as its output.
   @override
   GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     if (isTraining == false || rate == 0.0) {
       return input;
     }
 
-    // Safely extract the batch size, defaulting to 1 for Scalars where shape is empty
     int currentBatchSize = input.shape.isEmpty ? 1 : input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -58,7 +58,7 @@ class DropoutTL extends TapeLayer {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = dropoutGPU(input, rate, tape, outTensor: cachedOut);
+    cachedOut = dropoutGPU(input, rate, tape, allocTape, outTensor: cachedOut);
     return cachedOut!;
   }
 

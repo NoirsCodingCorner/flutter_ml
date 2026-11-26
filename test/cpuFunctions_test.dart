@@ -327,7 +327,7 @@ void main() {
       2,
       false,
       0.9,
-      0.0,
+      0.01,
     );
     testVector(testOut.value, [1.0, 3.0]);
   });
@@ -352,7 +352,7 @@ void main() {
       1,
       false,
       0.9,
-      0.0,
+      0.0000001,
     );
     testTensor3D(testOut.value, [
       [

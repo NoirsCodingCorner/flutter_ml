@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -28,7 +29,7 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
 
   /// Allocates VRAM for [embeddings] with dimensionality: [vocabularySize]x[embeddingDimension].
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     Random random = Random();
     List<List<double>> values = <List<double>>[];
 
@@ -40,7 +41,8 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
       values.add(row);
     }
 
-    embeddings = GPUTensor<Matrix>(values);
+    embeddings =
+        GPUTensor<Matrix>(values, allocTape, sourceOp: '$name:embeddings');
     built = true;
   }
 
@@ -58,7 +60,7 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -69,8 +71,8 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut =
-        embeddingLookupGPU(input, embeddings, tape, outTensor: cachedOut);
+    cachedOut = embeddingLookupGPU(input, embeddings, tape, allocTape,
+        outTensor: cachedOut);
     return cachedOut!;
   }
 
@@ -110,23 +112,16 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
   /// Sets the [embeddings] of the layer from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      embeddings.free();
-    }
-
-    List<List<double>> wData = <List<double>>[];
+    List<double> flatWeights = <double>[];
     List<dynamic> rawW = newWeights['embeddings']!;
     for (int i = 0; i < rawW.length; i = i + 1) {
-      List<double> row = <double>[];
       List<dynamic> rawRow = rawW[i] as List<dynamic>;
       for (int j = 0; j < rawRow.length; j = j + 1) {
-        row.add(rawRow[j] as double);
+        flatWeights.add(rawRow[j] as double);
       }
-      wData.add(row);
     }
 
-    embeddings = GPUTensor<Matrix>(wData);
-    built = true;
+    embeddings.pushData(flatWeights);
   }
 }
 
@@ -162,7 +157,7 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
 
   /// Allocates VRAM for [embeddings] with dimensionality: [vocabularySize]x[embeddingDimension].
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     Random random = Random();
     List<List<double>> values = <List<double>>[];
 
@@ -174,7 +169,8 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
       values.add(row);
     }
 
-    embeddings = GPUTensor<Matrix>(values);
+    embeddings =
+        GPUTensor<Matrix>(values, allocTape, sourceOp: '$name:embeddings');
     built = true;
   }
 
@@ -182,7 +178,7 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Tensor3D> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -193,8 +189,8 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut =
-        embeddingLookupBatchGPU(input, embeddings, tape, outTensor: cachedOut);
+    cachedOut = embeddingLookupBatchGPU(input, embeddings, tape, allocTape,
+        outTensor: cachedOut);
     return cachedOut!;
   }
 
@@ -234,22 +230,15 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
   /// Sets the [embeddings] of the layer from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      embeddings.free();
-    }
-
-    List<List<double>> wData = <List<double>>[];
+    List<double> flatWeights = <double>[];
     List<dynamic> rawW = newWeights['embeddings']!;
     for (int i = 0; i < rawW.length; i = i + 1) {
-      List<double> row = <double>[];
       List<dynamic> rawRow = rawW[i] as List<dynamic>;
       for (int j = 0; j < rawRow.length; j = j + 1) {
-        row.add(rawRow[j] as double);
+        flatWeights.add(rawRow[j] as double);
       }
-      wData.add(row);
     }
 
-    embeddings = GPUTensor<Matrix>(wData);
-    built = true;
+    embeddings.pushData(flatWeights);
   }
 }

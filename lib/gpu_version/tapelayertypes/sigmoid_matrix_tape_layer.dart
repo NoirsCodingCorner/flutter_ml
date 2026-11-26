@@ -2,6 +2,7 @@ import 'tape_layer.dart';
 import '../../tensor/tensor_gpu.dart';
 import '../../tensor/tensor_math_gpu.dart';
 import '../../tensor/type_aliases.dart';
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 
 /// Applies the Sigmoid-function to each element in a matrix.
@@ -19,7 +20,7 @@ class SigmoidMatrixTL extends TapeLayer<Matrix, Matrix> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -27,7 +28,7 @@ class SigmoidMatrixTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -38,7 +39,7 @@ class SigmoidMatrixTL extends TapeLayer<Matrix, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = sigmoidMatrixGPU(input, tape, outTensor: cachedOut);
+    cachedOut = sigmoidMatrixGPU(input, tape, allocTape, outTensor: cachedOut);
     return cachedOut!;
   }
 

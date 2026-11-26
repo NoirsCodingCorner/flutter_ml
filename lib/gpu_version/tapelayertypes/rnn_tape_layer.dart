@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -50,7 +51,7 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for weights and biases using a standard Xavier initialization.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     int inputSize = input.shape[1];
 
     Random random = Random();
@@ -78,14 +79,14 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       wHhValues.add(row);
     }
 
-    wXh = GPUTensor<Matrix>(wXhValues);
-    wHh = GPUTensor<Matrix>(wHhValues);
+    wXh = GPUTensor<Matrix>(wXhValues, allocTape, sourceOp: '$name:wXh');
+    wHh = GPUTensor<Matrix>(wHhValues, allocTape, sourceOp: '$name:wHh');
 
     List<List<double>> bHValues = <List<double>>[];
     for (int i = 0; i < hiddenSize; i = i + 1) {
       bHValues.add(<double>[0.0]);
     }
-    bh = GPUTensor<Matrix>(bHValues);
+    bh = GPUTensor<Matrix>(bHValues, allocTape, sourceOp: '$name:bh');
 
     built = true;
   }
@@ -95,7 +96,7 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
   /// The [intermediates] list should be empty since it is not used in this operation.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     bool useCache = (cacheSeqLength == seqLength);
 
@@ -111,12 +112,9 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       stepCache.clear();
       cacheSeqLength = seqLength;
 
-      List<List<double>> initialHValues = <List<double>>[];
-      for (int i = 0; i < hiddenSize; i = i + 1) {
-        initialHValues.add(<double>[0.0]);
-      }
-
-      hStates.add(GPUTensor<Matrix>(initialHValues));
+      List<int> stateShape = <int>[hiddenSize, 1];
+      hStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+          sourceOp: '$name:initH'));
     }
 
     int cIdx = 0;
@@ -135,31 +133,32 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       }
     }
 
-    GPUTensor<Matrix> transposedInput =
-        transposeGPU(input, tape, outTensor: getCached<GPUTensor<Matrix>>());
+    GPUTensor<Matrix> transposedInput = transposeGPU(input, tape, allocTape,
+        outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(transposedInput);
 
     for (int i = 0; i < seqLength; i = i + 1) {
       GPUTensor<Matrix> hPrev = hStates[i];
 
-      // Extract time step as a strict [InputSize, 1] Matrix
-      GPUTensor<Matrix> xT = sliceColumnGPU(transposedInput, i, i + 1, tape,
+      GPUTensor<Matrix> xT = sliceColumnGPU(
+          transposedInput, i, i + 1, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(xT);
 
-      GPUTensor<Matrix> inputPart =
-          matMulGPU(wXh, xT, tape, outTensor: getCached<GPUTensor<Matrix>>());
+      GPUTensor<Matrix> inputPart = matMulGPU(wXh, xT, tape, allocTape,
+          outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(inputPart);
 
-      GPUTensor<Matrix> hiddenPart = matMulGPU(wHh, hPrev, tape,
+      GPUTensor<Matrix> hiddenPart = matMulGPU(wHh, hPrev, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(hiddenPart);
 
-      GPUTensor<Matrix> sum1 = addMatrixGPU(inputPart, hiddenPart, tape,
+      GPUTensor<Matrix> sum1 = addMatrixGPU(
+          inputPart, hiddenPart, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(sum1);
 
-      GPUTensor<Matrix> combined = addMatrixGPU(sum1, bh, tape,
+      GPUTensor<Matrix> combined = addMatrixGPU(sum1, bh, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(combined);
 
@@ -167,9 +166,9 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       GPUTensor<Matrix> newH;
 
       if (activation == 'relu') {
-        newH = reluMatrixGPU(combined, tape, outTensor: outNewH);
+        newH = reluMatrixGPU(combined, tape, allocTape, outTensor: outNewH);
       } else {
-        newH = tanhMatrixGPU(combined, tape, outTensor: outNewH);
+        newH = tanhMatrixGPU(combined, tape, allocTape, outTensor: outNewH);
       }
 
       if (!useCache) {
@@ -177,7 +176,6 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       }
     }
 
-    // Return the pure 2D Matrix representation of the final hidden state
     return hStates.last;
   }
 
@@ -231,27 +229,19 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      free();
-    }
-
-    List<List<double>> extractMatrix(List<dynamic> raw) {
-      List<List<double>> m = <List<double>>[];
+    List<double> extractFlatMatrix(List<dynamic> raw) {
+      List<double> flat = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
-        List<double> row = <double>[];
         List<dynamic> rawRow = raw[i] as List<dynamic>;
         for (int j = 0; j < rawRow.length; j = j + 1) {
-          row.add(rawRow[j] as double);
+          flat.add(rawRow[j] as double);
         }
-        m.add(row);
       }
-      return m;
+      return flat;
     }
 
-    wXh = GPUTensor<Matrix>(extractMatrix(newWeights['W_xh']!));
-    wHh = GPUTensor<Matrix>(extractMatrix(newWeights['W_hh']!));
-    bh = GPUTensor<Matrix>(extractMatrix(newWeights['b_h']!));
-
-    built = true;
+    wXh.pushData(extractFlatMatrix(newWeights['W_xh']!));
+    wHh.pushData(extractFlatMatrix(newWeights['W_hh']!));
+    bh.pushData(extractFlatMatrix(newWeights['b_h']!));
   }
 }

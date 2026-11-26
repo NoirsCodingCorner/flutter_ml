@@ -2,6 +2,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -30,7 +31,7 @@ class MaxPooling2DTL extends TapeLayer<Matrix, Matrix> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -38,10 +39,11 @@ class MaxPooling2DTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Matrix> forward(
-    GPUTensor<Matrix> input,
-    CommandBuffer tape,
-    List<GPUTensor> intermediates,
-  ) {
+      GPUTensor<Matrix> input,
+      CommandBuffer tape,
+      AllocBuffer allocTape,
+      List<GPUTensor> intermediates,
+      ) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -52,8 +54,8 @@ class MaxPooling2DTL extends TapeLayer<Matrix, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut =
-        maxPool2dGPU(input, poolSize, stride, tape, outTensor: cachedOut);
+    cachedOut = maxPool2dGPU(input, poolSize, stride, tape, allocTape,
+        outTensor: cachedOut);
     return cachedOut!;
   }
 
@@ -109,7 +111,7 @@ class MaxPooling1DTL extends TapeLayer<Vector, Vector> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -117,7 +119,7 @@ class MaxPooling1DTL extends TapeLayer<Vector, Vector> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape.isEmpty ? 1 : input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -128,8 +130,8 @@ class MaxPooling1DTL extends TapeLayer<Vector, Vector> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut =
-        maxPool1dGPU(input, poolSize, stride, tape, outTensor: cachedOut);
+    cachedOut = maxPool1dGPU(input, poolSize, stride, tape, allocTape,
+        outTensor: cachedOut);
     return cachedOut!;
   }
 

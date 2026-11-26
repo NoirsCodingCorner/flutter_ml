@@ -1,6 +1,7 @@
 import '../../tensor/tensor_gpu.dart';
 import '../../tensor/tensor_math_gpu.dart';
 import '../../tensor/type_aliases.dart';
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -21,7 +22,7 @@ class FlattenTL extends TapeLayer<Tensor3D, Matrix> {
 
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     built = true;
   }
 
@@ -29,7 +30,7 @@ class FlattenTL extends TapeLayer<Tensor3D, Matrix> {
   /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Tensor3D> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -40,7 +41,8 @@ class FlattenTL extends TapeLayer<Tensor3D, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    cachedOut = flatten3DToMatrixGPU(input, tape, outTensor: cachedOut);
+    cachedOut =
+        flatten3DToMatrixGPU(input, tape, allocTape, outTensor: cachedOut);
     return cachedOut!;
   }
 

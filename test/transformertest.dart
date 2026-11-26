@@ -1,128 +1,112 @@
+import 'dart:ffi';
+import 'dart:typed_data';
+import 'package:ffi/ffi.dart';
 import 'package:flutter_ml/full_library.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+List<double> pullRawTensor(String id, int elementCount) {
+  List<double> result = List<double>.filled(elementCount, 0.0);
+  using((Arena arena) {
+    Pointer<Float> ptr = arena<Float>(elementCount);
+    GPUEngine.retrieve(id, ptr);
+    Float32List view = ptr.asTypedList(elementCount);
+    for (int i = 0; i < elementCount; i = i + 1) {
+      result[i] = view[i];
+    }
+  });
+  return result;
+}
 
 void main() {
-  GPUEngine.initialize(target: Target.cuda);
-  // 1. Setup Architecture Dimensions
-  int vocabSize = 10;
-  int dModel = 16;
-  int numHeads = 4;
-  int dff = 32;
-  int maxSeqLength = 8;
+  test('Pure-tape step-by-step diagnostic', () async {
+    await GPUEngine.initialize(target: Target.cuda);
 
-  // 2. Training Data: A sequence of 4 token IDs
-  GPUTensor<Vector> trainInput =
-      GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0]);
+    // =========================================================================
+    // PHASE 1: Compile Graph and Extract Tapes
+    // =========================================================================
+    int vocabSize = 10;
+    int dModel = 16;
+    int numHeads = 4;
+    int dff = 32;
+    int maxSeqLength = 8;
 
-  // Training Target: One-hot encoded matrix for the target outputs (Shape: 4 x 10)
-  GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(<List<double>>[
-    <double>[
-      0.0,
-      0.0,
-      1.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
-    ], // Target for input 1.0 -> 2.0
-    <double>[
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
-    ], // Target for input 3.0 -> 4.0
-    <double>[
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      0.0,
-      0.0,
-      0.0
-    ], // Target for input 5.0 -> 6.0
-    <double>[
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0
-    ], // Target for input 2.0 -> 3.0
-  ]);
+    AllocBuffer dataAlloc = AllocBuffer();
 
-  // 3. Define the Transformer Pipeline
-  List<TapeLayer> layers = <TapeLayer>[
-    // Embeds the 1D token IDs into a 2D Matrix of shape [SeqLength, dModel]
-    EmbeddingTL(vocabSize, dModel),
+    GPUTensor<Vector> trainInput =
+    GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0], dataAlloc);
 
-    // Injects sine/cosine spatial frequencies
-    PositionalEncodingTL(maxSeqLength, dModel),
+    GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(<List<double>>[
+      <double>[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      <double>[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      <double>[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+      <double>[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    ], dataAlloc);
 
-    // The heavy-lifter: Multi-Head Self Attention + Residuals + LayerNorm + FFN
-    TransformerEncoderBlockTapeLayer(dModel, numHeads, dff),
+    List<TapeLayer> layers = <TapeLayer>[
+      EmbeddingTL(vocabSize, dModel),
+      PositionalEncodingTL(maxSeqLength, dModel),
+      TransformerEncoderBlockTapeLayer(dModel, numHeads, dff),
+      DenseTL(vocabSize),
+    ];
 
-    // Projects the 16-dimensional features back into the 10-dimensional vocabulary space
-    DenseTL(vocabSize * 16),
-  ];
+    SeqModel<Vector, Matrix> model = SeqModel<Vector, Matrix>(
+      layers,
+      trainInput,
+      target: trainTarget,
+      lossFunction: mseMatrixGPU,
+      optimizerBuilder: (List<GPUTensor> params, AllocBuffer allocTape) {
+        return SGDGPU(params, 0.01);
+      },
+    );
 
-  // 4. Initialize the Sequential Wrapper
-  SeqModel<Vector, Matrix> model = SeqModel<Vector, Matrix>(
-    layers,
-    trainInput,
-    target: trainTarget,
-    lossFunction: mseMatrixGPU,
-    optimizerBuilder: (List<GPUTensor> params) {
-      return AdamGPU(params, 0.01);
-    },
-  );
+    model.compile();
 
-  Logger.blue('Compiling Transformer Tapes...');
-  model.compile();
-  Logger.green('Compilation Successful.');
+    AllocBuffer modelAlloc = model.allocTape!;
+    Uint8List forwardTape = model.trainForward.bytes();
+    Uint8List backwardTape = model.trainBackward.bytes();
+    Uint8List optimizeTape = model.trainOptimize.bytes();
 
-  // 5. Run the Training Loop
-  int epochs = 250;
-  Logger.blue('Starting Training for $epochs epochs...');
+    String lossId = model.loss!.id;
 
-  for (int i = 0; i < epochs; i = i + 1) {
-    model.runTraining();
-  }
+    GPUEngine.dispose();
 
-  model.loss?.toCpu();
-  Logger.green('Final Training Loss: ${model.loss?.value}');
+    // =========================================================================
+    // PHASE 2: Step-by-Step Diagnostic Run
+    // =========================================================================
+    await GPUEngine.initialize(target: Target.cuda);
 
-  // 6. Test Static Inference with dynamic sequence lengths!
-  // Notice how the inference sequence length (2) is different from training (4).
-  // The model.predict() gracefully handles reshaping the internal caches.
-  GPUTensor<Vector> inferInput = GPUTensor<Vector>(<double>[1.0, 3.0]);
-  GPUTensor<Matrix> inferResult = model.predict(inferInput);
+    dataAlloc.execute();
+    modelAlloc.execute();
 
-  model.runForward();
-  inferResult.toCpu();
+    // t_gpu_85_grad has shape [16, 10] -> 160 elements
+    List<double> gradAfterAlloc = pullRawTensor('t_gpu_85_grad', 160).sublist(0, 4);
+    Logger.blue('t_gpu_85_grad right after alloc: $gradAfterAlloc');
 
-  Logger.blue('--- Inference Results ---');
-  Logger.blue('Input Tokens: [1.0, 3.0]');
+    int epochs = 250;
+    for (int epoch = 0; epoch < epochs; epoch = epoch + 1) {
+      GPUEngine.run(forwardTape);
+      double lossAfterForward = pullRawTensor(lossId, 1)[0];
 
-  // Prints the output probabilities/logits for the 2 tokens across the 10 vocab classes
-  List<List<double>> outputMatrix = inferResult.value;
-  for (int i = 0; i < outputMatrix.length; i = i + 1) {
-    Logger.blue('Token $i Output Logits: ${outputMatrix[i]}');
-  }
+      GPUEngine.run(backwardTape);
+      List<double> gradAfterBackward =
+      pullRawTensor('t_gpu_85_grad', 160).sublist(0, 4);
 
-  model.free();
+      GPUEngine.run(optimizeTape);
+      List<double> gradAfterOptimize =
+      pullRawTensor('t_gpu_85_grad', 160).sublist(0, 4);
+
+      Logger.blue(
+        'Step $epoch | Forward Loss: $lossAfterForward | gradAfterBw: $gradAfterBackward | gradAfterOpt(zeroGrad): $gradAfterOptimize',
+      );
+
+      if (lossAfterForward.isNaN || lossAfterForward.isInfinite) {
+        Logger.red('Aborted at Step $epoch due to non-finite loss.');
+        break;
+      }
+    }
+
+    modelAlloc.freeAll();
+    dataAlloc.freeAll();
+    GPUEngine.dispose();
+  });
 }

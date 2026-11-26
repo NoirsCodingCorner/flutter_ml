@@ -3,6 +3,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/op_codes.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
@@ -39,13 +40,12 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for weights and biases using a standard Xavier initialization.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     int inputSize = input.shape[1];
 
     Random rnd = Random();
     List<List<double>> wData = <List<double>>[];
 
-    // Simple Xavier initialization scale
     double scale = sqrt(2.0 / (inputSize + outputSize));
 
     for (int i = 0; i < inputSize; i = i + 1) {
@@ -61,8 +61,8 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
       bData.add(0.0);
     }
 
-    weights = GPUTensor<Matrix>(wData);
-    bias = GPUTensor<Vector>(bData);
+    weights = GPUTensor<Matrix>(wData, allocTape, sourceOp: '$name:weights');
+    bias = GPUTensor<Vector>(bData, allocTape, sourceOp: '$name:bias');
 
     built = true;
   }
@@ -71,7 +71,7 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
   /// Persistently caches the intermediate multiplication result for static unrolling.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int currentBatchSize = input.shape[0];
 
     if (cacheBatchSize != currentBatchSize) {
@@ -83,9 +83,10 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
       cacheBatchSize = currentBatchSize;
     }
 
-    matMulResult = matMulGPU(input, weights, tape, outTensor: matMulResult);
-    cachedOut =
-        addMatrixAndVectorGPU(matMulResult!, bias, tape, outTensor: cachedOut);
+    matMulResult =
+        matMulGPU(input, weights, tape, allocTape, outTensor: matMulResult);
+    cachedOut = addMatrixAndVectorGPU(matMulResult!, bias, tape, allocTape,
+        outTensor: cachedOut);
 
     return cachedOut!;
   }
@@ -122,7 +123,6 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
       return wMap;
     }
 
-    // Pull from VRAM to CPU before extracting the values
     weights.toCpu();
     bias.toCpu();
 
@@ -135,20 +135,13 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
   /// Sets [weights] and [bias] from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      weights.free();
-      bias.free();
-    }
-
-    List<List<double>> wData = <List<double>>[];
+    List<double> flatWeights = <double>[];
     List<dynamic> rawW = newWeights['weights']!;
     for (int i = 0; i < rawW.length; i = i + 1) {
-      List<double> row = <double>[];
       List<dynamic> rawRow = rawW[i] as List<dynamic>;
       for (int j = 0; j < rawRow.length; j = j + 1) {
-        row.add(rawRow[j] as double);
+        flatWeights.add(rawRow[j] as double);
       }
-      wData.add(row);
     }
 
     List<double> bData = <double>[];
@@ -157,9 +150,8 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
       bData.add(rawB[i] as double);
     }
 
-    weights = GPUTensor<Matrix>(wData);
-    bias = GPUTensor<Vector>(bData);
-    built = true;
+    weights.pushData(flatWeights);
+    bias.pushData(bData);
   }
 }
 
@@ -194,7 +186,7 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
 
   /// Allocates VRAM for weights and biases using a standard Xavier initialization.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     int inputSize = input.shape[1];
 
     Random rnd = Random();
@@ -215,8 +207,8 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
       bData.add(0.0);
     }
 
-    weights = GPUTensor<Matrix>(wData);
-    bias = GPUTensor<Vector>(bData);
+    weights = GPUTensor<Matrix>(wData, allocTape, sourceOp: '$name:weights');
+    bias = GPUTensor<Vector>(bData, allocTape, sourceOp: '$name:bias');
 
     built = true;
   }
@@ -225,15 +217,13 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
   /// The fused kernel automatically registers its intermediates.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
-    // Because the fused kernel allocates internally without an outTensor,
-    // we must free the old allocations if forward is called dynamically multiple times.
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     if (cachedOut != null) cachedOut!.free();
     if (cachedPreRelu != null) cachedPreRelu!.free();
 
     List<GPUTensor> localIntermediates = <GPUTensor>[];
-    cachedOut =
-        matMulBiasReluGPU(input, weights, bias, tape, localIntermediates);
+    cachedOut = matMulBiasReluGPU(
+        input, weights, bias, tape, allocTape, localIntermediates);
 
     if (localIntermediates.isNotEmpty) {
       cachedPreRelu = localIntermediates[0] as GPUTensor<Matrix>;
@@ -286,20 +276,13 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
   /// Sets [weights] and [bias] from a map.
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      weights.free();
-      bias.free();
-    }
-
-    List<List<double>> wData = <List<double>>[];
+    List<double> flatWeights = <double>[];
     List<dynamic> rawW = newWeights['weights']!;
     for (int i = 0; i < rawW.length; i = i + 1) {
-      List<double> row = <double>[];
       List<dynamic> rawRow = rawW[i] as List<dynamic>;
       for (int j = 0; j < rawRow.length; j = j + 1) {
-        row.add(rawRow[j] as double);
+        flatWeights.add(rawRow[j] as double);
       }
-      wData.add(row);
     }
 
     List<double> bData = <double>[];
@@ -308,8 +291,7 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
       bData.add(rawB[i] as double);
     }
 
-    weights = GPUTensor<Matrix>(wData);
-    bias = GPUTensor<Vector>(bData);
-    built = true;
+    weights.pushData(flatWeights);
+    bias.pushData(bData);
   }
 }

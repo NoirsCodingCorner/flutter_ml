@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -36,7 +37,7 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
 
   /// Pre-calculates the static positional encoding matrix up to [maxLength] and uploads it to VRAM.
   @override
-  void build(GPUTensor<Matrix> input) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     List<List<double>> peValuesTransposed = <List<double>>[];
     for (int i = 0; i < dModel; i = i + 1) {
       List<double> row = <double>[];
@@ -51,7 +52,9 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
       peValuesTransposed.add(row);
     }
 
-    encodingMatrixTransposed = GPUTensor<Matrix>(peValuesTransposed);
+    encodingMatrixTransposed = GPUTensor<Matrix>(
+        peValuesTransposed, allocTape,
+        sourceOp: '$name:encodingMatrixTransposed');
     built = true;
   }
 
@@ -59,7 +62,7 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
   /// Slices the pre-calculated matrix dynamically based on the current batch's sequence length.
   @override
   GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int sequenceLength = input.shape[0];
 
     bool useCache = (cacheSeqLength == sequenceLength);
@@ -90,15 +93,17 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
     }
 
     GPUTensor<Matrix> slicedTransposed = sliceColumnGPU(
-        encodingMatrixTransposed, 0, sequenceLength, tape,
+        encodingMatrixTransposed, 0, sequenceLength, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(slicedTransposed);
 
-    GPUTensor<Matrix> positionalTensor = transposeGPU(slicedTransposed, tape,
+    GPUTensor<Matrix> positionalTensor = transposeGPU(
+        slicedTransposed, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(positionalTensor);
 
-    GPUTensor<Matrix> out = addMatrixGPU(input, positionalTensor, tape,
+    GPUTensor<Matrix> out = addMatrixGPU(
+        input, positionalTensor, tape, allocTape,
         outTensor: getCached<GPUTensor<Matrix>>());
     saveCached(out);
 

@@ -12,23 +12,31 @@ void main() {
     await GPUEngine.initialize(target: Target.cuda);
   });
 
+  tearDownAll(() {
+    GPUEngine.dispose();
+  });
+
   test('Training and Static Prediction', () {
+    AllocBuffer dataAlloc = AllocBuffer();
+
     GPUTensor<Matrix> trainInput = GPUTensor<Matrix>(<List<double>>[
       <double>[1.0, 1.0],
       <double>[2.0, 2.0]
-    ]);
+    ], dataAlloc);
 
     GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(<List<double>>[
       <double>[2.0, 2.0],
       <double>[4.0, 4.0]
-    ]);
+    ], dataAlloc);
+
+    dataAlloc.execute();
 
     SeqModel<Matrix, Matrix> model = SeqModel<Matrix, Matrix>(
       <TapeLayer>[DenseTL(2)],
       trainInput,
       target: trainTarget,
       lossFunction: mseMatrixGPU,
-      optimizerBuilder: (List<GPUTensor> params) {
+      optimizerBuilder: (List<GPUTensor> params, AllocBuffer allocTape) {
         return SGDGPU(params, 0.01);
       },
     );
@@ -43,9 +51,11 @@ void main() {
     model.loss?.toCpu();
     Logger.green('Final Training Loss: ${model.loss?.value}');
 
+    AllocBuffer inferAlloc = AllocBuffer();
     GPUTensor<Matrix> inferInput = GPUTensor<Matrix>(<List<double>>[
       <double>[3.0, 3.0]
-    ]);
+    ], inferAlloc);
+    inferAlloc.execute();
 
     GPUTensor<Matrix> inferResult = model.predict(inferInput);
 
@@ -59,7 +69,10 @@ void main() {
     Logger.blue('Prediction for [4.0, 4.0]: ${inferResult.value}');
 
     model.free();
+    inferAlloc.freeAll();
+    dataAlloc.freeAll();
   });
+
   test('GPU Engine Benchmark - Deep Network Static Unrolling', () {
     int batchSize = 1024;
     int inputFeatures = 64 * 64;
@@ -84,8 +97,10 @@ void main() {
       rawTarget.add(outRow);
     }
 
-    GPUTensor<Matrix> trainInput = GPUTensor<Matrix>(rawInput);
-    GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(rawTarget);
+    AllocBuffer dataAlloc = AllocBuffer();
+    GPUTensor<Matrix> trainInput = GPUTensor<Matrix>(rawInput, dataAlloc);
+    GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(rawTarget, dataAlloc);
+    dataAlloc.execute();
 
     SeqModel<Matrix, Matrix> model = SeqModel<Matrix, Matrix>(
       <TapeLayer>[
@@ -98,8 +113,8 @@ void main() {
       trainInput,
       target: trainTarget,
       lossFunction: mseMatrixGPU,
-      optimizerBuilder: (List<GPUTensor> params) {
-        return AdamGPU(params, 0.001);
+      optimizerBuilder: (List<GPUTensor> params, AllocBuffer allocTape) {
+        return AdamGPU(params, 0.001, allocTape);
       },
     );
 
@@ -118,7 +133,6 @@ void main() {
 
     int actualEpochs = 0;
 
-    // Loop scales up dynamically until 20 seconds have passed
     while (timer.elapsedMilliseconds < 20000) {
       model.runTraining();
       actualEpochs = actualEpochs + 1;
@@ -130,14 +144,11 @@ void main() {
     double seconds = timer.elapsedMilliseconds / 1000.0;
     double epochsPerSec = actualEpochs / seconds;
 
-    // Approximate theoretical FLOPs strictly based on dense matrix multiplications (M * N * 2K)
     double dense1Flops = batchSize * 128 * inputFeatures * 2.0;
     double dense2Flops = batchSize * 64 * 128 * 2.0;
     double dense3Flops = batchSize * outputFeatures * 64 * 2.0;
 
     double forwardFlops = dense1Flops + dense2Flops + dense3Flops;
-
-    // Backpropagation scales to roughly 2x the forward pass (gradients for weights and inputs)
     double totalFlopsPerEpoch = forwardFlops * 3.0;
 
     double totalFlopsAchieved = totalFlopsPerEpoch * actualEpochs;
@@ -155,9 +166,10 @@ void main() {
         'Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
 
     model.free();
+    dataAlloc.freeAll();
   });
+
   test('GPU Engine Benchmark - Pure MatMul Isolated', () {
-    // 2048 x 2048 x 2048 = ~17.17 GFLOPs per execution
     int m = 2048;
     int k = 2048;
     int n = 2048;
@@ -182,12 +194,14 @@ void main() {
       rawB.add(row);
     }
 
-    GPUTensor<Matrix> tensorA = GPUTensor<Matrix>(rawA);
-    GPUTensor<Matrix> tensorB = GPUTensor<Matrix>(rawB);
-    GPUTensor<Matrix> tensorC = GPUTensor<Matrix>.empty(<int>[m, n]);
+    AllocBuffer allocTape = AllocBuffer();
+    GPUTensor<Matrix> tensorA = GPUTensor<Matrix>(rawA, allocTape);
+    GPUTensor<Matrix> tensorB = GPUTensor<Matrix>(rawB, allocTape);
+    GPUTensor<Matrix> tensorC = GPUTensor<Matrix>.empty(<int>[m, n], allocTape);
 
     CommandBuffer tape = CommandBuffer();
-    matMulGPU(tensorA, tensorB, tape, outTensor: tensorC);
+    matMulGPU(tensorA, tensorB, tape, allocTape, outTensor: tensorC);
+    allocTape.execute();
 
     Stopwatch timer = Stopwatch();
     Logger.blue('Starting high-speed pure MatMul loop (20 seconds max)...');
@@ -203,7 +217,6 @@ void main() {
     timer.stop();
     double seconds = timer.elapsedMilliseconds / 1000.0;
 
-    // Standard FLOP calculation for Matrix Multiplication: 2 * M * K * N
     double flopsPerStep = 2.0 * m * k * n;
     double totalFlopsAchieved = flopsPerStep * actualSteps;
     double flopsPerSecond = totalFlopsAchieved / seconds;
@@ -216,30 +229,25 @@ void main() {
     Logger.green(
         'Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
 
-    tensorA.free();
-    tensorB.free();
-    tensorC.free();
+    allocTape.freeAll();
   });
+
   test('GPU Engine Benchmark - Absolute VRAM Saturation MatMul', () {
-    // 24576 x 24576 = ~603.9 million elements per matrix.
-    // At 4 bytes per float, this equals ~2.41 GB per matrix.
-    // 3 Matrices (A, B, C) = ~7.23 GB of VRAM allocated instantly.
-    // Compute cost: ~29.67 TFLOPs per single execution step.
     int m = 2048; //24576;
     int k = 2048; //24576;
     int n = 2048; //24576;
 
     Logger.blue('Allocating ~7.23 GB directly in VRAM...');
 
-    // Bypassing CPU initialization to prevent system RAM Out-Of-Memory crashes
-    GPUTensor<Matrix> tensorA = GPUTensor<Matrix>.empty(<int>[m, k]);
-    GPUTensor<Matrix> tensorB = GPUTensor<Matrix>.empty(<int>[k, n]);
-    GPUTensor<Matrix> tensorC = GPUTensor<Matrix>.empty(<int>[m, n]);
+    AllocBuffer allocTape = AllocBuffer();
+    GPUTensor<Matrix> tensorA = GPUTensor<Matrix>.empty(<int>[m, k], allocTape);
+    GPUTensor<Matrix> tensorB = GPUTensor<Matrix>.empty(<int>[k, n], allocTape);
+    GPUTensor<Matrix> tensorC = GPUTensor<Matrix>.empty(<int>[m, n], allocTape);
 
     CommandBuffer tape = CommandBuffer();
-    matMulGPU(tensorA, tensorB, tape, outTensor: tensorC);
+    matMulGPU(tensorA, tensorB, tape, allocTape, outTensor: tensorC);
+    allocTape.execute();
 
-    // We only run 5 steps because each step is a massive 29.67 TFLOP workload
     int steps = 5;
 
     Logger.blue('Starting VRAM saturation test for $steps steps...');
@@ -253,7 +261,6 @@ void main() {
     timer.stop();
     double seconds = timer.elapsedMilliseconds / 1000.0;
 
-    // Standard FLOP calculation for Matrix Multiplication: 2 * M * K * N
     double flopsPerStep = 2.0 * m * k * n;
     double totalFlopsAchieved = flopsPerStep * steps;
     double flopsPerSecond = totalFlopsAchieved / seconds;
@@ -266,97 +273,44 @@ void main() {
     Logger.green(
         'Compute Performance: ${gflops.toStringAsFixed(2)} GFLOPS (${tflops.toStringAsFixed(4)} TFLOPS)');
 
-    tensorA.free();
-    tensorB.free();
-    tensorC.free();
+    allocTape.freeAll();
   });
+
   test('Minimalist Transformer Sequence-to-Sequence', () {
-    // 1. Setup Architecture Dimensions
     int vocabSize = 10;
     int dModel = 16;
     int numHeads = 4;
     int dff = 32;
     int maxSeqLength = 8;
 
-    // 2. Training Data: A sequence of 4 token IDs
+    AllocBuffer dataAlloc = AllocBuffer();
+
     GPUTensor<Vector> trainInput =
-        GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0]);
+    GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0], dataAlloc);
 
-    // Training Target: One-hot encoded matrix for the target outputs (Shape: 4 x 10)
     GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(<List<double>>[
-      <double>[
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ], // Target for input 1.0 -> 2.0
-      <double>[
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ], // Target for input 3.0 -> 4.0
-      <double>[
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0
-      ], // Target for input 5.0 -> 6.0
-      <double>[
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0
-      ], // Target for input 2.0 -> 3.0
-    ]);
+      <double>[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      <double>[0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      <double>[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+      <double>[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    ], dataAlloc);
 
-    // 3. Define the Transformer Pipeline
+    dataAlloc.execute();
+
     List<TapeLayer> layers = <TapeLayer>[
-      // Embeds the 1D token IDs into a 2D Matrix of shape [SeqLength, dModel]
       EmbeddingTL(vocabSize, dModel),
-
-      // Injects sine/cosine spatial frequencies
       PositionalEncodingTL(maxSeqLength, dModel),
-
-      // The heavy-lifter: Multi-Head Self Attention + Residuals + LayerNorm + FFN
       TransformerEncoderBlockTapeLayer(dModel, numHeads, dff),
-
-      // Projects the 16-dimensional features back into the 10-dimensional vocabulary space
       DenseTL(vocabSize)
     ];
 
-    // 4. Initialize the Sequential Wrapper
     SeqModel<Vector, Matrix> model = SeqModel<Vector, Matrix>(
       layers,
       trainInput,
       target: trainTarget,
       lossFunction: mseMatrixGPU,
-      optimizerBuilder: (List<GPUTensor> params) {
-        return AdamGPU(params, 0.01);
+      optimizerBuilder: (List<GPUTensor> params, AllocBuffer allocTape) {
+        return AdamGPU(params, 0.01, allocTape);
       },
     );
 
@@ -364,7 +318,6 @@ void main() {
     model.compile();
     Logger.green('Compilation Successful.');
 
-    // 5. Run the Training Loop
     int epochs = 250;
     Logger.blue('Starting Training for $epochs epochs...');
 
@@ -375,10 +328,11 @@ void main() {
     model.loss?.toCpu();
     Logger.green('Final Training Loss: ${model.loss?.value}');
 
-    // 6. Test Static Inference with dynamic sequence lengths!
-    // Notice how the inference sequence length (2) is different from training (4).
-    // The model.predict() gracefully handles reshaping the internal caches.
-    GPUTensor<Vector> inferInput = GPUTensor<Vector>(<double>[1.0, 3.0]);
+    AllocBuffer inferAlloc = AllocBuffer();
+    GPUTensor<Vector> inferInput =
+    GPUTensor<Vector>(<double>[1.0, 3.0], inferAlloc);
+    inferAlloc.execute();
+
     GPUTensor<Matrix> inferResult = model.predict(inferInput);
 
     model.runForward();
@@ -387,13 +341,13 @@ void main() {
     Logger.blue('--- Inference Results ---');
     Logger.blue('Input Tokens: [1.0, 3.0]');
 
-    // Prints the output probabilities/logits for the 2 tokens across the 10 vocab classes
     List<List<double>> outputMatrix = inferResult.value;
     for (int i = 0; i < outputMatrix.length; i = i + 1) {
       Logger.blue('Token $i Output Logits: ${outputMatrix[i]}');
     }
 
-    // Cleanup VRAM
     model.free();
+    inferAlloc.freeAll();
+    dataAlloc.freeAll();
   });
 }

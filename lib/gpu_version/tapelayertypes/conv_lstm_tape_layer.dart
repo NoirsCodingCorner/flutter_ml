@@ -4,6 +4,7 @@ import '/tensor/tensor_gpu.dart';
 import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
+import '../ffi/allocation_buffer.dart';
 import '../ffi/op_codes.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
@@ -96,7 +97,7 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
 
   /// Allocates VRAM for all kernels and biases. Weights are initialized using scaled random values.
   @override
-  void build(GPUTensor<dynamic> input) {
+  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
     int inChannels = 1;
     Random random = Random();
 
@@ -127,21 +128,34 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
       return b;
     }
 
-    kXf = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters));
-    kHf = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters));
-    kXi = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters));
-    kHi = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters));
-    kXc = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters));
-    kHc = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters));
-    kXo = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters));
-    kHo = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters));
+    kXf = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
+        sourceOp: '$name:kXf');
+    kHf = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+        sourceOp: '$name:kHf');
+    kXi = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
+        sourceOp: '$name:kXi');
+    kHi = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+        sourceOp: '$name:kHi');
+    kXc = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
+        sourceOp: '$name:kXc');
+    kHc = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+        sourceOp: '$name:kHc');
+    kXo = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
+        sourceOp: '$name:kXo');
+    kHo = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+        sourceOp: '$name:kHo');
 
-    bf = GPUTensor<Vector>(initBias(hiddenFilters));
-    bi = GPUTensor<Vector>(initBias(hiddenFilters));
-    bc = GPUTensor<Vector>(initBias(hiddenFilters));
-    bo = GPUTensor<Vector>(initBias(hiddenFilters));
+    bf = GPUTensor<Vector>(initBias(hiddenFilters), allocTape,
+        sourceOp: '$name:bf');
+    bi = GPUTensor<Vector>(initBias(hiddenFilters), allocTape,
+        sourceOp: '$name:bi');
+    bc = GPUTensor<Vector>(initBias(hiddenFilters), allocTape,
+        sourceOp: '$name:bc');
+    bo = GPUTensor<Vector>(initBias(hiddenFilters), allocTape,
+        sourceOp: '$name:bo');
 
-    zeroBiasInput = GPUTensor<Vector>(initBias(hiddenFilters));
+    zeroBiasInput = GPUTensor<Vector>(initBias(hiddenFilters), allocTape,
+        requiresGrad: false, sourceOp: '$name:zeroBiasInput');
 
     built = true;
   }
@@ -152,7 +166,7 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
   /// and bypasses the external [intermediates] list. It dynamically reallocates memory only if the sequence length changes.
   @override
   GPUTensor<Tensor3D> forward(GPUTensor<Tensor3D> input, CommandBuffer tape,
-      List<GPUTensor> intermediates) {
+      AllocBuffer allocTape, List<GPUTensor> intermediates) {
     int seqLength = input.shape[0];
     int height = input.shape[1];
     int width = input.shape[2];
@@ -161,7 +175,6 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
 
     // If sequence length changed or this is the first run, rebuild the cache.
     if (!useCache) {
-      // Free old VRAM allocations to prevent memory leaks if sequence length changed dynamically
       for (int i = 0; i < hStates.length; i = i + 1) {
         hStates[i].free();
       }
@@ -177,27 +190,17 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
       stepCache.clear();
       cacheSeqLength = seqLength;
 
-      List<List<List<double>>> zero3D = <List<List<double>>>[];
-      for (int c = 0; c < hiddenFilters; c = c + 1) {
-        List<List<double>> mat = <List<double>>[];
-        for (int i = 0; i < height; i = i + 1) {
-          List<double> row = <double>[];
-          for (int j = 0; j < width; j = j + 1) {
-            row.add(0.0);
-          }
-          mat.add(row);
-        }
-        zero3D.add(mat);
-      }
+      List<int> stateShape = <int>[hiddenFilters, height, width];
 
       // Initialize state histories
-      hStates.add(GPUTensor<Tensor3D>(zero3D));
-      cStates.add(GPUTensor<Tensor3D>(zero3D));
+      hStates.add(GPUTensor<Tensor3D>.empty(stateShape, allocTape,
+          sourceOp: '$name:initH'));
+      cStates.add(GPUTensor<Tensor3D>.empty(stateShape, allocTape,
+          sourceOp: '$name:initC'));
     }
 
     int cIdx = 0;
 
-    // Inline helpers to keep loop syntax perfectly clean
     T? getCached<T>() {
       if (useCache) {
         T cached = stepCache[cIdx] as T;
@@ -214,99 +217,101 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
     }
 
     for (int t = 0; t < seqLength; t = t + 1) {
-      GPUTensor<Matrix> xT = selectMatrixFrom3DGPU(input, t, tape,
+      GPUTensor<Matrix> xT = selectMatrixFrom3DGPU(input, t, tape, allocTape,
           outTensor: getCached<GPUTensor<Matrix>>());
       saveCached(xT);
 
-      // Explicitly reference the previous timestep's states
       GPUTensor<Tensor3D> prevH = hStates[t];
       GPUTensor<Tensor3D> prevC = cStates[t];
 
       // Forget Gate
       GPUTensor<Tensor3D> fX = conv2dMultiChannelGPU(
-          xT, kXf, bf, kernelSize, kernelSize, tape,
+          xT, kXf, bf, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(fX);
       GPUTensor<Tensor3D> fH = conv2dMultiChannelGPU(
-          prevH, kHf, zeroBiasInput, kernelSize, kernelSize, tape,
+          prevH, kHf, zeroBiasInput, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(fH);
-      GPUTensor<Tensor3D> fSum =
-          add3DGPU(fX, fH, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> fSum = add3DGPU(fX, fH, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(fSum);
-      GPUTensor<Tensor3D> fT =
-          sigmoid3DGPU(fSum, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> fT = sigmoid3DGPU(fSum, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(fT);
 
       // Input Gate
       GPUTensor<Tensor3D> iX = conv2dMultiChannelGPU(
-          xT, kXi, bi, kernelSize, kernelSize, tape,
+          xT, kXi, bi, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(iX);
       GPUTensor<Tensor3D> iH = conv2dMultiChannelGPU(
-          prevH, kHi, zeroBiasInput, kernelSize, kernelSize, tape,
+          prevH, kHi, zeroBiasInput, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(iH);
-      GPUTensor<Tensor3D> iSum =
-          add3DGPU(iX, iH, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> iSum = add3DGPU(iX, iH, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(iSum);
-      GPUTensor<Tensor3D> iT =
-          sigmoid3DGPU(iSum, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> iT = sigmoid3DGPU(iSum, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(iT);
 
       // Cell Candidate
       GPUTensor<Tensor3D> cX = conv2dMultiChannelGPU(
-          xT, kXc, bc, kernelSize, kernelSize, tape,
+          xT, kXc, bc, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cX);
       GPUTensor<Tensor3D> cH = conv2dMultiChannelGPU(
-          prevH, kHc, zeroBiasInput, kernelSize, kernelSize, tape,
+          prevH, kHc, zeroBiasInput, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cH);
-      GPUTensor<Tensor3D> cSum =
-          add3DGPU(cX, cH, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> cSum = add3DGPU(cX, cH, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cSum);
-      GPUTensor<Tensor3D> cTildeT =
-          tanh3DGPU(cSum, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> cTildeT = tanh3DGPU(cSum, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cTildeT);
 
       // Cell State Update
-      GPUTensor<Tensor3D> cRetained = elementWiseMultiply3DGPU(fT, prevC, tape,
+      GPUTensor<Tensor3D> cRetained = elementWiseMultiply3DGPU(
+          fT, prevC, tape, allocTape,
           outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cRetained);
-      GPUTensor<Tensor3D> cNewInfo = elementWiseMultiply3DGPU(iT, cTildeT, tape,
+      GPUTensor<Tensor3D> cNewInfo = elementWiseMultiply3DGPU(
+          iT, cTildeT, tape, allocTape,
           outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cNewInfo);
 
       GPUTensor<Tensor3D>? outNewC = useCache ? cStates[t + 1] : null;
       GPUTensor<Tensor3D> newC =
-          add3DGPU(cRetained, cNewInfo, tape, outTensor: outNewC);
+      add3DGPU(cRetained, cNewInfo, tape, allocTape, outTensor: outNewC);
       if (!useCache) cStates.add(newC);
 
       // Output Gate
       GPUTensor<Tensor3D> oX = conv2dMultiChannelGPU(
-          xT, kXo, bo, kernelSize, kernelSize, tape,
+          xT, kXo, bo, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(oX);
       GPUTensor<Tensor3D> oH = conv2dMultiChannelGPU(
-          prevH, kHo, zeroBiasInput, kernelSize, kernelSize, tape,
+          prevH, kHo, zeroBiasInput, kernelSize, kernelSize, tape, allocTape,
           padding: 'same', outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(oH);
-      GPUTensor<Tensor3D> oSum =
-          add3DGPU(oX, oH, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> oSum = add3DGPU(oX, oH, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(oSum);
-      GPUTensor<Tensor3D> oT =
-          sigmoid3DGPU(oSum, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> oT = sigmoid3DGPU(oSum, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(oT);
 
       // Hidden State Update
-      GPUTensor<Tensor3D> cActivated =
-          tanh3DGPU(newC, tape, outTensor: getCached<GPUTensor<Tensor3D>>());
+      GPUTensor<Tensor3D> cActivated = tanh3DGPU(newC, tape, allocTape,
+          outTensor: getCached<GPUTensor<Tensor3D>>());
       saveCached(cActivated);
 
       GPUTensor<Tensor3D>? outNewH = useCache ? hStates[t + 1] : null;
-      GPUTensor<Tensor3D> newH =
-          elementWiseMultiply3DGPU(oT, cActivated, tape, outTensor: outNewH);
+      GPUTensor<Tensor3D> newH = elementWiseMultiply3DGPU(
+          oT, cActivated, tape, allocTape,
+          outTensor: outNewH);
       if (!useCache) hStates.add(newH);
     }
 
@@ -348,7 +353,6 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
   @override
   void free() {
     if (built) {
-      // Free parameters
       kXf.free();
       kHf.free();
       kXi.free();
@@ -363,7 +367,6 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
       bo.free();
       zeroBiasInput.free();
 
-      // Free persistently cached states and intermediates
       for (int i = 0; i < hStates.length; i = i + 1) {
         hStates[i].free();
       }
@@ -419,10 +422,6 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
 
   @override
   void setWeights(Map<String, List<dynamic>> newWeights) {
-    if (built) {
-      free();
-    }
-
     List<double> extractVector(List<dynamic> raw) {
       List<double> result = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
@@ -431,46 +430,34 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
       return result;
     }
 
-    List<List<List<double>>> extractTensor3D(List<dynamic> raw) {
-      List<List<List<double>>> result = <List<List<double>>>[];
+    List<double> extractFlatTensor3D(List<dynamic> raw) {
+      List<double> result = <double>[];
       for (int i = 0; i < raw.length; i = i + 1) {
-        List<List<double>> channel = <List<double>>[];
         List<dynamic> rawChannel = raw[i] as List<dynamic>;
         for (int j = 0; j < rawChannel.length; j = j + 1) {
-          List<double> row = <double>[];
           List<dynamic> rawRow = rawChannel[j] as List<dynamic>;
           for (int k = 0; k < rawRow.length; k = k + 1) {
-            row.add(rawRow[k] as double);
+            result.add(rawRow[k] as double);
           }
-          channel.add(row);
         }
-        result.add(channel);
       }
       return result;
     }
 
-    kXf = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_xf']!));
-    kHf = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_hf']!));
-    bf = GPUTensor<Vector>(extractVector(newWeights['b_f']!));
+    kXf.pushData(extractFlatTensor3D(newWeights['K_xf']!));
+    kHf.pushData(extractFlatTensor3D(newWeights['K_hf']!));
+    bf.pushData(extractVector(newWeights['b_f']!));
 
-    kXi = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_xi']!));
-    kHi = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_hi']!));
-    bi = GPUTensor<Vector>(extractVector(newWeights['b_i']!));
+    kXi.pushData(extractFlatTensor3D(newWeights['K_xi']!));
+    kHi.pushData(extractFlatTensor3D(newWeights['K_hi']!));
+    bi.pushData(extractVector(newWeights['b_i']!));
 
-    kXc = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_xc']!));
-    kHc = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_hc']!));
-    bc = GPUTensor<Vector>(extractVector(newWeights['b_c']!));
+    kXc.pushData(extractFlatTensor3D(newWeights['K_xc']!));
+    kHc.pushData(extractFlatTensor3D(newWeights['K_hc']!));
+    bc.pushData(extractVector(newWeights['b_c']!));
 
-    kXo = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_xo']!));
-    kHo = GPUTensor<Tensor3D>(extractTensor3D(newWeights['K_ho']!));
-    bo = GPUTensor<Vector>(extractVector(newWeights['b_o']!));
-
-    List<double> zeroBias = <double>[];
-    for (int i = 0; i < hiddenFilters; i = i + 1) {
-      zeroBias.add(0.0);
-    }
-    zeroBiasInput = GPUTensor<Vector>(zeroBias);
-
-    built = true;
+    kXo.pushData(extractFlatTensor3D(newWeights['K_xo']!));
+    kHo.pushData(extractFlatTensor3D(newWeights['K_ho']!));
+    bo.pushData(extractVector(newWeights['b_o']!));
   }
 }
