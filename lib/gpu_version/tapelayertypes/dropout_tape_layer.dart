@@ -17,20 +17,10 @@ class DropoutTL extends TapeLayer {
   @override
   String get name => 'DropoutTapeLayer';
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<dynamic>? cachedOut;
-
   /// A dropout layer that randomly mutes some elements of the provided GPUTensor.
   /// Works on Scalar, Vector, Matrix and Vector3D.
   /// Requires the dropout probability rate [rate]. It assumes [isTraining] to be 'true' by default.
   DropoutTL(this.rate, {this.isTraining = true});
-
-  /// Returns an empty list since this layer has no learnable parameters.
-  @override
-  List<GPUTensor> get parameters {
-    return <GPUTensor>[];
-  }
 
   /// Does not allocate any additional VRAM.
   @override
@@ -39,43 +29,16 @@ class DropoutTL extends TapeLayer {
   }
 
   /// Writes the [dropoutGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   /// When [isTraining] is set to false it passes the input Tensor as its output.
   @override
-  GPUTensor<dynamic> forward(GPUTensor<dynamic> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
+  GPUTensor<dynamic> forward(
+      GPUTensor<dynamic> input, CommandBuffer tape, AllocBuffer allocTape) {
     if (isTraining == false || rate == 0.0) {
       return input;
     }
 
-    int currentBatchSize = input.shape.isEmpty ? 1 : input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = dropoutGPU(input, rate, tape, allocTape, outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the cached intermediate tensor.
-  @override
-  void free() {
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+    GPUTensor<dynamic> out = dropoutGPU(input, rate, tape, allocTape);
+    return out;
   }
 
   /// This layer has no weights to return.

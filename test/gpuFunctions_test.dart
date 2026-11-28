@@ -25,7 +25,7 @@ void main() {
       {double tolerance = 1e-5}) {
     allocTape.execute();
     GPUEngine.run(buffer.bytes());
-    actual.toCpu();
+    actual.dataToCpu();
     expect(actual.value, closeTo(wanted, tolerance));
     allocTape.freeAll();
   }
@@ -35,7 +35,7 @@ void main() {
       {double tolerance = 1e-5}) {
     allocTape.execute();
     GPUEngine.run(buffer.bytes());
-    actual.toCpu();
+    actual.dataToCpu();
     for (int i = 0; i < actual.value.length; i = i + 1) {
       expect(actual.value[i], closeTo(wanted[i], tolerance));
     }
@@ -47,7 +47,7 @@ void main() {
       {double tolerance = 1e-5}) {
     allocTape.execute();
     GPUEngine.run(buffer.bytes());
-    actual.toCpu();
+    actual.dataToCpu();
     for (int i = 0; i < actual.value.length; i = i + 1) {
       for (int j = 0; j < actual.value[i].length; j = j + 1) {
         expect(actual.value[i][j], closeTo(wanted[i][j], tolerance));
@@ -61,7 +61,7 @@ void main() {
       {double tolerance = 1e-5}) {
     allocTape.execute();
     GPUEngine.run(buffer.bytes());
-    actual.toCpu();
+    actual.dataToCpu();
     for (int i = 0; i < actual.value.length; i = i + 1) {
       for (int j = 0; j < actual.value[i].length; j = j + 1) {
         for (int k = 0; k < actual.value[i][j].length; k = k + 1) {
@@ -755,7 +755,7 @@ void main() {
     allocTape.execute();
     GPUEngine.run(buffer.bytes());
 
-    data.toCpu();
+    data.dataToCpu();
     expect(data.value[0], closeTo(1.0, 1e-5));
     allocTape.freeAll();
   });
@@ -771,7 +771,7 @@ void main() {
     allocTape.execute();
     GPUEngine.run(buffer.bytes());
 
-    data.toCpu();
+    data.dataToCpu();
     expect(data.value[0], closeTo(1.0, 1e-5));
     allocTape.freeAll();
   });
@@ -1227,16 +1227,14 @@ void main() {
       <double>[0.5, -1.5],
     ], allocTape);
     GPUTensor<Vector> b = GPUTensor<Vector>(<double>[1.0, -1.0], allocTape);
-    List<GPUTensor> intermediates = <GPUTensor>[];
 
-    GPUTensor<Matrix> testOut =
-    matMulBiasReluGPU(x, w, b, buffer, allocTape, intermediates);
+    GPUTensor<Matrix> testOut = matMulBiasReluGPU(x, w, b, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.0, 4.0],
       <double>[0.0, 5.0],
     ]);
 
-    expect(intermediates.length, 1);
+    expect(testOut.subMap.containsKey('preReluOut'), true);
   });
 
   test('dotProductGPU', () {

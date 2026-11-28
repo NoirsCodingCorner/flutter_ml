@@ -12,11 +12,10 @@ import '../gpu_version/ffi/command_buffer.dart';
 /// /////////////////////////////////
 
 GPUTensor<Matrix> reshapeVectorToMatrixGPU(GPUTensor<Vector> v, int numRows,
-    int numCols, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'reshapeGPU');
+    int numCols, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'reshapeGPU');
 
   tape.putInt(OP_COPY);
   tape.putString(v.id);
@@ -37,12 +36,11 @@ GPUTensor<Matrix> reshapeVectorToMatrixGPU(GPUTensor<Vector> v, int numRows,
   return out;
 }
 
-GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(
-    GPUTensor<Matrix> m, int c, int h, int w, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[c, h, w], allocTape,
-          sourceOp: 'reshapeMatrixTo3DGPU');
+GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(GPUTensor<Matrix> m, int c, int h,
+    int w, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[c, h, w], allocTape,
+      sourceOp: 'reshapeMatrixTo3DGPU');
 
   tape.putInt(OP_COPY);
   tape.putString(m.id);
@@ -63,11 +61,10 @@ GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(
 }
 
 GPUTensor<Matrix> reshape3DToMatrixGPU(GPUTensor<Tensor3D> t, int rows,
-    int cols, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape,
-          sourceOp: 'reshape3DToMatrixGPU');
+    int cols, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[rows, cols], allocTape,
+      sourceOp: 'reshape3DToMatrixGPU');
 
   tape.putInt(OP_COPY);
   tape.putString(t.id);
@@ -88,16 +85,15 @@ GPUTensor<Matrix> reshape3DToMatrixGPU(GPUTensor<Tensor3D> t, int rows,
 }
 
 GPUTensor<Matrix> flatten3DToMatrixGPU(
-    GPUTensor<Tensor3D> t, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Tensor3D> t, CommandBuffer tape, AllocBuffer allocTape) {
   int c = t.shape[0];
   int h = t.shape[1];
   int w = t.shape[2];
   int flatSize = c * h * w;
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[1, flatSize], allocTape,
-          sourceOp: 'flatten3DToMatrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[1, flatSize], allocTape,
+      sourceOp: 'flatten3DToMatrixGPU');
 
   tape.putInt(OP_COPY);
   tape.putString(t.id);
@@ -118,18 +114,17 @@ GPUTensor<Matrix> flatten3DToMatrixGPU(
 }
 
 GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int cols = dataset.shape[1];
 
   List<int> outShape = <int>[cols];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(outShape, allocTape, sourceOp: 'loadSampleGPU');
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(outShape, allocTape, sourceOp: 'loadSampleGPU');
 
   tape.putInt(OP_LOAD_SAMPLE);
   tape.putString(dataset.id);
   tape.putString(out.id);
-  tape.putInt(sampleIndex);
+  tape.putPatchableInt('sample_index', sampleIndex);
 
   out.creator = GPUNode(
     <GPUTensor>[dataset],
@@ -137,7 +132,7 @@ GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex,
       bTape.putInt(OP_STORE_SAMPLE);
       bTape.putString(out.gradId);
       bTape.putString(dataset.gradId);
-      bTape.putInt(sampleIndex);
+      bTape.putPatchableInt('sample_index', sampleIndex);
     },
     opName: 'loadSampleGPU',
   );
@@ -152,10 +147,9 @@ GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex,
 /// Adds the command for addition of two GPUTensors [a] and [b] of type [T] to the tape.
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<T> addGPU<T>(
-    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'addGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'addGPU');
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);
@@ -181,10 +175,9 @@ GPUTensor<T> addGPU<T>(
 /// Adds the command for addition of two vectors [a] and [b] to the tape.
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Vector> addVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(a.shape, allocTape, sourceOp: 'addVectorGPU');
+    CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(a.shape, allocTape, sourceOp: 'addVectorGPU');
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);
@@ -211,14 +204,13 @@ GPUTensor<Vector> addVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 /// Adds the command for addition of two matrices [a] and [b] to the tape.
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Matrix> addMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = a.shape[0];
   int numCols = a.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'add_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'add_matrixGPU');
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);
@@ -246,15 +238,14 @@ GPUTensor<Matrix> addMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 /// Adds the command for addition of two Tensor3Ds [a] and [b] to the tape.
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Tensor3D> add3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int depth = a.shape[0];
   int height = a.shape[1];
   int width = a.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[depth, height, width], allocTape,
-          sourceOp: 'add_3dGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[depth, height, width], allocTape,
+      sourceOp: 'add_3dGPU');
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);
@@ -282,10 +273,9 @@ GPUTensor<Tensor3D> add3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 /// Appends the commands for subtraction of two GPUTensors [a] and [b] of type [T] to the tape.
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<T> subtractGPU<T>(
-    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
-  GPUTensor<T> out = outTensor ??
-      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'subtractGPU');
+    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<T> out =
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'subtractGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -310,12 +300,11 @@ GPUTensor<T> subtractGPU<T>(
 }
 
 GPUTensor<Vector> subtractVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int length = a.shape[0];
   List<int> shape = <int>[length];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'subtractVectorGPU');
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'subtractVectorGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -343,13 +332,12 @@ GPUTensor<Vector> subtractVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 /// Appends the commands for subtraction of two matrices [a] and [b] of type [T] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Matrix> subtractMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = a.shape[0];
   int numCols = a.shape[1];
   List<int> shape = <int>[numRows, numCols];
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'subtractMatrixGPU');
+  GPUTensor<Matrix> out =
+  GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'subtractMatrixGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -377,14 +365,13 @@ GPUTensor<Matrix> subtractMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 /// Appends the commands for subtraction of two Tensor3Ds [a] and [b] of type [T] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int depth = a.shape[0];
   int height = a.shape[1];
   int width = a.shape[2];
   List<int> shape = <int>[depth, height, width];
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'subtract3DGPU');
+  GPUTensor<Tensor3D> out =
+  GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'subtract3DGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -412,10 +399,9 @@ GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 /// Appends the commands for element wise multiplication of two GPUTensors [a] and [b] of type [T] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<T> multiplyGPU<T>(
-    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
-  GPUTensor<T> out = outTensor ??
-      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'multiplyGPU');
+    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<T> out =
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'multiplyGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -443,10 +429,9 @@ GPUTensor<T> multiplyGPU<T>(
 }
 
 GPUTensor<Scalar> multiplyScalarGPU(GPUTensor<Scalar> a, GPUTensor<Scalar> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Scalar>? outTensor}) {
-  GPUTensor<Scalar> out = outTensor ??
-      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'multiplyScalarGPU');
+    CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Scalar> out =
+  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'multiplyScalarGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -476,11 +461,9 @@ GPUTensor<Scalar> multiplyScalarGPU(GPUTensor<Scalar> a, GPUTensor<Scalar> b,
 /// Appends the commands for element wise multiplication of two vectors [a] and [b] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Vector> elementWiseMultiplyGPU(GPUTensor<Vector> a,
-    GPUTensor<Vector> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(a.shape, allocTape,
-          sourceOp: 'elementWiseMultiplyGPU');
+    GPUTensor<Vector> b, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(a.shape, allocTape,
+      sourceOp: 'elementWiseMultiplyGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -510,15 +493,14 @@ GPUTensor<Vector> elementWiseMultiplyGPU(GPUTensor<Vector> a,
 /// Appends the commands for element wise multiplication of two Tensor3Ds [a] and [b] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Tensor3D> elementWiseMultiply3DGPU(GPUTensor<Tensor3D> a,
-    GPUTensor<Tensor3D> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    GPUTensor<Tensor3D> b, CommandBuffer tape, AllocBuffer allocTape) {
   int depth = a.shape[0];
   int height = a.shape[1];
   int width = a.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[depth, height, width], allocTape,
-          sourceOp: 'multiply_3dGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[depth, height, width], allocTape,
+      sourceOp: 'multiply_3dGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -548,14 +530,13 @@ GPUTensor<Tensor3D> elementWiseMultiply3DGPU(GPUTensor<Tensor3D> a,
 /// Appends the commands for element wise multiplication of two matrices [a] and [b] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Matrix> elementWiseMultiplyMatrixGPU(GPUTensor<Matrix> a,
-    GPUTensor<Matrix> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> b, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = a.shape[0];
   int numCols = a.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'multiply_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'multiply_matrixGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -581,13 +562,13 @@ GPUTensor<Matrix> elementWiseMultiplyMatrixGPU(GPUTensor<Matrix> a,
 
   return out;
 }
+
 /// Appends the commands for element wise division of two GPUTensors [a] through [b] of type [T] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<T> divideGPU<T>(
-    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'divideGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'divideGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -611,12 +592,11 @@ GPUTensor<T> divideGPU<T>(
 }
 
 GPUTensor<Vector> divideVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int length = a.shape[0];
   List<int> shape = <int>[length];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'divideVectorGPU');
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'divideVectorGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -643,13 +623,12 @@ GPUTensor<Vector> divideVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 /// Appends the commands for element wise division of two matrices [a] through [b] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Matrix> divideMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = a.shape[0];
   int numCols = a.shape[1];
   List<int> shape = <int>[numRows, numCols];
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'divideMatrixGPU');
+  GPUTensor<Matrix> out =
+  GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'divideMatrixGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -676,14 +655,13 @@ GPUTensor<Matrix> divideMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 /// Appends the commands for element wise division of two Tensor3Ds [a] through [b] to [tape].
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<Tensor3D> divide3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int depth = a.shape[0];
   int height = a.shape[1];
   int width = a.shape[2];
   List<int> shape = <int>[depth, height, width];
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'divide3DGPU');
+  GPUTensor<Tensor3D> out =
+  GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'divide3DGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -709,11 +687,10 @@ GPUTensor<Tensor3D> divide3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 
 /// Appends the commands for applying the e^v exponential function on vector [v] to [tape].
 GPUTensor<Vector> vectorExpGPU(
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int N = v.shape[0];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'exp_vectorGPU');
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'exp_vectorGPU');
 
   tape.putInt(OP_EXP_ELEMENTWISE);
   tape.putString(v.id);
@@ -736,10 +713,9 @@ GPUTensor<Vector> vectorExpGPU(
 
 /// Appends the commands for applying the abs(v) exponential function on every element of [a] to [tape].
 GPUTensor<T> absGPU<T>(
-    GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'absGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'absGPU');
 
   tape.putInt(OP_ABS_ELEMENTWISE);
   tape.putString(a.id);
@@ -761,10 +737,9 @@ GPUTensor<T> absGPU<T>(
 
 /// Appends the commands for applying the sqrt(v) exponential function on every element of [v] to [tape].
 GPUTensor<T> sqrtGPU<T>(
-    GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'sqrtGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'sqrtGPU');
 
   tape.putInt(OP_SQRT_ELEMENTWISE);
   tape.putString(a.id);
@@ -786,10 +761,9 @@ GPUTensor<T> sqrtGPU<T>(
 
 /// Appends the commands for applying the log(v) exponential function on every element of [v] to [tape].
 GPUTensor<T> logGPU<T>(
-    GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'logGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'logGPU');
 
   tape.putInt(OP_LOG_ELEMENTWISE);
   tape.putString(a.id);
@@ -811,10 +785,9 @@ GPUTensor<T> logGPU<T>(
 
 /// Appends the commands for applying pow([v],[exponent]) exponential function on every element of [v] to [tape].
 GPUTensor<T> powGPU<T>(
-    GPUTensor<T> a, double exponent, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    GPUTensor<T> a, double exponent, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'powGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'powGPU');
 
   tape.putInt(OP_POW_ELEMENTWISE);
   tape.putString(a.id);
@@ -838,10 +811,9 @@ GPUTensor<T> powGPU<T>(
 
 /// Appends the commands for clamping every element of [v] between [minVal] - [maxVal] to [tape].
 GPUTensor<T> clampGPU<T>(GPUTensor<T> a, double minVal, double maxVal,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-      outTensor ?? GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'clampGPU');
+  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'clampGPU');
 
   tape.putInt(OP_CLAMP_ELEMENTWISE);
   tape.putString(a.id);
@@ -871,14 +843,13 @@ GPUTensor<T> clampGPU<T>(GPUTensor<T> a, double minVal, double maxVal,
 
 /// Appends the commands for matrix multiplication of [a] with [b] to [tape].
 GPUTensor<Matrix> matMulGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int M = a.shape[0];
   int N = a.shape[1];
   int P = b.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[M, P], allocTape, sourceOp: 'matMulGPU');
+  GPUTensor<Matrix> out =
+  GPUTensor<Matrix>.empty(<int>[M, P], allocTape, sourceOp: 'matMulGPU');
 
   tape.putInt(OP_MATMUL);
   tape.putString(a.id);
@@ -924,14 +895,12 @@ GPUTensor<Matrix> matMulGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 
 /// Appends the commands for multiplication of matrix[a] with vector[b] to [tape].
 GPUTensor<Vector> matVecMulGPU(GPUTensor<Matrix> mMat, GPUTensor<Vector> v,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = mMat.shape[0];
   int numCols = mMat.shape[1];
 
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(<int>[numRows], allocTape,
-          sourceOp: 'matVecMulGPU');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(<int>[numRows], allocTape,
+      sourceOp: 'matVecMulGPU');
 
   tape.putInt(OP_MATMUL);
   tape.putString(mMat.id);
@@ -975,13 +944,12 @@ GPUTensor<Vector> matVecMulGPU(GPUTensor<Matrix> mMat, GPUTensor<Vector> v,
 
 /// Appends a command for switching rows and columns to [tape].
 GPUTensor<Matrix> transposeGPU(
-    GPUTensor<Matrix> a, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> a, CommandBuffer tape, AllocBuffer allocTape) {
   int M = a.shape[0];
   int N = a.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[N, M], allocTape, sourceOp: 'transposeGPU');
+  GPUTensor<Matrix> out =
+  GPUTensor<Matrix>.empty(<int>[N, M], allocTape, sourceOp: 'transposeGPU');
   GPUTensor<Matrix> tmpGrad = GPUTensor<Matrix>.empty(<int>[M, N], allocTape,
       requiresGrad: false, sourceOp: 'transposeGPU:tmpGrad');
   out.subMap["tmpGrad"] = tmpGrad;
@@ -1011,14 +979,13 @@ GPUTensor<Matrix> transposeGPU(
 
 /// Appends a command for broadcast add a vector [v] to [tape].
 GPUTensor<Matrix> addMatrixAndVectorGPU(GPUTensor<Matrix> m,
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'addMatrixAndVectorGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'addMatrixAndVectorGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
   tape.putString(m.id);
@@ -1045,15 +1012,13 @@ GPUTensor<Matrix> addMatrixAndVectorGPU(GPUTensor<Matrix> m,
 
 /// Appends a command for adding a scalar [b] to every element of a matrix [m] to [tape].
 GPUTensor<Matrix> addScalarMatrixGPU(GPUTensor<Matrix> m,
-    GPUTensor<Scalar> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Scalar> b, CommandBuffer tape, AllocBuffer allocTape) {
   int rows = m.shape[0];
   int cols = m.shape[1];
 
   List<int> shape = <int>[rows, cols];
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(shape, allocTape,
-          sourceOp: 'addScalarToMatrixGPU');
+  GPUTensor<Matrix> out =
+  GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'addScalarToMatrixGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
   tape.putString(m.id);
@@ -1080,12 +1045,10 @@ GPUTensor<Matrix> addScalarMatrixGPU(GPUTensor<Matrix> m,
 
 /// Appends a command for adding a scalar [b] to every element of a vector [v] to [tape].
 GPUTensor<Vector> addScalarVectorGPU(GPUTensor<Vector> v, double scalar,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int length = v.shape[0];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(<int>[length], allocTape,
-          sourceOp: 'addScalarVectorGPU');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(<int>[length], allocTape,
+      sourceOp: 'addScalarVectorGPU');
 
   tape.putInt(OP_ADD_SCALAR);
   tape.putString(v.id);
@@ -1108,14 +1071,13 @@ GPUTensor<Vector> addScalarVectorGPU(GPUTensor<Vector> v, double scalar,
 
 /// Appends a command for adding a scalar [scalar] to every element of a Tensor3D [v] to [tape].
 GPUTensor<Tensor3D> addScalar3DGPU(GPUTensor<Tensor3D> t, double scalar,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int depth = t.shape[0];
   int height = t.shape[1];
   int width = t.shape[2];
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[depth, height, width], allocTape,
-          sourceOp: 'addScalar3DGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[depth, height, width], allocTape,
+      sourceOp: 'addScalar3DGPU');
 
   tape.putInt(OP_ADD_SCALAR);
   tape.putString(t.id);
@@ -1138,15 +1100,13 @@ GPUTensor<Tensor3D> addScalar3DGPU(GPUTensor<Tensor3D> t, double scalar,
 
 /// Appends commands for broadcast additions of a matrix wrapped scalar [b] to a full matrix [m].
 GPUTensor<Matrix> addBiasToFeatureMapGPU(GPUTensor<Matrix> m,
-    GPUTensor<Matrix> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> b, CommandBuffer tape, AllocBuffer allocTape) {
   int rows = m.shape[0];
   int cols = m.shape[1];
 
   List<int> shape = <int>[rows, cols];
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(shape, allocTape,
-          sourceOp: 'addBiasToFeatureMapGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(shape, allocTape,
+      sourceOp: 'addBiasToFeatureMapGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
   tape.putString(m.id);
@@ -1173,14 +1133,13 @@ GPUTensor<Matrix> addBiasToFeatureMapGPU(GPUTensor<Matrix> m,
 
 /// Appends commands for addition of a 1D bias vector [b] to a 2D matrix [m] via broadcasting over the matrix to the [tape].
 GPUTensor<Matrix> addBiasToMatMulOutGPU(GPUTensor<Matrix> m,
-    GPUTensor<Vector> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Vector> b, CommandBuffer tape, AllocBuffer allocTape) {
   int rows = m.shape[0];
   int cols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape,
-          sourceOp: 'addBiasToMatMulOutGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[rows, cols], allocTape,
+      sourceOp: 'addBiasToMatMulOutGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
   tape.putString(m.id);
@@ -1208,11 +1167,9 @@ GPUTensor<Matrix> addBiasToMatMulOutGPU(GPUTensor<Matrix> m,
 /// Appends commands for addition of a 1D bias vector [b] to a 2D matrix [m] via broadcasting over the matrix to the [tape].
 /// This command is inference only! No gradient path is calculated.
 GPUTensor<Matrix> broadcastAddVectorToMatrixGPU(GPUTensor<Matrix> m,
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(m.shape, allocTape,
-          sourceOp: 'broadcastAddVectorToMatrixGPU');
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(m.shape, allocTape,
+      sourceOp: 'broadcastAddVectorToMatrixGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
   tape.putString(m.id);
@@ -1231,14 +1188,13 @@ GPUTensor<Matrix> broadcastAddVectorToMatrixGPU(GPUTensor<Matrix> m,
 
 /// Appends commands for additions of a scalar constant [s] to every element of matrix [m] to [tape].
 GPUTensor<Matrix> scaleMatrixGPU(GPUTensor<Matrix> m, double s,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'scaleMatrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'scaleMatrixGPU');
 
   tape.putInt(OP_SCALE_MATRIX);
   tape.putString(m.id);
@@ -1267,10 +1223,9 @@ GPUTensor<Matrix> scaleMatrixGPU(GPUTensor<Matrix> m, double s,
 
 /// Appends commands for applying Relu on every element of vector [v] to [tape].
 GPUTensor<Vector> reluGPU(
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'reluGPU');
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'reluGPU');
 
   tape.putInt(OP_RELU);
   tape.putString(v.id);
@@ -1293,14 +1248,13 @@ GPUTensor<Vector> reluGPU(
 
 /// Appends commands for applying Relu on every element of matrix [m] to [tape].
 GPUTensor<Matrix> reluMatrixGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'relu_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'relu_matrixGPU');
 
   tape.putInt(OP_RELU);
   tape.putString(m.id);
@@ -1323,10 +1277,9 @@ GPUTensor<Matrix> reluMatrixGPU(
 
 /// Appends commands for applying the sigmoid function on every element of [m] (type [t]) to [tape].
 GPUTensor<T> sigmoidScalarGPU<T>(
-    GPUTensor<T> s, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor}) {
-  GPUTensor<T> out = outTensor ??
-      GPUTensor<T>.empty(s.shape, allocTape, sourceOp: 'sigmoidScalarGPU');
+    GPUTensor<T> s, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<T> out =
+  GPUTensor<T>.empty(s.shape, allocTape, sourceOp: 'sigmoidScalarGPU');
 
   tape.putInt(OP_SIGMOID);
   tape.putString(s.id);
@@ -1349,10 +1302,9 @@ GPUTensor<T> sigmoidScalarGPU<T>(
 
 /// Appends commands for applying the sigmoid function on every element of vector [v] to [tape].
 GPUTensor<Vector> sigmoidGPU(
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'sigmoidGPU');
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'sigmoidGPU');
 
   tape.putInt(OP_SIGMOID);
   tape.putString(v.id);
@@ -1375,14 +1327,13 @@ GPUTensor<Vector> sigmoidGPU(
 
 /// Appends commands for applying the sigmoid function on every element of matrix [m] to [tape].
 GPUTensor<Matrix> sigmoidMatrixGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'sigmoid_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'sigmoid_matrixGPU');
 
   tape.putInt(OP_SIGMOID);
   tape.putString(m.id);
@@ -1405,15 +1356,14 @@ GPUTensor<Matrix> sigmoidMatrixGPU(
 
 /// Appends commands for applying the sigmoid function on every element of Tensor3D [t] to [tape].
 GPUTensor<Tensor3D> sigmoid3DGPU(
-    GPUTensor<Tensor3D> t, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    GPUTensor<Tensor3D> t, CommandBuffer tape, AllocBuffer allocTape) {
   int depth = t.shape[0];
   int height = t.shape[1];
   int width = t.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[depth, height, width], allocTape,
-          sourceOp: 'sigmoid_3dGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[depth, height, width], allocTape,
+      sourceOp: 'sigmoid_3dGPU');
 
   tape.putInt(OP_SIGMOID);
   tape.putString(t.id);
@@ -1436,11 +1386,10 @@ GPUTensor<Tensor3D> sigmoid3DGPU(
 
 /// Appends commands for applying the tanh function on every element of vector [t] to [tape].
 GPUTensor<Vector> vectorTanhGPU(
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int N = v.shape[0];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'tanh_vectorGPU');
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'tanh_vectorGPU');
 
   tape.putInt(OP_TANH);
   tape.putString(v.id);
@@ -1463,14 +1412,13 @@ GPUTensor<Vector> vectorTanhGPU(
 
 /// Appends commands for applying the tanh function on every element of matrix [m] to [tape].
 GPUTensor<Matrix> tanhMatrixGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'tanh_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'tanh_matrixGPU');
 
   tape.putInt(OP_TANH);
   tape.putString(m.id);
@@ -1493,15 +1441,14 @@ GPUTensor<Matrix> tanhMatrixGPU(
 
 /// Appends commands for applying the tanh function on every element of Tensor3D [t] to [tape].
 GPUTensor<Tensor3D> tanh3DGPU(
-    GPUTensor<Tensor3D> t, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    GPUTensor<Tensor3D> t, CommandBuffer tape, AllocBuffer allocTape) {
   int depth = t.shape[0];
   int height = t.shape[1];
   int width = t.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[depth, height, width], allocTape,
-          sourceOp: 'tanh_3dGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[depth, height, width], allocTape,
+      sourceOp: 'tanh_3dGPU');
 
   tape.putInt(OP_TANH);
   tape.putString(t.id);
@@ -1524,12 +1471,11 @@ GPUTensor<Tensor3D> tanh3DGPU(
 
 /// Appends commands for applying the gelu activation function on every element of vector [v] to [tape].
 GPUTensor<Vector> geluGPU(
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int n = v.shape[0];
 
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'geluGPU');
+  GPUTensor<Vector> out =
+  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'geluGPU');
 
   tape.putInt(OP_GELU_FORWARD);
   tape.putString(v.id);
@@ -1552,14 +1498,13 @@ GPUTensor<Vector> geluGPU(
 
 /// Appends commands for applying the gelu activation function on every element of matrix [m] to [tape].
 GPUTensor<Matrix> geluMatrixGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'gelu_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'gelu_matrixGPU');
 
   tape.putInt(OP_GELU_FORWARD);
   tape.putString(m.id);
@@ -1582,14 +1527,13 @@ GPUTensor<Matrix> geluMatrixGPU(
 
 /// Appends commands for applying the softmax function on every element of matrix [m] to [tape].
 GPUTensor<Matrix> softmaxMatrixGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'softmax_matrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'softmax_matrixGPU');
 
   tape.putInt(OP_SOFTMAX_FORWARD);
   tape.putString(m.id);
@@ -1616,11 +1560,9 @@ GPUTensor<Matrix> softmaxMatrixGPU(
 
 /// Appends commands for calculating the binary cross entropy over the elements of [m] of type [T] to [tape].
 GPUTensor<Scalar> binaryCrossEntropyGPU<T>(GPUTensor<T> prediction,
-    GPUTensor<T> target, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Scalar>? outTensor}) {
-  GPUTensor<Scalar> out = outTensor ??
-      GPUTensor<Scalar>.empty(<int>[], allocTape,
-          sourceOp: 'binaryCrossEntropyGPU');
+    GPUTensor<T> target, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Scalar> out = GPUTensor<Scalar>.empty(<int>[], allocTape,
+      sourceOp: 'binaryCrossEntropyGPU');
 
   tape.putInt(OP_BCE_LOSS_FORWARD);
   tape.putString(prediction.id);
@@ -1645,10 +1587,9 @@ GPUTensor<Scalar> binaryCrossEntropyGPU<T>(GPUTensor<T> prediction,
 
 /// Appends commands for calculating the mean square error over between the vectors [predictions] and [targets] to [tape].
 GPUTensor<Scalar> mseGPU(GPUTensor<Vector> predictions,
-    GPUTensor<Vector> targets, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Scalar>? outTensor}) {
-  GPUTensor<Scalar> out = outTensor ??
-      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mseGPU');
+    GPUTensor<Vector> targets, CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Scalar> out =
+  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mseGPU');
 
   tape.putInt(OP_MSE_LOSS_FORWARD);
   tape.putString(predictions.id);
@@ -1673,13 +1614,12 @@ GPUTensor<Scalar> mseGPU(GPUTensor<Vector> predictions,
 
 /// Appends commands for calculating the mean square error over between the matrices [predictions] and [targets] to [tape].
 GPUTensor<Scalar> mseMatrixGPU(GPUTensor<Matrix> predictions,
-    GPUTensor<Matrix> targets, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Scalar>? outTensor}) {
+    GPUTensor<Matrix> targets, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = predictions.shape[0];
   int numCols = predictions.shape[1];
 
-  GPUTensor<Scalar> out = outTensor ??
-      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mse_matrixGPU');
+  GPUTensor<Scalar> out =
+  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mse_matrixGPU');
 
   tape.putInt(OP_MSE_LOSS_FORWARD);
   tape.putString(predictions.id);
@@ -1702,22 +1642,13 @@ GPUTensor<Scalar> mseMatrixGPU(GPUTensor<Matrix> predictions,
   return out;
 }
 
-/// /////////////////////////////////
-/// Optimizers    (500-599)       ///
-/// /////////////////////////////////
-
-/// Performs an in place update of the provided [data] values via standard gradient descent, learning rate [lr] and its assigned gradient.
-/// The operation is appended to [tape] for execution.
 void sgdUpdateGPU(GPUTensor<dynamic> data, double lr, CommandBuffer tape) {
   tape.putInt(OP_SGD_UPDATE);
   tape.putString(data.id);
   tape.putString(data.gradId);
-  tape.putFloat(lr);
+  tape.putPatchableFloat('lr', lr);
 }
 
-/// Performs an in place update of the provided [data] values via the adam function and its assigned gradient.
-/// The first moment [m] and second moment [v] as well as [beta1], [beta2], [eps],[weightDecay], and [step] need to be provided.
-/// The operation is appended to [tape] for execution.
 void adamUpdateGPU(
     GPUTensor<dynamic> data,
     GPUTensor<dynamic> m,
@@ -1734,22 +1665,21 @@ void adamUpdateGPU(
   tape.putString(data.gradId);
   tape.putString(m.id);
   tape.putString(v.id);
-  tape.putFloat(lr);
+  tape.putPatchableFloat('lr', lr);
   tape.putFloat(beta1);
   tape.putFloat(beta2);
   tape.putFloat(eps);
-  tape.putInt(step);
+  tape.putPatchableInt('step', step);
   tape.putFloat(weightDecay);
 }
 
-/// Performs an in place update of the provided [data] values by clipping them in between the intervall [(-clipValue)]-[(clipValue)].
-/// The operation is appended to [tape] for execution.
 void clipGradValueGPU(
     GPUTensor<dynamic> tensor, double clipValue, CommandBuffer tape) {
   tape.putInt(OP_CLIP_GRAD_VALUE);
   tape.putString(tensor.gradId);
-  tape.putFloat(clipValue);
+  tape.putPatchableFloat('clip_value', clipValue);
 }
+
 
 /// /////////////////////////////////
 /// Reductions    (600-699)       ///
@@ -1757,11 +1687,10 @@ void clipGradValueGPU(
 
 /// Appends commands for summing all elements of vector [v] to [tape].
 GPUTensor<Scalar> sumGPU(
-    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Scalar>? outTensor}) {
+    GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int N = v.shape[0];
-  GPUTensor<Scalar> out = outTensor ??
-      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_vectorGPU');
+  GPUTensor<Scalar> out =
+  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_vectorGPU');
 
   tape.putInt(OP_SUM_REDUCE);
   tape.putString(v.id);
@@ -1783,13 +1712,12 @@ GPUTensor<Scalar> sumGPU(
 
 /// Appends commands for summing all elements of matrix [m] to [tape].
 GPUTensor<Scalar> sumMatrixGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Scalar>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Scalar> out = outTensor ??
-      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_matrixGPU');
+  GPUTensor<Scalar> out =
+  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_matrixGPU');
 
   tape.putInt(OP_SUM_REDUCE);
   tape.putString(m.id);
@@ -1813,14 +1741,13 @@ GPUTensor<Scalar> sumMatrixGPU(
 /// Can be used for fast odering of elements.
 /// The operation is appended to [tape] for execution.
 GPUTensor<Matrix> embeddingLookupGPU(GPUTensor<Vector> indices,
-    GPUTensor<Matrix> weights, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> weights, CommandBuffer tape, AllocBuffer allocTape) {
   int numIndices = indices.shape[0];
   int embeddingDim = weights.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numIndices, embeddingDim], allocTape,
-          sourceOp: 'embedding_lookup_gpu');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numIndices, embeddingDim], allocTape,
+      sourceOp: 'embedding_lookup_gpu');
 
   tape.putInt(OP_EMBEDDING_FORWARD);
   tape.putString(indices.id);
@@ -1847,16 +1774,14 @@ GPUTensor<Matrix> embeddingLookupGPU(GPUTensor<Vector> indices,
 /// Can be used for fast odering of elements.
 /// The operation is appended to [tape] for execution.
 GPUTensor<Tensor3D> embeddingLookupBatchGPU(GPUTensor<Matrix> batchIndices,
-    GPUTensor<Matrix> weights, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    GPUTensor<Matrix> weights, CommandBuffer tape, AllocBuffer allocTape) {
   int batchSize = batchIndices.shape[0];
   int sequenceLength = batchIndices.shape[1];
   int embeddingDim = weights.shape[1];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(
-          <int>[batchSize, sequenceLength, embeddingDim], allocTape,
-          sourceOp: 'embedding_lookup_batch_gpu');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[batchSize, sequenceLength, embeddingDim], allocTape,
+      sourceOp: 'embedding_lookup_batch_gpu');
 
   tape.putInt(OP_EMBEDDING_FORWARD);
   tape.putString(batchIndices.id);
@@ -1881,14 +1806,12 @@ GPUTensor<Tensor3D> embeddingLookupBatchGPU(GPUTensor<Matrix> batchIndices,
 /// Sums all matrix elements of [m] via their column order returning the sum of each column as a vector.
 /// The operation is appended to [tape] for execution.
 GPUTensor<Vector> sumReduceColumnsGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int cols = m.shape[1];
 
   List<int> outShape = <int>[cols];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(outShape, allocTape,
-          sourceOp: 'sumReduceColumnsGPU');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(outShape, allocTape,
+      sourceOp: 'sumReduceColumnsGPU');
 
   tape.putInt(OP_SUM_REDUCE_COLUMNS);
   tape.putString(m.id);
@@ -1911,13 +1834,12 @@ GPUTensor<Vector> sumReduceColumnsGPU(
 /// Sums all matrix elements of [m] via their row order returning the sum of each row as a vector.
 /// The operation is appended to [tape] for execution.
 GPUTensor<Vector> sumReduceRowsGPU(
-    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    GPUTensor<Matrix> m, CommandBuffer tape, AllocBuffer allocTape) {
   int rows = m.shape[0];
 
   List<int> outShape = <int>[rows];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(outShape, allocTape, sourceOp: 'sumReduceRowsGPU');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(outShape, allocTape,
+      sourceOp: 'sumReduceRowsGPU');
 
   tape.putInt(OP_SUM_REDUCE_ROWS);
   tape.putString(m.id);
@@ -1944,14 +1866,13 @@ GPUTensor<Vector> sumReduceRowsGPU(
 /// Extracts a continous subset of columns out of a matrix [m] given by range [startCol]-[endCol].
 /// The operation is appended to [tape] for execution.
 GPUTensor<Matrix> sliceColumnGPU(GPUTensor<Matrix> input, int startCol,
-    int endCol, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    int endCol, CommandBuffer tape, AllocBuffer allocTape) {
   int rows = input.shape[0];
   int outCols = endCol - startCol;
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[rows, outCols], allocTape,
-          sourceOp: 'slice_column');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[rows, outCols], allocTape,
+      sourceOp: 'slice_column');
 
   tape.putInt(OP_SLICE_COLUMN);
   tape.putString(input.id);
@@ -1978,12 +1899,10 @@ GPUTensor<Matrix> sliceColumnGPU(GPUTensor<Matrix> input, int startCol,
 /// Extracts a single row out of a matrix [m] given by [rowIndex].
 /// The operation is appended to [tape] for execution.
 GPUTensor<Vector> selectRowGPU(GPUTensor<Matrix> m, int rowIndex,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int numCols = m.shape[1];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(<int>[numCols], allocTape,
-          sourceOp: 'selectRowGPU');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(<int>[numCols], allocTape,
+      sourceOp: 'selectRowGPU');
 
   tape.putInt(OP_SLICE_ROW);
   tape.putString(m.id);
@@ -2009,15 +1928,13 @@ GPUTensor<Vector> selectRowGPU(GPUTensor<Matrix> m, int rowIndex,
 /// Extracts a single matrix out of a Tensor3D [t] given by [index].
 /// The operation is appended to [tape] for execution.
 GPUTensor<Matrix> selectMatrixFrom3DGPU(GPUTensor<Tensor3D> t, int index,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int height = t.shape[1];
   int width = t.shape[2];
 
   List<int> outShape = <int>[height, width];
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(outShape, allocTape,
-          sourceOp: 'selectMatrixFrom3DGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(outShape, allocTape,
+      sourceOp: 'selectMatrixFrom3DGPU');
 
   tape.putInt(OP_SLICE_ROW);
   tape.putString(t.id);
@@ -2041,14 +1958,13 @@ GPUTensor<Matrix> selectMatrixFrom3DGPU(GPUTensor<Tensor3D> t, int index,
 /// Appends two vectors [a] and [b] together in order [a-b].
 /// The operation is appended to [tape] for execution.
 GPUTensor<Vector> concatenateGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int aLength = a.shape[0];
   int totalLength = aLength + b.shape[0];
 
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(<int>[totalLength], allocTape,
-          sourceOp: 'concat_vectorGPU');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(
+      <int>[totalLength], allocTape,
+      sourceOp: 'concat_vectorGPU');
 
   tape.putInt(OP_CONCATENATE);
   tape.putString(a.id);
@@ -2078,8 +1994,7 @@ GPUTensor<Vector> concatenateGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 GPUTensor<Matrix> concatenateMatricesByColumnGPU(
     List<GPUTensor<Matrix>> matrices,
     CommandBuffer tape,
-    AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    AllocBuffer allocTape) {
   GPUTensor<Matrix> result = matrices[0];
   List<GPUTensor<Matrix>> intermediates = <GPUTensor<Matrix>>[];
 
@@ -2092,17 +2007,12 @@ GPUTensor<Matrix> concatenateMatricesByColumnGPU(
     int colsB = b.shape[1];
     int totalCols = colsA + colsB;
 
-    GPUTensor<Matrix> out;
     bool isLast = i == matrices.length - 1;
-
-    if (isLast == true && outTensor != null) {
-      out = outTensor;
-    } else {
-      out = GPUTensor<Matrix>.empty(<int>[rows, totalCols], allocTape,
-          sourceOp: 'concat_matrix_colGPU');
-      if (isLast == false) {
-        intermediates.add(out);
-      }
+    GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+        <int>[rows, totalCols], allocTape,
+        sourceOp: 'concat_matrix_colGPU');
+    if (isLast == false) {
+      intermediates.add(out);
     }
 
     tape.putInt(OP_CONCATENATE);
@@ -2138,17 +2048,16 @@ GPUTensor<Matrix> concatenateMatricesByColumnGPU(
 /// Appends two Tensor3Ds [a] and [b] together in order [a-b].
 /// The operation is appended to [tape] for execution.
 GPUTensor<Tensor3D> concatenate3DGPU(GPUTensor<Tensor3D> a,
-    GPUTensor<Tensor3D> b, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    GPUTensor<Tensor3D> b, CommandBuffer tape, AllocBuffer allocTape) {
   int aDepth = a.shape[0];
   int bDepth = b.shape[0];
   int totalDepth = aDepth + bDepth;
   int height = a.shape[1];
   int width = a.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[totalDepth, height, width], allocTape,
-          sourceOp: 'concat_3dGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[totalDepth, height, width], allocTape,
+      sourceOp: 'concat_3dGPU');
 
   tape.putInt(OP_CONCATENATE);
   tape.putString(a.id);
@@ -2176,15 +2085,14 @@ GPUTensor<Tensor3D> concatenate3DGPU(GPUTensor<Tensor3D> a,
 /// Appends a list of matrices [matrices] together together to form a Tensor3D.
 /// The operation is appended to [tape] for execution.
 GPUTensor<Tensor3D> stackMatricesGPU(List<GPUTensor<Matrix>> matrices,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int count = matrices.length;
   int rows = matrices[0].shape[0];
   int cols = matrices[0].shape[1];
 
   List<int> shape = <int>[count, rows, cols];
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'stackMatricesGPU');
+  GPUTensor<Tensor3D> out =
+  GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'stackMatricesGPU');
 
   tape.putInt(OP_STACK_ROWS);
   tape.putInt(count);
@@ -2215,14 +2123,13 @@ GPUTensor<Tensor3D> stackMatricesGPU(List<GPUTensor<Matrix>> matrices,
 /// Constructs a matrix from smaller matrices packing them into a bigger one in order. Primarily used for attention-heads.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> scatterHeadsGPU(List<GPUTensor<Matrix>> heads, int dModel,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int seqLen = heads[0].shape[0];
   int dHead = heads[0].shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[seqLen, dModel], allocTape,
-          sourceOp: 'scatter_heads');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[seqLen, dModel], allocTape,
+      sourceOp: 'scatter_heads');
 
   tape.putInt(OP_FILL);
   tape.putString(out.id);
@@ -2263,16 +2170,15 @@ GPUTensor<Matrix> scatterHeadsGPU(List<GPUTensor<Matrix>> heads, int dModel,
 /// Expands a matrix [input] symmetrically to all sides with 0.0 padding with length of [padSize].
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> padMatrixGPU(GPUTensor<Matrix> input, int padSize,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int inHeight = input.shape[0];
   int inWidth = input.shape[1];
   int outHeight = inHeight + 2 * padSize;
   int outWidth = inWidth + 2 * padSize;
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[outHeight, outWidth], allocTape,
-          sourceOp: 'padMatrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[outHeight, outWidth], allocTape,
+      sourceOp: 'padMatrixGPU');
 
   tape.putInt(OP_PAD2D);
   tape.putString(input.id);
@@ -2318,8 +2224,7 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
     AllocBuffer allocTape,
     {String padding = 'valid',
       int strideH = 1,
-      int strideW = 1,
-      GPUTensor<Tensor3D>? outTensor}) {
+      int strideW = 1}) {
   int inChannels = input.shape.length == 2 ? 1 : input.shape[0];
   int inHeight = input.shape.length == 2 ? input.shape[0] : input.shape[1];
   int inWidth = input.shape.length == 2 ? input.shape[1] : input.shape[2];
@@ -2338,10 +2243,9 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
     outWidth = (inWidth + 2 * padL - kW) ~/ strideW + 1;
   }
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(
-          <int>[outChannels, outHeight, outWidth], allocTape,
-          sourceOp: 'conv2dMultiChannelGPU');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[outChannels, outHeight, outWidth], allocTape,
+      sourceOp: 'conv2dMultiChannelGPU');
 
   tape.putInt(OP_CONV2D_MULTI_FORWARD);
   tape.putString(input.id);
@@ -2401,8 +2305,7 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
 /// Applies strictly 'valid' padding with a stride of 1. Records the forward operation to the [tape]
 /// and registers individual backward pass kernels for both the input and the kernel gradients.
 GPUTensor<Matrix> conv2dSimpleGPU(GPUTensor<Matrix> input,
-    GPUTensor<Matrix> kernel, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    GPUTensor<Matrix> kernel, CommandBuffer tape, AllocBuffer allocTape) {
   int inH = input.shape[0];
   int inW = input.shape[1];
   int kH = kernel.shape[0];
@@ -2411,9 +2314,9 @@ GPUTensor<Matrix> conv2dSimpleGPU(GPUTensor<Matrix> input,
   int outH = inH - kH + 1;
   int outW = inW - kW + 1;
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[outH, outW], allocTape,
-          sourceOp: 'conv2dSimpleGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[outH, outW], allocTape,
+      sourceOp: 'conv2dSimpleGPU');
 
   tape.putInt(OP_CONV2D_FORWARD);
   tape.putString(input.id);
@@ -2444,8 +2347,7 @@ GPUTensor<Matrix> conv2dSimpleGPU(GPUTensor<Matrix> input,
 /// Kernel dimensions [kH] and [kW] need to be set.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> im2colGPU(GPUTensor<dynamic> input, int kH, int kW,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    CommandBuffer tape, AllocBuffer allocTape) {
   int inChannels = input.shape.length == 2 ? 1 : input.shape[0];
   int inH = input.shape.length == 2 ? input.shape[0] : input.shape[1];
   int inW = input.shape.length == 2 ? input.shape[1] : input.shape[2];
@@ -2456,9 +2358,9 @@ GPUTensor<Matrix> im2colGPU(GPUTensor<dynamic> input, int kH, int kW,
   int rows = inChannels * kH * kW;
   int cols = outH * outW;
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape,
-          sourceOp: 'im2colGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[rows, cols], allocTape,
+      sourceOp: 'im2colGPU');
 
   tape.putInt(OP_IM2COL);
   tape.putString(input.id);
@@ -2486,17 +2388,16 @@ GPUTensor<Matrix> im2colGPU(GPUTensor<dynamic> input, int kH, int kW,
 /// The value of [stride] tells how big the step size of the sliding window is.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Vector> maxPool1dGPU(GPUTensor<Vector> input, int poolSize,
-    int stride, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor, GPUTensor<Vector>? indicesTensor}) {
+    int stride, CommandBuffer tape, AllocBuffer allocTape) {
   int inputSize = input.shape[0];
   int outputSize = (inputSize - poolSize) ~/ stride + 1;
 
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(<int>[outputSize], allocTape,
-          sourceOp: 'maxPool1dGPU');
-  GPUTensor<Vector> indices = indicesTensor ??
-      GPUTensor<Vector>.empty(<int>[outputSize], allocTape,
-          requiresGrad: false, sourceOp: 'maxPool1dGPU:indices');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(
+      <int>[outputSize], allocTape,
+      sourceOp: 'maxPool1dGPU');
+  GPUTensor<Vector> indices = GPUTensor<Vector>.empty(
+      <int>[outputSize], allocTape,
+      requiresGrad: false, sourceOp: 'maxPool1dGPU:indices');
   out.subMap["indices"] = indices;
   tape.putInt(OP_MAX_POOL_1D_FORWARD);
   tape.putString(input.id);
@@ -2524,20 +2425,19 @@ GPUTensor<Vector> maxPool1dGPU(GPUTensor<Vector> input, int poolSize,
 /// The value of [stride] tells how big the step size of the sliding window is in x and y direction.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> maxPool2dGPU(GPUTensor<Matrix> input, int poolSize,
-    int stride, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor, GPUTensor<Matrix>? indicesTensor}) {
+    int stride, CommandBuffer tape, AllocBuffer allocTape) {
   int inputHeight = input.shape[0];
   int inputWidth = input.shape[1];
   int outputHeight = (inputHeight - poolSize) ~/ stride + 1;
   int outputWidth = (inputWidth - poolSize) ~/ stride + 1;
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[outputHeight, outputWidth], allocTape,
-          sourceOp: 'maxPool2dGPU');
-  GPUTensor<Matrix> indices = indicesTensor ??
-      GPUTensor<Matrix>.empty(<int>[outputHeight, outputWidth], allocTape,
-          requiresGrad: false, sourceOp: 'maxPool2dGPU:indices');
-  out.subMap["indeces"] = indices;
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[outputHeight, outputWidth], allocTape,
+      sourceOp: 'maxPool2dGPU');
+  GPUTensor<Matrix> indices = GPUTensor<Matrix>.empty(
+      <int>[outputHeight, outputWidth], allocTape,
+      requiresGrad: false, sourceOp: 'maxPool2dGPU:indices');
+  out.subMap["indices"] = indices;
 
   tape.putInt(OP_MAX_POOL_2D_FORWARD);
   tape.putString(input.id);
@@ -2565,8 +2465,7 @@ GPUTensor<Matrix> maxPool2dGPU(GPUTensor<Matrix> input, int poolSize,
 /// The value of [stride] tells how big the step size of the sliding window is.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> avgPool2dGPU(GPUTensor<Matrix> input, int poolSize,
-    int stride, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    int stride, CommandBuffer tape, AllocBuffer allocTape) {
   int inHeight = input.shape[0];
   int inWidth = input.shape[1];
 
@@ -2574,8 +2473,8 @@ GPUTensor<Matrix> avgPool2dGPU(GPUTensor<Matrix> input, int poolSize,
   int outWidth = (inWidth - poolSize) ~/ stride + 1;
 
   List<int> outShape = <int>[outHeight, outWidth];
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(outShape, allocTape, sourceOp: 'avg_pool_2d_gpu');
+  GPUTensor<Matrix> out =
+  GPUTensor<Matrix>.empty(outShape, allocTape, sourceOp: 'avg_pool_2d_gpu');
 
   tape.putInt(OP_AVG_POOL_2D_FORWARD);
   tape.putString(input.id);
@@ -2601,14 +2500,12 @@ GPUTensor<Matrix> avgPool2dGPU(GPUTensor<Matrix> input, int poolSize,
 /// Collapses a matrix [input] to a vector of their average values of their feature columns.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Vector> globalAveragePoolingGPU(
-    GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor}) {
+    GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
   int dModel = input.shape[1];
 
   List<int> outShape = <int>[dModel];
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(outShape, allocTape,
-          sourceOp: 'global_avg_pool_gpu');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(outShape, allocTape,
+      sourceOp: 'global_avg_pool_gpu');
 
   tape.putInt(OP_GLOBAL_AVG_POOL_FORWARD);
   tape.putString(input.id);
@@ -2641,21 +2538,18 @@ GPUTensor<Vector> batchNorm1dGPU(
     double epsilon,
     bool isTraining,
     CommandBuffer tape,
-    AllocBuffer allocTape,
-    {GPUTensor<Vector>? outTensor,
-      GPUTensor<Vector>? savedMeanTensor,
-      GPUTensor<Vector>? savedInvVarTensor}) {
+    AllocBuffer allocTape) {
   int numFeatures = input.shape[0];
 
-  GPUTensor<Vector> out = outTensor ??
-      GPUTensor<Vector>.empty(<int>[numFeatures], allocTape,
-          sourceOp: 'batchNorm1dGPU');
-  GPUTensor<Vector> savedMean = savedMeanTensor ??
-      GPUTensor<Vector>.empty(<int>[numFeatures], allocTape,
-          requiresGrad: false, sourceOp: 'batchNorm1dGPU:savedMean');
-  GPUTensor<Vector> savedInvVar = savedInvVarTensor ??
-      GPUTensor<Vector>.empty(<int>[numFeatures], allocTape,
-          requiresGrad: false, sourceOp: 'batchNorm1dGPU:savedInvVar');
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(
+      <int>[numFeatures], allocTape,
+      sourceOp: 'batchNorm1dGPU');
+  GPUTensor<Vector> savedMean = GPUTensor<Vector>.empty(
+      <int>[numFeatures], allocTape,
+      requiresGrad: false, sourceOp: 'batchNorm1dGPU:savedMean');
+  GPUTensor<Vector> savedInvVar = GPUTensor<Vector>.empty(
+      <int>[numFeatures], allocTape,
+      requiresGrad: false, sourceOp: 'batchNorm1dGPU:savedInvVar');
   out.subMap["savedMean"] = savedMean;
   out.subMap["savedInvVar"] = savedInvVar;
 
@@ -2670,7 +2564,7 @@ GPUTensor<Vector> batchNorm1dGPU(
   tape.putString(savedInvVar.id);
   tape.putFloat(momentum);
   tape.putFloat(epsilon);
-  tape.putBool(isTraining);
+  tape.putPatchableBool('is_training', isTraining);
 
   out.creator = GPUNode(
     <GPUTensor>[input, gamma, beta],
@@ -2706,23 +2600,20 @@ GPUTensor<Tensor3D> batchNorm2dGPU(
     double epsilon,
     bool isTraining,
     CommandBuffer tape,
-    AllocBuffer allocTape,
-    {GPUTensor<Tensor3D>? outTensor,
-      GPUTensor<Vector>? savedMeanTensor,
-      GPUTensor<Vector>? savedInvVarTensor}) {
+    AllocBuffer allocTape) {
   int numChannels = input.shape[0];
   int height = input.shape[1];
   int width = input.shape[2];
 
-  GPUTensor<Tensor3D> out = outTensor ??
-      GPUTensor<Tensor3D>.empty(<int>[numChannels, height, width], allocTape,
-          sourceOp: 'batchNorm2dGPU');
-  GPUTensor<Vector> savedMean = savedMeanTensor ??
-      GPUTensor<Vector>.empty(<int>[numChannels], allocTape,
-          requiresGrad: false, sourceOp: 'batchNorm2dGPU:savedMean');
-  GPUTensor<Vector> savedInvVar = savedInvVarTensor ??
-      GPUTensor<Vector>.empty(<int>[numChannels], allocTape,
-          requiresGrad: false, sourceOp: 'batchNorm2dGPU:savedInvVar');
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
+      <int>[numChannels, height, width], allocTape,
+      sourceOp: 'batchNorm2dGPU');
+  GPUTensor<Vector> savedMean = GPUTensor<Vector>.empty(
+      <int>[numChannels], allocTape,
+      requiresGrad: false, sourceOp: 'batchNorm2dGPU:savedMean');
+  GPUTensor<Vector> savedInvVar = GPUTensor<Vector>.empty(
+      <int>[numChannels], allocTape,
+      requiresGrad: false, sourceOp: 'batchNorm2dGPU:savedInvVar');
   out.subMap["savedMean"] = savedMean;
   out.subMap["savedInvVar"] = savedInvVar;
 
@@ -2737,7 +2628,7 @@ GPUTensor<Tensor3D> batchNorm2dGPU(
   tape.putString(savedInvVar.id);
   tape.putFloat(momentum);
   tape.putFloat(epsilon);
-  tape.putBool(isTraining);
+  tape.putPatchableBool('is_training', isTraining);
 
   out.creator = GPUNode(
     <GPUTensor>[input, gamma, beta],
@@ -2771,14 +2662,13 @@ GPUTensor<Matrix> layerNormMatrixGPU(
     GPUTensor<Vector> rstdCache,
     double epsilon,
     CommandBuffer tape,
-    AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
-  GPUTensor<Matrix> out = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numRows, numCols], allocTape,
-          sourceOp: 'layerNormMatrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
+      sourceOp: 'layerNormMatrixGPU');
 
   tape.putInt(OP_LAYER_NORM_FORWARD);
   tape.putString(m.id);
@@ -2814,23 +2704,21 @@ GPUTensor<Matrix> layerNormMatrixGPU(
 /// Outputs the modified tensor alongside the generated dropout mask.
 /// The operations are appended to [tape] for execution.
 GPUTensor<T> dropoutGPU<T>(GPUTensor<T> input, double rate, CommandBuffer tape,
-    AllocBuffer allocTape,
-    {GPUTensor<T>? outTensor, GPUTensor<T>? maskTensor}) {
+    AllocBuffer allocTape) {
   int seed = Random().nextInt(1000000);
 
-  GPUTensor<T> out = outTensor ??
-      GPUTensor<T>.empty(input.shape, allocTape, sourceOp: 'dropout_gpu');
-  GPUTensor<T> mask = maskTensor ??
-      GPUTensor<T>.empty(input.shape, allocTape,
-          requiresGrad: false, sourceOp: 'dropout_gpu:mask');
+  GPUTensor<T> out =
+  GPUTensor<T>.empty(input.shape, allocTape, sourceOp: 'dropout_gpu');
+  GPUTensor<T> mask = GPUTensor<T>.empty(input.shape, allocTape,
+      requiresGrad: false, sourceOp: 'dropout_gpu:mask');
   out.subMap["mask"] = mask;
 
   tape.putInt(OP_DROPOUT_FORWARD);
   tape.putString(input.id);
   tape.putString(out.id);
   tape.putString(mask.id);
-  tape.putFloat(rate);
-  tape.putInt(seed);
+  tape.putPatchableFloat('dropout_rate', rate);
+  tape.putPatchableInt('dropout_seed', seed);
 
   int elementCount = 1;
   for (int i = 0; i < input.shape.length; i = i + 1) {
@@ -2857,16 +2745,15 @@ GPUTensor<T> dropoutGPU<T>(GPUTensor<T> input, double rate, CommandBuffer tape,
 /// and normalizes these counts to output a probability matrix of shape `[numStates^order, numStates]`. This Table does not have a gradient calculation.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> buildMarkovTableGPU(GPUTensor<Vector> sequence, int order,
-    int numStates, CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor, GPUTensor<Matrix>? probTableTensor}) {
+    int numStates, CommandBuffer tape, AllocBuffer allocTape) {
   int numHistories = math.pow(numStates, order).toInt();
 
-  GPUTensor<Matrix> countTable = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[numHistories, numStates], allocTape,
-          requiresGrad: false, sourceOp: 'buildMarkovTableGPU:countTable');
-  GPUTensor<Matrix> probTable = probTableTensor ??
-      GPUTensor<Matrix>.empty(<int>[numHistories, numStates], allocTape,
-          requiresGrad: false, sourceOp: 'buildMarkovTableGPU');
+  GPUTensor<Matrix> countTable = GPUTensor<Matrix>.empty(
+      <int>[numHistories, numStates], allocTape,
+      requiresGrad: false, sourceOp: 'buildMarkovTableGPU:countTable');
+  GPUTensor<Matrix> probTable = GPUTensor<Matrix>.empty(
+      <int>[numHistories, numStates], allocTape,
+      requiresGrad: false, sourceOp: 'buildMarkovTableGPU');
   probTable.subMap["countTable"] = countTable;
 
   tape.putInt(OP_FILL);
@@ -2900,14 +2787,13 @@ GPUTensor<Matrix> markovPredictGPU(
     GPUTensor<Matrix> probTable,
     int numStates,
     CommandBuffer tape,
-    AllocBuffer allocTape,
-    {GPUTensor<Matrix>? outTensor}) {
+    AllocBuffer allocTape) {
   int batchSize = historyBatch.shape[0];
   int order = historyBatch.shape[1];
 
-  GPUTensor<Matrix> outProbs = outTensor ??
-      GPUTensor<Matrix>.empty(<int>[batchSize, numStates], allocTape,
-          requiresGrad: false, sourceOp: 'markovPredictGPU');
+  GPUTensor<Matrix> outProbs = GPUTensor<Matrix>.empty(
+      <int>[batchSize, numStates], allocTape,
+      requiresGrad: false, sourceOp: 'markovPredictGPU');
 
   tape.putInt(OP_MARKOV_PREDICT);
   tape.putString(historyBatch.id);
@@ -2929,32 +2815,25 @@ GPUTensor<Matrix> markovPredictGPU(
 
 /// Executes a fused matrix multiplication, bias addition, and ReLU activation sequence.
 /// Multiplies matrix [x] by weight matrix [w], broadcasts and adds the bias vector [b],
-/// and applies a ReLU activation in a single optimized pass. Returns the activated output matrix
-/// and pushes the pre-activation tensor to the [intermediates] list to manage VRAM lifecycles.
+/// and applies a ReLU activation in a single optimized pass.
 /// The operations are appended to [tape] for execution.
 GPUTensor<Matrix> matMulBiasReluGPU(
     GPUTensor<Matrix> x,
     GPUTensor<Matrix> w,
     GPUTensor<Vector> b,
     CommandBuffer tape,
-    AllocBuffer allocTape,
-    List<GPUTensor> intermediates,
-    {GPUTensor<Matrix>? reluOutTensor,
-      GPUTensor<Matrix>? preReluOutTensor}) {
+    AllocBuffer allocTape) {
   int M = x.shape[0];
   int K = x.shape[1];
   int N = w.shape[1];
 
   List<int> outShape = <int>[M, N];
-  GPUTensor<Matrix> reluOut = reluOutTensor ??
-      GPUTensor<Matrix>.empty(outShape, allocTape,
-          sourceOp: 'matMulBiasReluGPU');
-  GPUTensor<Matrix> preReluOut = preReluOutTensor ??
-      GPUTensor<Matrix>.empty(outShape, allocTape,
-          sourceOp: 'matMulBiasReluGPU:preReluOut');
+  GPUTensor<Matrix> reluOut = GPUTensor<Matrix>.empty(outShape, allocTape,
+      sourceOp: 'matMulBiasReluGPU');
+  GPUTensor<Matrix> preReluOut = GPUTensor<Matrix>.empty(outShape, allocTape,
+      sourceOp: 'matMulBiasReluGPU:preReluOut');
 
   reluOut.subMap["preReluOut"] = preReluOut;
-  intermediates.add(preReluOut);
 
   tape.putInt(OP_MATMUL_BIAS_RELU_FORWARD);
   tape.putString(x.id);
@@ -3007,12 +2886,9 @@ GPUTensor<Matrix> matMulBiasReluGPU(
 /// Calculates the dot product between vector [a] and [b].
 /// The operations are appended to [tape] for execution.
 GPUTensor<Scalar> dotProductGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
-    CommandBuffer tape, AllocBuffer allocTape,
-    {GPUTensor<Vector>? multipliedTensor, GPUTensor<Scalar>? outTensor}) {
-  GPUTensor<Vector> multiplied = multiplyGPU<Vector>(a, b, tape, allocTape,
-      outTensor: multipliedTensor);
-  GPUTensor<Scalar> out =
-  sumGPU(multiplied, tape, allocTape, outTensor: outTensor);
+    CommandBuffer tape, AllocBuffer allocTape) {
+  GPUTensor<Vector> multiplied = multiplyGPU<Vector>(a, b, tape, allocTape);
+  GPUTensor<Scalar> out = sumGPU(multiplied, tape, allocTape);
   out.subMap["multiplied"] = multiplied;
   return out;
 }
@@ -3074,7 +2950,7 @@ GPUTensor<Scalar> maeLossGPU(GPUTensor<Vector> preds, GPUTensor<Vector> targets,
   GPUTensor<Scalar> totalError = sumGPU(absoluteDiff, tape, allocTape);
   GPUTensor<Scalar> nScalar = GPUTensor<Scalar>(
       preds.shape[0].toDouble(), allocTape,
-      requiresGrad: false, sourceOp: 'maeLossGPU:nScalar');
+      sourceOp: 'maeLossGPU:nScalar');
   GPUTensor<Scalar> out =
   divideGPU<Scalar>(totalError, nScalar, tape, allocTape);
   out.subMap["diff"] = diff;

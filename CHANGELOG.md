@@ -43,3 +43,11 @@ TapeDeocder bug fixed for unaligned special functions.
 ## 3.0.7
 
 Added a default fallback if the desired GPU backend could not be found.
+
+## 3.0.7
+
+Added a default fallback if the desired GPU backend could not be found.
+
+## 3.1.0
+
+Seperated the GPUTensor Construction, the tape allocation as well as the tapes from the dart states.

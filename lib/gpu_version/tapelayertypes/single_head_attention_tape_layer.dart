@@ -31,10 +31,6 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   /// A reference to the attention probabilities from the most recent forward pass.
   GPUTensor<Matrix>? lastAttentionWeights;
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheSeqLength = -1;
-  List<GPUTensor<dynamic>> stepCache = <GPUTensor<dynamic>>[];
-
   /// Requires the model dimension [dModel]. Optionally accepts custom dimensions
   /// for the keys/queries [dK] and values [dV]. If omitted, they default to [dModel].
   SingleHeadAttentionTL(this.dModel, {int? dK, int? dV})
@@ -82,99 +78,27 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   }
 
   /// Appends the single-head attention operations to the [tape].
-  /// Persistently caches all intermediates to guarantee static unroll-ability.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int seqLength = input.shape[0];
-    bool useCache = (cacheSeqLength == seqLength);
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Matrix> q = matMulGPU(input, wq, tape, allocTape);
+    GPUTensor<Matrix> k = matMulGPU(input, wk, tape, allocTape);
+    GPUTensor<Matrix> v = matMulGPU(input, wv, tape, allocTape);
 
-    if (!useCache) {
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = seqLength;
-    }
-
-    int cIdx = 0;
-
-    T? getCached<T>() {
-      if (useCache) {
-        T cached = stepCache[cIdx] as T;
-        cIdx = cIdx + 1;
-        return cached;
-      }
-      return null;
-    }
-
-    void saveCached(GPUTensor<dynamic> tensor) {
-      if (!useCache) {
-        stepCache.add(tensor);
-      }
-    }
-
-    GPUTensor<Matrix> q = matMulGPU(input, wq, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(q);
-
-    GPUTensor<Matrix> k = matMulGPU(input, wk, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(k);
-
-    GPUTensor<Matrix> v = matMulGPU(input, wv, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(v);
-
-    GPUTensor<Matrix> kT = transposeGPU(k, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(kT);
-
-    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(scores);
+    GPUTensor<Matrix> kT = transposeGPU(k, tape, allocTape);
+    GPUTensor<Matrix> scores = matMulGPU(q, kT, tape, allocTape);
 
     double scaleFactor = 1.0 / sqrt(dK);
-    GPUTensor<Matrix> scaledScores = scaleMatrixGPU(
-        scores, scaleFactor, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(scaledScores);
+    GPUTensor<Matrix> scaledScores =
+    scaleMatrixGPU(scores, scaleFactor, tape, allocTape);
 
-    GPUTensor<Matrix> attentionWeights = softmaxMatrixGPU(
-        scaledScores, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(attentionWeights);
+    GPUTensor<Matrix> attentionWeights =
+    softmaxMatrixGPU(scaledScores, tape, allocTape);
     lastAttentionWeights = attentionWeights;
 
-    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(output);
+    GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape, allocTape);
 
     return output;
-  }
-
-  /// Clears the gradients of all persistently cached intermediate tensors.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    for (int i = 0; i < stepCache.length; i = i + 1) {
-      stepCache[i].zeroGrad(tape);
-    }
-  }
-
-  /// Frees VRAM for all parameters and persistently cached intermediate tensors.
-  @override
-  void free() {
-    if (built) {
-      wq.free();
-      wk.free();
-      wv.free();
-
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = -1;
-    }
   }
 
   @override
@@ -184,9 +108,9 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       return wMap;
     }
 
-    wq.toCpu();
-    wk.toCpu();
-    wv.toCpu();
+    wq.dataToCpu();
+    wk.dataToCpu();
+    wv.dataToCpu();
 
     wMap['Wq'] = wq.value;
     wMap['Wk'] = wk.value;

@@ -35,10 +35,6 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
   /// Projection bias vector for the Feed-Forward Network.
   late GPUTensor<Vector> b2;
 
-  /// Persistent Cache for Static Unrolling
-  int cacheSeqLength = -1;
-  List<GPUTensor<Matrix>> stepCache = <GPUTensor<Matrix>>[];
-
   /// Requires the model dimension [dModel], number of attention heads [numHeads],
   /// and the inner hidden size of the feed-forward network [dff] (usually 4x dModel).
   TransformerEncoderBlockTapeLayer(this.dModel, this.numHeads, this.dff) {
@@ -101,115 +97,37 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
   }
 
   /// Appends the encoder block operations to the [tape].
-  /// Relies on the internal persistent caches of its child layers and caches its own FFN math.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int seqLength = input.shape[0];
-    bool useCache = (cacheSeqLength == seqLength);
-
-    if (!useCache) {
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = seqLength;
-    }
-
-    int cIdx = 0;
-
-    GPUTensor<Matrix>? getCached() {
-      if (useCache) {
-        GPUTensor<Matrix> cached = stepCache[cIdx];
-        cIdx = cIdx + 1;
-        return cached;
-      }
-      return null;
-    }
-
-    void saveCached(GPUTensor<Matrix> tensor) {
-      if (!useCache) {
-        stepCache.add(tensor);
-      }
-    }
-
-    // 1. Multi-Head Attention (MHA manages its own persistent cache)
-    GPUTensor<Matrix> attnOut =
-    mha.forward(input, tape, allocTape, intermediates);
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
+    // 1. Multi-Head Attention
+    GPUTensor<Matrix> attnOut = mha.forward(input, tape, allocTape);
 
     // 2. Residual Add & Layer Norm 1
-    GPUTensor<Matrix> add1 =
-    addMatrixGPU(input, attnOut, tape, allocTape, outTensor: getCached());
-    saveCached(add1);
+    GPUTensor<Matrix> add1 = addMatrixGPU(input, attnOut, tape, allocTape);
 
-    GPUTensor<Matrix> norm1Out =
-    norm1.forward(add1, tape, allocTape, intermediates);
+    GPUTensor<Matrix> norm1Out = norm1.forward(add1, tape, allocTape);
 
     // 3. FFN Layer 1
-    GPUTensor<Matrix> ffn1MatMul =
-    matMulGPU(norm1Out, w1, tape, allocTape, outTensor: getCached());
-    saveCached(ffn1MatMul);
+    GPUTensor<Matrix> ffn1MatMul = matMulGPU(norm1Out, w1, tape, allocTape);
 
-    GPUTensor<Matrix> ffn1Bias = addBiasToMatMulOutGPU(
-        ffn1MatMul, b1, tape, allocTape,
-        outTensor: getCached());
-    saveCached(ffn1Bias);
+    GPUTensor<Matrix> ffn1Bias =
+    addBiasToMatMulOutGPU(ffn1MatMul, b1, tape, allocTape);
 
-    GPUTensor<Matrix> ffn1 =
-    geluMatrixGPU(ffn1Bias, tape, allocTape, outTensor: getCached());
-    saveCached(ffn1);
+    GPUTensor<Matrix> ffn1 = geluMatrixGPU(ffn1Bias, tape, allocTape);
 
     // 4. FFN Layer 2 (MatMul + Bias)
-    GPUTensor<Matrix> ffn2MatMul =
-    matMulGPU(ffn1, w2, tape, allocTape, outTensor: getCached());
-    saveCached(ffn2MatMul);
+    GPUTensor<Matrix> ffn2MatMul = matMulGPU(ffn1, w2, tape, allocTape);
 
-    GPUTensor<Matrix> ffn2 = addBiasToMatMulOutGPU(
-        ffn2MatMul, b2, tape, allocTape,
-        outTensor: getCached());
-    saveCached(ffn2);
+    GPUTensor<Matrix> ffn2 =
+    addBiasToMatMulOutGPU(ffn2MatMul, b2, tape, allocTape);
 
     // 5. Residual Add & Layer Norm 2
-    GPUTensor<Matrix> add2 =
-    addMatrixGPU(norm1Out, ffn2, tape, allocTape, outTensor: getCached());
-    saveCached(add2);
+    GPUTensor<Matrix> add2 = addMatrixGPU(norm1Out, ffn2, tape, allocTape);
 
-    GPUTensor<Matrix> out =
-    norm2.forward(add2, tape, allocTape, intermediates);
+    GPUTensor<Matrix> out = norm2.forward(add2, tape, allocTape);
 
     return out;
-  }
-
-  /// Clears the gradients of all nested layers and its own internal FFN caches.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    mha.zeroStates(tape);
-    norm1.zeroStates(tape);
-    norm2.zeroStates(tape);
-
-    for (int i = 0; i < stepCache.length; i = i + 1) {
-      stepCache[i].zeroGrad(tape);
-    }
-  }
-
-  /// Frees VRAM for child layers, FFN parameters, and its local persistent cache.
-  @override
-  void free() {
-    if (built) {
-      mha.free();
-      norm1.free();
-      norm2.free();
-      w1.free();
-      b1.free();
-      w2.free();
-      b2.free();
-
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = -1;
-    }
   }
 
   @override
@@ -217,10 +135,10 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     Map<String, List<dynamic>> wMap = <String, List<dynamic>>{};
     if (!built) return wMap;
 
-    w1.toCpu();
-    b1.toCpu();
-    w2.toCpu();
-    b2.toCpu();
+    w1.dataToCpu();
+    b1.dataToCpu();
+    w2.dataToCpu();
+    b2.dataToCpu();
 
     wMap['W1'] = w1.value;
     wMap['b1'] = b1.value;

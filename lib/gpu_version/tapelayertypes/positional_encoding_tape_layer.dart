@@ -22,18 +22,8 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
   /// Stored transposed to optimize memory access during slicing.
   late GPUTensor<Matrix> encodingMatrixTransposed;
 
-  /// Persistent Cache for Static Unrolling
-  int cacheSeqLength = -1;
-  final List<GPUTensor<Matrix>> stepCache = <GPUTensor<Matrix>>[];
-
   /// Requires the maximum possible sequence length [maxLength] and the embedding dimension [dModel].
   PositionalEncodingTL(this.maxLength, this.dModel);
-
-  /// This layer has no learnable parameters.
-  @override
-  List<GPUTensor> get parameters {
-    return <GPUTensor>[];
-  }
 
   /// Pre-calculates the static positional encoding matrix up to [maxLength] and uploads it to VRAM.
   @override
@@ -61,75 +51,20 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
   /// Appends the positional encoding addition to the [tape].
   /// Slices the pre-calculated matrix dynamically based on the current batch's sequence length.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     int sequenceLength = input.shape[0];
 
-    bool useCache = (cacheSeqLength == sequenceLength);
-
-    if (!useCache) {
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = sequenceLength;
-    }
-
-    int cIdx = 0;
-
-    T? getCached<T>() {
-      if (useCache) {
-        T cached = stepCache[cIdx] as T;
-        cIdx = cIdx + 1;
-        return cached;
-      }
-      return null;
-    }
-
-    void saveCached(GPUTensor<Matrix> tensor) {
-      if (!useCache) {
-        stepCache.add(tensor);
-      }
-    }
-
     GPUTensor<Matrix> slicedTransposed = sliceColumnGPU(
-        encodingMatrixTransposed, 0, sequenceLength, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(slicedTransposed);
+        encodingMatrixTransposed, 0, sequenceLength, tape, allocTape);
 
-    GPUTensor<Matrix> positionalTensor = transposeGPU(
-        slicedTransposed, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(positionalTensor);
+    GPUTensor<Matrix> positionalTensor =
+    transposeGPU(slicedTransposed, tape, allocTape);
 
-    GPUTensor<Matrix> out = addMatrixGPU(
-        input, positionalTensor, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(out);
+    GPUTensor<Matrix> out =
+    addMatrixGPU(input, positionalTensor, tape, allocTape);
 
     return out;
-  }
-
-  /// Clears the gradients of all persistently cached intermediate tensors.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    for (int i = 0; i < stepCache.length; i = i + 1) {
-      stepCache[i].zeroGrad(tape);
-    }
-  }
-
-  /// Frees VRAM for the pre-calculated encoding matrix and persistently cached intermediate tensors.
-  @override
-  void free() {
-    if (built) {
-      encodingMatrixTransposed.free();
-
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = -1;
-    }
   }
 
   @override

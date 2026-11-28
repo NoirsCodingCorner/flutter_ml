@@ -54,7 +54,9 @@ abstract class TapeLayer<InputType, OutputType> {
 
   /// The list of GPUTensors of this TapeLayer which are to be adjusted via a learning function such as Adam or SGD. Those are specifically exposed to be adjusted
   /// via an [Optimizer].
-  List<GPUTensor> get parameters;
+  List<GPUTensor> get parameters {
+    return <GPUTensor>[];
+  }
 
   /// Bool flag to register whether a TapeLayer has already been built, or rather whether the required VRAM has been allocated at least once.
   bool built = false;
@@ -71,7 +73,6 @@ abstract class TapeLayer<InputType, OutputType> {
       GPUTensor<InputType> input,
       CommandBuffer tape,
       AllocBuffer allocTape,
-      List<GPUTensor> intermediates,
       );
 
   /// Helper function that, if not overwritten, checks whether [build] has already been called; if not, it calls [build] and only then [forward].
@@ -79,22 +80,11 @@ abstract class TapeLayer<InputType, OutputType> {
       GPUTensor<InputType> input,
       CommandBuffer tape,
       AllocBuffer allocTape,
-      List<GPUTensor> intermediates,
       ) {
     if (built == false) {
       build(input, allocTape);
     }
-    return forward(input, tape, allocTape, intermediates);
-  }
-
-  void zeroStates(CommandBuffer tape);
-
-  /// Frees all parameters this model contains. After this is called, the TapeLayer should not be used further.
-  void free() {
-    List<GPUTensor> params = parameters;
-    for (int i = 0; i < params.length; i = i + 1) {
-      params[i].free();
-    }
+    return forward(input, tape, allocTape);
   }
 
   /// Function to retrieve the weights for storing purposes.

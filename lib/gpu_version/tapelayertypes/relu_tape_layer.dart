@@ -11,56 +11,18 @@ class ReLULayerTL extends TapeLayer<Vector, Vector> {
   @override
   String get name => 'ReLULayerTapeLayer';
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<Vector>? cachedOut;
-
-  /// This layer has no parameters to adjust.
-  @override
-  List<GPUTensor> get parameters {
-    List<GPUTensor> params = <GPUTensor>[];
-    return params;
-  }
-
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
+  void build(GPUTensor<Vector> input, AllocBuffer allocTape) {
     built = true;
   }
 
   /// Writes the [reluGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape.isEmpty ? 1 : input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = reluGPU(input, tape, allocTape, outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the cached output tensor.
-  @override
-  void free() {
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+  GPUTensor<Vector> forward(
+      GPUTensor<Vector> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Vector> out = reluGPU(input, tape, allocTape);
+    return out;
   }
 
   /// This layer has no weights to return.
@@ -80,56 +42,18 @@ class ReLULayerMatrixTapeLayer extends TapeLayer<Matrix, Matrix> {
   @override
   String get name => 'ReLULayerMatrixTapeLayer';
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<Matrix>? cachedOut;
-
-  /// This layer has no parameters to adjust.
-  @override
-  List<GPUTensor> get parameters {
-    List<GPUTensor> params = <GPUTensor>[];
-    return params;
-  }
-
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     built = true;
   }
 
   /// Writes the [reluMatrixGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = reluMatrixGPU(input, tape, allocTape, outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the cached output tensor.
-  @override
-  void free() {
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Matrix> out = reluMatrixGPU(input, tape, allocTape);
+    return out;
   }
 
   /// This layer has no weights to return.

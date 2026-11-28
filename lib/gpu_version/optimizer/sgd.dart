@@ -1,5 +1,5 @@
+import '/tensor/tensor_math_gpu.dart';
 import 'optimizer.dart';
-import '../ffi/op_codes.dart';
 import '../ffi/command_buffer.dart';
 
 /// Applies the SGD optimizer to every element of its parameter tensors.
@@ -15,19 +15,7 @@ class SGDGPU extends OptimizerGPU {
   @override
   void step(CommandBuffer tape) {
     for (int i = 0; i < parameters.length; i = i + 1) {
-      tape.putInt(OP_SGD_UPDATE);
-      tape.putString(parameters[i].id); // The weights
-      tape.putString('${parameters[i].id}_grad'); // The gradients
-      tape.putFloat(learningRate);
-    }
-  }
-
-  /// Appends the zero-gradient operations to the [tape] to clear the gradients for the next pass.
-  @override
-  void zeroGrad(CommandBuffer tape) {
-    for (int i = 0; i < parameters.length; i = i + 1) {
-      tape.putInt(OP_ZERO_GRAD);
-      tape.putString('${parameters[i].id}_grad');
+      sgdUpdateGPU(parameters[i], learningRate, tape);
     }
   }
 }

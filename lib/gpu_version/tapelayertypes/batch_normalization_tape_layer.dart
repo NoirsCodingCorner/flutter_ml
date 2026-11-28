@@ -28,10 +28,6 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
   /// Non-trainable parameter used to track the global average variance.
   late GPUTensor<Vector> runningVariance;
 
-  /// Persistent Cache for Static Unrolling
-  int cacheBatchSize = -1;
-  GPUTensor<Vector>? cachedOut;
-
   /// Requires the size of the input vector [numFeatures]. Initializes with a fixed [momentum] and a safety variance addition [epsilon] to prevent division by zero.
   BatchNorm1DTL(
       this.numFeatures, {
@@ -76,19 +72,9 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
   }
 
   /// Writes the [batchNorm1dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
+  GPUTensor<Vector> forward(
+      GPUTensor<Vector> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Vector> out = batchNorm1dGPU(
       input,
       gamma,
@@ -100,21 +86,8 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
       isTraining,
       tape,
       allocTape,
-      outTensor: cachedOut,
     );
-    cachedOut = out;
     return out;
-  }
-
-  /// Frees VRAM for [gamma], [beta], [runningMean], and [runningVariance].
-  @override
-  void free() {
-    if (built) {
-      gamma.free();
-      beta.free();
-      runningMean.free();
-      runningVariance.free();
-    }
   }
 
   /// Returns [gamma], [beta], [runningMean], and [runningVariance] as a map.
@@ -125,10 +98,10 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
       return wMap;
     }
 
-    gamma.toCpu();
-    beta.toCpu();
-    runningMean.toCpu();
-    runningVariance.toCpu();
+    gamma.dataToCpu();
+    beta.dataToCpu();
+    runningMean.dataToCpu();
+    runningVariance.dataToCpu();
 
     wMap['gamma'] = gamma.value;
     wMap['beta'] = beta.value;
@@ -163,13 +136,6 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
     runningMean.pushData(rmValues);
     runningVariance.pushData(rvValues);
   }
-
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
 }
 
 /// Applies Batch Normalization over a 3D input [Tensor3D] to enforce a mean of 0 and a variance of 1.
@@ -195,10 +161,6 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
 
   /// Non-trainable parameter used to track the global average variance of the inputs per channel.
   late GPUTensor<Vector> runningVariance;
-
-  /// Persistent Cache for Static Unrolling
-  int cacheBatchSize = -1;
-  GPUTensor<Tensor3D>? cachedOut;
 
   /// Requires the number of channels [numChannels] (the amount of matrices in the input [Tensor3D]). Initializes with a fixed [momentum] and a safety variance addition [epsilon] to prevent division by zero.
   BatchNorm2DTL(
@@ -244,43 +206,22 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
   }
 
   /// Writes the [batchNorm2dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// The [intermediates] list should be empty since it is not used in this operation.
   @override
-  GPUTensor<Tensor3D> forward(GPUTensor<Tensor3D> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
+  GPUTensor<Tensor3D> forward(
+      GPUTensor<Tensor3D> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Tensor3D> out = batchNorm2dGPU(
-        input,
-        gamma,
-        beta,
-        runningMean,
-        runningVariance,
-        momentum,
-        epsilon,
-        isTraining,
-        tape,
-        allocTape,
-        outTensor: cachedOut);
-    cachedOut = out;
+      input,
+      gamma,
+      beta,
+      runningMean,
+      runningVariance,
+      momentum,
+      epsilon,
+      isTraining,
+      tape,
+      allocTape,
+    );
     return out;
-  }
-
-  /// Frees VRAM for [gamma], [beta], [runningMean], and [runningVariance].
-  @override
-  void free() {
-    if (built) {
-      gamma.free();
-      beta.free();
-      runningMean.free();
-      runningVariance.free();
-    }
   }
 
   /// Returns [gamma], [beta], [runningMean], and [runningVariance] as a map.
@@ -291,10 +232,10 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
       return wMap;
     }
 
-    gamma.toCpu();
-    beta.toCpu();
-    runningMean.toCpu();
-    runningVariance.toCpu();
+    gamma.dataToCpu();
+    beta.dataToCpu();
+    runningMean.dataToCpu();
+    runningVariance.dataToCpu();
 
     wMap['gamma'] = gamma.value;
     wMap['beta'] = beta.value;
@@ -328,12 +269,5 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
     beta.pushData(betaValues);
     runningMean.pushData(rmValues);
     runningVariance.pushData(rvValues);
-  }
-
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
   }
 }

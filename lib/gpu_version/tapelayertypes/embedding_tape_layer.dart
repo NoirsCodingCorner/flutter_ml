@@ -19,17 +19,13 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
   int embeddingDimension;
   late GPUTensor<Matrix> embeddings;
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<Matrix>? cachedOut;
-
   /// Requires the number of unique tokens in the dictionary [vocabularySize] as well as the
   /// number of embedding dimensions [embeddingDimension] used to represent each token.
   EmbeddingTL(this.vocabularySize, this.embeddingDimension);
 
   /// Allocates VRAM for [embeddings] with dimensionality: [vocabularySize]x[embeddingDimension].
   @override
-  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
+  void build(GPUTensor<Vector> input, AllocBuffer allocTape) {
     Random random = Random();
     List<List<double>> values = <List<double>>[];
 
@@ -57,42 +53,12 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
   }
 
   /// Writes the [embeddingLookupGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = embeddingLookupGPU(input, embeddings, tape, allocTape,
-        outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the allocated [embeddings] and the cached output tensor.
-  @override
-  void free() {
-    if (built) {
-      embeddings.free();
-    }
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+  GPUTensor<Matrix> forward(
+      GPUTensor<Vector> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Matrix> out =
+    embeddingLookupGPU(input, embeddings, tape, allocTape);
+    return out;
   }
 
   /// Returns a map containing the [embeddings] of the layer as sole element.
@@ -103,7 +69,7 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
       return wMap;
     }
 
-    embeddings.toCpu();
+    embeddings.dataToCpu();
     wMap['embeddings'] = embeddings.value;
 
     return wMap;
@@ -137,10 +103,6 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
 
   late GPUTensor<Matrix> embeddings;
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<Tensor3D>? cachedOut;
-
   /// Requires the number of unique tokens in the dictionary [vocabularySize] as well as the
   /// number of embedding dimensions [embeddingDimension] used to represent each token.
   EmbeddingMatrixTL(this.vocabularySize, this.embeddingDimension);
@@ -157,7 +119,7 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
 
   /// Allocates VRAM for [embeddings] with dimensionality: [vocabularySize]x[embeddingDimension].
   @override
-  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     Random random = Random();
     List<List<double>> values = <List<double>>[];
 
@@ -175,42 +137,12 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
   }
 
   /// Writes the [embeddingLookupBatchGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Tensor3D> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = embeddingLookupBatchGPU(input, embeddings, tape, allocTape,
-        outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the allocated [embeddings] and the cached output tensor.
-  @override
-  void free() {
-    if (built) {
-      embeddings.free();
-    }
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+  GPUTensor<Tensor3D> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Tensor3D> out =
+    embeddingLookupBatchGPU(input, embeddings, tape, allocTape);
+    return out;
   }
 
   /// Returns a map containing the [embeddings] of the layer as sole element.
@@ -221,7 +153,7 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
       return wMap;
     }
 
-    embeddings.toCpu();
+    embeddings.dataToCpu();
     wMap['embeddings'] = embeddings.value;
 
     return wMap;

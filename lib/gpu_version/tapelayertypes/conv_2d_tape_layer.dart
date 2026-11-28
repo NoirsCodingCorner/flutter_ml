@@ -26,10 +26,6 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
   /// Learnable shifting vector (similar to bias) applied to each output channel.
   late GPUTensor<Vector> biases;
 
-  /// Persistent Cache for Static Unrolling
-  int cacheBatchSize = -1;
-  GPUTensor<Tensor3D>? cachedOut;
-
   /// Requires the number of desired filters [outChannels] and the spatial size of the square kernel [kernelSize].
   /// Takes an optional [padding] parameter ('valid' or 'same') to dictate output dimensions.
   Conv2DTL(this.outChannels, this.kernelSize, {this.padding = 'valid'});
@@ -73,53 +69,22 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
       biasData.add(0.0);
     }
 
-    weights = GPUTensor<Tensor3D>(weightData, allocTape, sourceOp: '$name:weights');
+    weights =
+        GPUTensor<Tensor3D>(weightData, allocTape, sourceOp: '$name:weights');
     biases = GPUTensor<Vector>(biasData, allocTape, sourceOp: '$name:biases');
 
     built = true;
   }
 
   /// Writes the [conv2dMultiChannelGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Tensor3D> forward(GPUTensor<dynamic> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
-
-    // Safely free the old cache if the batch size changes
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = conv2dMultiChannelGPU(
+  GPUTensor<Tensor3D> forward(
+      GPUTensor<dynamic> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Tensor3D> out = conv2dMultiChannelGPU(
         input, weights, biases, kernelSize, kernelSize, tape, allocTape,
-        padding: padding, outTensor: cachedOut);
+        padding: padding);
 
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees VRAM for [weights], [biases], and the cached output tensor.
-  @override
-  void free() {
-    if (built) {
-      weights.free();
-      biases.free();
-    }
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+    return out;
   }
 
   /// Returns [weights] and [biases] as a map.
@@ -130,8 +95,8 @@ class Conv2DTL extends TapeLayer<dynamic, Tensor3D> {
       return wMap;
     }
 
-    weights.toCpu();
-    biases.toCpu();
+    weights.dataToCpu();
+    biases.dataToCpu();
 
     wMap['weights'] = weights.value;
     wMap['biases'] = biases.value;

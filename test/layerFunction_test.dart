@@ -48,7 +48,7 @@ void main() {
       model.runTraining();
     }
 
-    model.loss?.toCpu();
+    model.loss?.dataToCpu();
     Logger.green('Final Training Loss: ${model.loss?.value}');
 
     AllocBuffer inferAlloc = AllocBuffer();
@@ -60,12 +60,12 @@ void main() {
     GPUTensor<Matrix> inferResult = model.predict(inferInput);
 
     model.runForward();
-    inferResult.toCpu();
+    inferResult.dataToCpu();
     Logger.blue('Prediction for [3.0, 3.0]: ${inferResult.value}');
 
     List<double> newInferData = <double>[4.0, 4.0];
     model.runForward(inputData: newInferData);
-    inferResult.toCpu();
+    inferResult.dataToCpu();
     Logger.blue('Prediction for [4.0, 4.0]: ${inferResult.value}');
 
     model.free();
@@ -139,7 +139,7 @@ void main() {
     }
 
     timer.stop();
-    model.loss?.toCpu();
+    model.loss?.dataToCpu();
 
     double seconds = timer.elapsedMilliseconds / 1000.0;
     double epochsPerSec = actualEpochs / seconds;
@@ -197,10 +197,9 @@ void main() {
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> tensorA = GPUTensor<Matrix>(rawA, allocTape);
     GPUTensor<Matrix> tensorB = GPUTensor<Matrix>(rawB, allocTape);
-    GPUTensor<Matrix> tensorC = GPUTensor<Matrix>.empty(<int>[m, n], allocTape);
 
     CommandBuffer tape = CommandBuffer();
-    matMulGPU(tensorA, tensorB, tape, allocTape, outTensor: tensorC);
+    matMulGPU(tensorA, tensorB, tape, allocTape);
     allocTape.execute();
 
     Stopwatch timer = Stopwatch();
@@ -242,10 +241,9 @@ void main() {
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> tensorA = GPUTensor<Matrix>.empty(<int>[m, k], allocTape);
     GPUTensor<Matrix> tensorB = GPUTensor<Matrix>.empty(<int>[k, n], allocTape);
-    GPUTensor<Matrix> tensorC = GPUTensor<Matrix>.empty(<int>[m, n], allocTape);
 
     CommandBuffer tape = CommandBuffer();
-    matMulGPU(tensorA, tensorB, tape, allocTape, outTensor: tensorC);
+    matMulGPU(tensorA, tensorB, tape, allocTape);
     allocTape.execute();
 
     int steps = 5;
@@ -325,7 +323,7 @@ void main() {
       model.runTraining();
     }
 
-    model.loss?.toCpu();
+    model.loss?.dataToCpu();
     Logger.green('Final Training Loss: ${model.loss?.value}');
 
     AllocBuffer inferAlloc = AllocBuffer();
@@ -336,7 +334,7 @@ void main() {
     GPUTensor<Matrix> inferResult = model.predict(inferInput);
 
     model.runForward();
-    inferResult.toCpu();
+    inferResult.dataToCpu();
 
     Logger.blue('--- Inference Results ---');
     Logger.blue('Input Tokens: [1.0, 3.0]');

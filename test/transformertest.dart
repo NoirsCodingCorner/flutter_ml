@@ -42,11 +42,13 @@ void main() {
       <double>[0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     ], dataAlloc);
 
+    DenseTL outputDense = DenseTL(vocabSize);
+
     List<TapeLayer> layers = <TapeLayer>[
       EmbeddingTL(vocabSize, dModel),
       PositionalEncodingTL(maxSeqLength, dModel),
       TransformerEncoderBlockTapeLayer(dModel, numHeads, dff),
-      DenseTL(vocabSize),
+      outputDense,
     ];
 
     SeqModel<Vector, Matrix> model = SeqModel<Vector, Matrix>(
@@ -61,12 +63,16 @@ void main() {
 
     model.compile();
 
-    AllocBuffer modelAlloc = model.allocTape!;
+    AllocBuffer modelAlloc = model.allocTape;
+    Uint8List zeroGradTape = model.trainZeroGrad.bytes();
     Uint8List forwardTape = model.trainForward.bytes();
     Uint8List backwardTape = model.trainBackward.bytes();
     Uint8List optimizeTape = model.trainOptimize.bytes();
 
     String lossId = model.loss!.id;
+    String trackedGradId = outputDense.weights.gradId;
+    int trackedGradElements =
+        outputDense.weights.shape[0] * outputDense.weights.shape[1];
 
     GPUEngine.dispose();
 
@@ -78,25 +84,27 @@ void main() {
     dataAlloc.execute();
     modelAlloc.execute();
 
-    // t_gpu_85_grad has shape [16, 10] -> 160 elements
-    List<double> gradAfterAlloc = pullRawTensor('t_gpu_85_grad', 160).sublist(0, 4);
-    Logger.blue('t_gpu_85_grad right after alloc: $gradAfterAlloc');
+    List<double> gradAfterAlloc =
+    pullRawTensor(trackedGradId, trackedGradElements).sublist(0, 4);
+    Logger.blue('$trackedGradId right after alloc: $gradAfterAlloc');
 
     int epochs = 250;
     for (int epoch = 0; epoch < epochs; epoch = epoch + 1) {
+      GPUEngine.run(zeroGradTape);
+      List<double> gradAfterZero =
+      pullRawTensor(trackedGradId, trackedGradElements).sublist(0, 4);
+
       GPUEngine.run(forwardTape);
       double lossAfterForward = pullRawTensor(lossId, 1)[0];
 
       GPUEngine.run(backwardTape);
       List<double> gradAfterBackward =
-      pullRawTensor('t_gpu_85_grad', 160).sublist(0, 4);
+      pullRawTensor(trackedGradId, trackedGradElements).sublist(0, 4);
 
       GPUEngine.run(optimizeTape);
-      List<double> gradAfterOptimize =
-      pullRawTensor('t_gpu_85_grad', 160).sublist(0, 4);
 
       Logger.blue(
-        'Step $epoch | Forward Loss: $lossAfterForward | gradAfterBw: $gradAfterBackward | gradAfterOpt(zeroGrad): $gradAfterOptimize',
+        'Step $epoch | Forward Loss: $lossAfterForward | gradAfterZero: $gradAfterZero | gradAfterBw: $gradAfterBackward',
       );
 
       if (lossAfterForward.isNaN || lossAfterForward.isInfinite) {

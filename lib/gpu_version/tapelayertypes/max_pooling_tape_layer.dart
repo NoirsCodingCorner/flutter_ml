@@ -15,64 +15,26 @@ class MaxPooling2DTL extends TapeLayer<Matrix, Matrix> {
   int poolSize;
   int stride;
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<Matrix>? cachedOut;
-
   /// Slides a window over a given tensor in the first two dimensions with a size of [poolSize] and a stride of [stride].
   /// Each window returns the maximum of all its values.
   MaxPooling2DTL({this.poolSize = 2, this.stride = 2});
 
-  /// This layer has no parameters to adjust.
-  @override
-  List<GPUTensor> get parameters {
-    return <GPUTensor>[];
-  }
-
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
+  void build(GPUTensor<Matrix> input, AllocBuffer allocTape) {
     built = true;
   }
 
   /// Writes the [maxPool2dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
   GPUTensor<Matrix> forward(
       GPUTensor<Matrix> input,
       CommandBuffer tape,
       AllocBuffer allocTape,
-      List<GPUTensor> intermediates,
       ) {
-    int currentBatchSize = input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = maxPool2dGPU(input, poolSize, stride, tape, allocTape,
-        outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the cached output tensor.
-  @override
-  void free() {
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+    GPUTensor<Matrix> out =
+    maxPool2dGPU(input, poolSize, stride, tape, allocTape);
+    return out;
   }
 
   /// This layer has no weights to return.
@@ -95,60 +57,23 @@ class MaxPooling1DTL extends TapeLayer<Vector, Vector> {
   int poolSize;
   int stride;
 
-  /// --- Persistent Cache for Static Unrolling ---
-  int cacheBatchSize = -1;
-  GPUTensor<Vector>? cachedOut;
-
   /// Slides a window over a given vector with a size of [poolSize] and a stride of [stride].
   /// Each window returns the maximum of all its values.
   MaxPooling1DTL({this.poolSize = 2, this.stride = 2});
 
-  /// This layer has no parameters to adjust.
-  @override
-  List<GPUTensor> get parameters {
-    return <GPUTensor>[];
-  }
-
   /// Does not allocate additional VRAM.
   @override
-  void build(GPUTensor<dynamic> input, AllocBuffer allocTape) {
+  void build(GPUTensor<Vector> input, AllocBuffer allocTape) {
     built = true;
   }
 
   /// Writes the [maxPool1dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
-  /// Persistently caches the output tensor to prevent VRAM leaks and infinite accumulation.
   @override
-  GPUTensor<Vector> forward(GPUTensor<Vector> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape.isEmpty ? 1 : input.shape[0];
-
-    if (cacheBatchSize != currentBatchSize) {
-      if (cachedOut != null) {
-        cachedOut!.free();
-      }
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    cachedOut = maxPool1dGPU(input, poolSize, stride, tape, allocTape,
-        outTensor: cachedOut);
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of the statically cached output tensor.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees the cached output tensor.
-  @override
-  void free() {
-    if (cachedOut != null) {
-      cachedOut!.free();
-    }
+  GPUTensor<Vector> forward(
+      GPUTensor<Vector> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Vector> out =
+    maxPool1dGPU(input, poolSize, stride, tape, allocTape);
+    return out;
   }
 
   /// This layer has no weights to return.

@@ -57,52 +57,31 @@ class AdamGPU extends OptimizerGPU {
     }
   }
 
-  final List<int> _stepOffsets = <int>[];
-
   /// Appends the Adam weight update operations to the provided [tape].
-  /// Increments the [currentStep] automatically after processing all parameters.
   @override
   void step(CommandBuffer tape) {
-    _stepOffsets.clear();
     for (int i = 0; i < parameters.length; i = i + 1) {
-      tape.putInt(OP_ADAM_UPDATE);
-      tape.putString(parameters[i].id);
-      tape.putString('${parameters[i].id}_grad');
-      tape.putString(mCaches[i].id);
-      tape.putString(vCaches[i].id);
-      tape.putFloat(learningRate);
-      tape.putFloat(beta1);
-      tape.putFloat(beta2);
-      tape.putFloat(epsilon);
-      _stepOffsets.add(tape.reserveInt());
-      tape.putFloat(weightDecay);
+      adamUpdateGPU(
+        parameters[i],
+        mCaches[i],
+        vCaches[i],
+        learningRate,
+        beta1,
+        beta2,
+        epsilon,
+        currentStep,
+        weightDecay,
+        tape,
+      );
     }
   }
 
-  /// Patches the compiled tape with the current step and advances it. Call this once per
-  /// training step, right before SeqModel replays the optimize tape.
+  /// Patches the compiled tape with the current step and learning rate, then advances [currentStep].
+  /// Call this once per training step, right before replaying the optimize tape.
   @override
   void refreshStep(CommandBuffer tape) {
-    for (int i = 0; i < _stepOffsets.length; i = i + 1) {
-      tape.patchInt(_stepOffsets[i], currentStep);
-    }
+    tape.patchFloat('lr', learningRate);
+    tape.patchInt('step', currentStep);
     currentStep = currentStep + 1;
-  }
-
-  /// Appends the zero-gradient operations to the [tape] to clear the gradients for the next pass.
-  @override
-  void zeroGrad(CommandBuffer tape) {
-    for (int i = 0; i < parameters.length; i = i + 1) {
-      tape.putInt(OP_ZERO_GRAD);
-      tape.putString('${parameters[i].id}_grad');
-    }
-  }
-
-  /// Frees VRAM for all persistently allocated moment caches.
-  void free() {
-    for (int i = 0; i < mCaches.length; i = i + 1) {
-      mCaches[i].free();
-      vCaches[i].free();
-    }
   }
 }

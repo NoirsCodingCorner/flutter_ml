@@ -32,11 +32,6 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   /// Optional mask added to the attention scores before the softmax operation.
   GPUTensor<Vector>? attentionMask;
 
-  /// Persistent Cache for Static Unrolling
-  int cacheSeqLength = -1;
-  bool cacheUsedMask = false;
-  final List<GPUTensor<dynamic>> stepCache = <GPUTensor<dynamic>>[];
-
   /// Requires the model dimension [dModel] and the number of attention heads [numHeads].
   /// [dModel] must be cleanly divisible by [numHeads].
   MultiHeadAttentionTL(this.dModel, this.numHeads) {
@@ -102,62 +97,20 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
   }
 
   /// Appends the multi-head attention operations to the [tape].
-  /// Persistently caches all intermediates to guarantee static unroll-ability.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int seqLength = input.shape[0];
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     bool hasMask = (attentionMask != null);
 
-    bool useCache = (cacheSeqLength == seqLength && cacheUsedMask == hasMask);
-
-    if (!useCache) {
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = seqLength;
-      cacheUsedMask = hasMask;
-    }
-
-    int cIdx = 0;
-
-    T? getCached<T>() {
-      if (useCache) {
-        T cached = stepCache[cIdx] as T;
-        cIdx = cIdx + 1;
-        return cached;
-      }
-      return null;
-    }
-
-    void saveCached(GPUTensor<dynamic> tensor) {
-      if (!useCache) {
-        stepCache.add(tensor);
-      }
-    }
-
     // 1. Compute Full Q, K, V
-    GPUTensor<Matrix> qMatMul = matMulGPU(input, wq, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(qMatMul);
-    GPUTensor<Matrix> Q = addBiasToMatMulOutGPU(qMatMul, bq, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(Q);
+    GPUTensor<Matrix> qMatMul = matMulGPU(input, wq, tape, allocTape);
+    GPUTensor<Matrix> Q = addBiasToMatMulOutGPU(qMatMul, bq, tape, allocTape);
 
-    GPUTensor<Matrix> kMatMul = matMulGPU(input, wk, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(kMatMul);
-    GPUTensor<Matrix> K = addBiasToMatMulOutGPU(kMatMul, bk, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(K);
+    GPUTensor<Matrix> kMatMul = matMulGPU(input, wk, tape, allocTape);
+    GPUTensor<Matrix> K = addBiasToMatMulOutGPU(kMatMul, bk, tape, allocTape);
 
-    GPUTensor<Matrix> vMatMul = matMulGPU(input, wv, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(vMatMul);
-    GPUTensor<Matrix> V = addBiasToMatMulOutGPU(vMatMul, bv, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(V);
+    GPUTensor<Matrix> vMatMul = matMulGPU(input, wv, tape, allocTape);
+    GPUTensor<Matrix> V = addBiasToMatMulOutGPU(vMatMul, bv, tape, allocTape);
 
     List<GPUTensor<Matrix>> headOutputs = <GPUTensor<Matrix>>[];
     double scaleFactor = 1.0 / sqrt(dHead);
@@ -167,96 +120,44 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
       int startCol = i * dHead;
       int endCol = startCol + dHead;
 
-      GPUTensor<Matrix> qHead = sliceColumnGPU(
-          Q, startCol, endCol, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(qHead);
-      GPUTensor<Matrix> kHead = sliceColumnGPU(
-          K, startCol, endCol, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(kHead);
-      GPUTensor<Matrix> vHead = sliceColumnGPU(
-          V, startCol, endCol, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(vHead);
+      GPUTensor<Matrix> qHead =
+      sliceColumnGPU(Q, startCol, endCol, tape, allocTape);
+      GPUTensor<Matrix> kHead =
+      sliceColumnGPU(K, startCol, endCol, tape, allocTape);
+      GPUTensor<Matrix> vHead =
+      sliceColumnGPU(V, startCol, endCol, tape, allocTape);
 
       // Attention Equation: Softmax(Q * K^T / sqrt(dHead)) * V
-      GPUTensor<Matrix> kHeadT = transposeGPU(kHead, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(kHeadT);
-      GPUTensor<Matrix> scores = matMulGPU(qHead, kHeadT, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(scores);
-      GPUTensor<Matrix> scaledScores = scaleMatrixGPU(
-          scores, scaleFactor, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(scaledScores);
+      GPUTensor<Matrix> kHeadT = transposeGPU(kHead, tape, allocTape);
+      GPUTensor<Matrix> scores = matMulGPU(qHead, kHeadT, tape, allocTape);
+      GPUTensor<Matrix> scaledScores =
+      scaleMatrixGPU(scores, scaleFactor, tape, allocTape);
 
       GPUTensor<Matrix> maskedScores;
       if (hasMask) {
         maskedScores = broadcastAddVectorToMatrixGPU(
-            scaledScores, attentionMask!, tape, allocTape,
-            outTensor: getCached<GPUTensor<Matrix>>());
-        saveCached(maskedScores);
+            scaledScores, attentionMask!, tape, allocTape);
       } else {
         maskedScores = scaledScores;
       }
 
-      GPUTensor<Matrix> probs = softmaxMatrixGPU(maskedScores, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(probs);
-      GPUTensor<Matrix> headOut = matMulGPU(probs, vHead, tape, allocTape,
-          outTensor: getCached<GPUTensor<Matrix>>());
-      saveCached(headOut);
+      GPUTensor<Matrix> probs =
+      softmaxMatrixGPU(maskedScores, tape, allocTape);
+      GPUTensor<Matrix> headOut = matMulGPU(probs, vHead, tape, allocTape);
 
       headOutputs.add(headOut);
     }
 
     // 3. Concatenate all heads horizontally
-    GPUTensor<Matrix> concatOut = concatenateMatricesByColumnGPU(
-        headOutputs, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(concatOut);
+    GPUTensor<Matrix> concatOut =
+    concatenateMatricesByColumnGPU(headOutputs, tape, allocTape);
 
     // 4. Final Output Projection
-    GPUTensor<Matrix> oMatMul = matMulGPU(concatOut, wo, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(oMatMul);
-    GPUTensor<Matrix> finalOut = addBiasToMatMulOutGPU(
-        oMatMul, bo, tape, allocTape,
-        outTensor: getCached<GPUTensor<Matrix>>());
-    saveCached(finalOut);
+    GPUTensor<Matrix> oMatMul = matMulGPU(concatOut, wo, tape, allocTape);
+    GPUTensor<Matrix> finalOut =
+    addBiasToMatMulOutGPU(oMatMul, bo, tape, allocTape);
 
     return finalOut;
-  }
-
-  /// Clears the gradients of all persistently cached intermediate tensors.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    for (int i = 0; i < stepCache.length; i = i + 1) {
-      stepCache[i].zeroGrad(tape);
-    }
-  }
-
-  /// Frees VRAM for all parameters and persistently cached intermediate tensors.
-  @override
-  void free() {
-    if (built) {
-      wq.free();
-      bq.free();
-      wk.free();
-      bk.free();
-      wv.free();
-      bv.free();
-      wo.free();
-      bo.free();
-
-      for (int i = 0; i < stepCache.length; i = i + 1) {
-        stepCache[i].free();
-      }
-      stepCache.clear();
-      cacheSeqLength = -1;
-    }
   }
 
   @override
@@ -264,14 +165,14 @@ class MultiHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
     Map<String, List<dynamic>> wMap = <String, List<dynamic>>{};
     if (!built) return wMap;
 
-    wq.toCpu();
-    bq.toCpu();
-    wk.toCpu();
-    bk.toCpu();
-    wv.toCpu();
-    bv.toCpu();
-    wo.toCpu();
-    bo.toCpu();
+    wq.dataToCpu();
+    bq.dataToCpu();
+    wk.dataToCpu();
+    bk.dataToCpu();
+    wv.dataToCpu();
+    bv.dataToCpu();
+    wo.dataToCpu();
+    bo.dataToCpu();
 
     wMap['Wq'] = wq.value;
     wMap['bq'] = bq.value;

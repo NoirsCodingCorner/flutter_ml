@@ -117,7 +117,7 @@ class GPUTensor<T> {
     allocTape.putData(this.id, shape, _flattenToFloat32(initialValue),
         sourceOp: opTag);
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -143,7 +143,7 @@ class GPUTensor<T> {
       allocTape.putEmpty(id, shape, sourceOp: opTag);
     }
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -165,7 +165,7 @@ class GPUTensor<T> {
     allocTape.putData(id, shape, _flattenToFloat32(initialValue),
         sourceOp: opTag);
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -189,7 +189,7 @@ class GPUTensor<T> {
     allocTape.putData(id, shape, _flattenToFloat32(initialValue),
         sourceOp: opTag);
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -214,7 +214,7 @@ class GPUTensor<T> {
     allocTape.putData(id, shape, _flattenToFloat32(initialValue),
         sourceOp: opTag);
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -236,7 +236,7 @@ class GPUTensor<T> {
     String opTag = sourceOp ?? creator?.opName ?? 'empty';
     allocTape.putEmpty(id, shape, sourceOp: opTag);
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -263,7 +263,7 @@ class GPUTensor<T> {
     allocTape.putEmpty(id, shape, sourceOp: opTag);
     allocTape.putRandomUniform(id, shape, scale, finalSeed, sourceOp: opTag);
     if (localGrad == true) {
-      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad');
+      allocTape.putEmpty(gradId, shape, sourceOp: '$opTag:grad', isGrad: true);
     }
   }
 
@@ -283,8 +283,7 @@ class GPUTensor<T> {
     return _unflatten(grad);
   }
 
-  /// Retrieves the current state of the GPUTensor from VRAM and writes it to the [data] and [grad] buffers.
-  void toCpu() {
+  void dataToCpu() {
     int count = _getElementCount();
 
     using((Arena arena) {
@@ -293,17 +292,29 @@ class GPUTensor<T> {
       Float32List dataView = pData.asTypedList(count);
 
       data.clear();
-      grad.clear();
-
       data.addAll(dataView);
-
-      if (localGrad == true) {
-        Pointer<Float> pGrad = arena<Float>(count);
-        GPUEngine.retrieve('${id}_grad', pGrad);
-        Float32List gradView = pGrad.asTypedList(count);
-        grad.addAll(gradView);
-      }
     });
+  }
+
+  void gradToCpu() {
+    if (localGrad == false) return;
+
+    int count = _getElementCount();
+
+    using((Arena arena) {
+      Pointer<Float> pGrad = arena<Float>(count);
+      GPUEngine.retrieve(gradId, pGrad);
+      Float32List gradView = pGrad.asTypedList(count);
+
+      grad.clear();
+      grad.addAll(gradView);
+    });
+  }
+
+  /// Retrieves the current state of the GPUTensor from VRAM and writes it to the [data] and [grad] buffers.
+  void toCpu() {
+    dataToCpu();
+    gradToCpu();
   }
 
   /// Manually pushes values to overwrite the GPUTensors values in VRAM.
@@ -324,9 +335,11 @@ class GPUTensor<T> {
   /// To actually calculate the values this tape is required to be executed via [GPUEngine.run(backwardTape)].
   /// If [fillOnes] is set to true, it pushes a command to fill the gradient of this tensor with 1.0.
   void backward(CommandBuffer backwardTape, {bool fillOnes = true}) {
+    if (localGrad == false) return;
+
     if (fillOnes == true) {
       backwardTape.putInt(OP_FILL);
-      backwardTape.putString('${id}_grad');
+      backwardTape.putString(gradId);
       backwardTape.putFloat(1.0);
     }
 
@@ -374,41 +387,11 @@ class GPUTensor<T> {
     _buildGPUGraphString(this, '', true, visited);
   }
 
-  /// Traverses the graph and returns a list of all GPUTensors this root GPUTensor is built from.
-  List<GPUTensor> getAllTensorsInGraph(GPUTensor root) {
-    List<GPUTensor> all = <GPUTensor>[];
-    Set<String> visited = <String>{};
-
-    void traverse(GPUTensor node) {
-      if (visited.contains(node.id)) {
-        return;
-      }
-      visited.add(node.id);
-      all.add(node);
-
-      if (node.creator != null) {
-        for (int i = 0; i < node.creator!.inputs.length; i = i + 1) {
-          traverse(node.creator!.inputs[i]);
-        }
-      }
-    }
-
-    traverse(root);
-    return all;
-  }
-
   /// Writes the command to set the gradient of this GPUTensor to 0.
   void zeroGrad(CommandBuffer tape) {
+    if (localGrad == false) return;
     tape.putInt(OP_ZERO_GRAD);
-    tape.putString('${id}_grad');
-  }
-
-  /// Finds every GPUTensor the current GPUTensor depends on and sets their gradients to 0.
-  void zeroGraphGrads(CommandBuffer tape) {
-    List<GPUTensor> allTensors = getAllTensorsInGraph(this);
-    for (int i = 0; i < allTensors.length; i = i + 1) {
-      allTensors[i].zeroGrad(tape);
-    }
+    tape.putString(gradId);
   }
 
   T _unflatten(List<double> source) {

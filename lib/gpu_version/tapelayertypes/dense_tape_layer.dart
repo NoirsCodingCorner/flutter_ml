@@ -4,7 +4,6 @@ import '/tensor/tensor_math_gpu.dart';
 import '/tensor/type_aliases.dart';
 
 import '../ffi/allocation_buffer.dart';
-import '../ffi/op_codes.dart';
 import '../ffi/command_buffer.dart';
 import 'tape_layer.dart';
 
@@ -18,11 +17,6 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
 
   late GPUTensor<Matrix> weights;
   late GPUTensor<Vector> bias;
-
-  /// Stores the batch size of the last batch to see if the allocated memory is fitting
-  int cacheBatchSize = -1;
-  GPUTensor<Matrix>? matMulResult;
-  GPUTensor<Matrix>? cachedOut;
 
   /// Requires the [outputSize] which determines the amount of neurons in this layer.
   DenseTL(this.outputSize);
@@ -68,51 +62,14 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
   }
 
   /// Appends the matrix multiplication and bias addition to the [tape].
-  /// Persistently caches the intermediate multiplication result for static unrolling.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    int currentBatchSize = input.shape[0];
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Matrix> matMulResult = matMulGPU(input, weights, tape, allocTape);
+    GPUTensor<Matrix> out =
+    addMatrixAndVectorGPU(matMulResult, bias, tape, allocTape);
 
-    if (cacheBatchSize != currentBatchSize) {
-      if (matMulResult != null) matMulResult!.free();
-      if (cachedOut != null) cachedOut!.free();
-
-      matMulResult = null;
-      cachedOut = null;
-      cacheBatchSize = currentBatchSize;
-    }
-
-    matMulResult =
-        matMulGPU(input, weights, tape, allocTape, outTensor: matMulResult);
-    cachedOut = addMatrixAndVectorGPU(matMulResult!, bias, tape, allocTape,
-        outTensor: cachedOut);
-
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of all statically cached intermediate tensors to prevent infinite accumulation.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (matMulResult != null) {
-      tape.putInt(OP_ZERO_GRAD);
-      tape.putString('${matMulResult!.id}_grad');
-    }
-    if (cachedOut != null) {
-      tape.putInt(OP_ZERO_GRAD);
-      tape.putString('${cachedOut!.id}_grad');
-    }
-  }
-
-  /// Frees VRAM for weights, biases, and the internally cached intermediate tensors.
-  @override
-  void free() {
-    if (built) {
-      weights.free();
-      bias.free();
-    }
-    if (matMulResult != null) matMulResult!.free();
-    if (cachedOut != null) cachedOut!.free();
+    return out;
   }
 
   /// Returns [weights] and [bias] as a map.
@@ -123,8 +80,8 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
       return wMap;
     }
 
-    weights.toCpu();
-    bias.toCpu();
+    weights.dataToCpu();
+    bias.dataToCpu();
 
     wMap['weights'] = weights.value;
     wMap['bias'] = bias.value;
@@ -166,9 +123,6 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
 
   late GPUTensor<Matrix> weights;
   late GPUTensor<Vector> bias;
-
-  GPUTensor<Matrix>? cachedOut;
-  GPUTensor<Matrix>? cachedPreRelu;
 
   /// Requires the [outputSize] which determines the amount of neurons in this layer.
   DenseReluTL(this.outputSize);
@@ -214,46 +168,13 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
   }
 
   /// Appends the fused matrix multiplication, bias addition, and ReLU operation to the [tape].
-  /// The fused kernel automatically registers its intermediates.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
-    if (cachedOut != null) cachedOut!.free();
-    if (cachedPreRelu != null) cachedPreRelu!.free();
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
+    GPUTensor<Matrix> out =
+    matMulBiasReluGPU(input, weights, bias, tape, allocTape);
 
-    List<GPUTensor> localIntermediates = <GPUTensor>[];
-    cachedOut = matMulBiasReluGPU(
-        input, weights, bias, tape, allocTape, localIntermediates);
-
-    if (localIntermediates.isNotEmpty) {
-      cachedPreRelu = localIntermediates[0] as GPUTensor<Matrix>;
-      intermediates.add(cachedPreRelu!);
-    }
-
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of all statically cached intermediate tensors to prevent infinite accumulation.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      tape.putInt(OP_ZERO_GRAD);
-      tape.putString('${cachedOut!.id}_grad');
-    }
-    if (cachedPreRelu != null) {
-      tape.putInt(OP_ZERO_GRAD);
-      tape.putString('${cachedPreRelu!.id}_grad');
-    }
-  }
-
-  /// Frees VRAM for weights, biases, and intermediate tensors.
-  @override
-  void free() {
-    if (built) {
-      weights.free();
-      bias.free();
-    }
-    if (cachedOut != null) cachedOut!.free();
+    return out;
   }
 
   /// Returns [weights] and [bias] as a map.
@@ -264,8 +185,8 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
       return wMap;
     }
 
-    weights.toCpu();
-    bias.toCpu();
+    weights.dataToCpu();
+    bias.dataToCpu();
 
     wMap['weights'] = weights.value;
     wMap['bias'] = bias.value;

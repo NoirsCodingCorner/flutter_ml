@@ -17,6 +17,7 @@ class AllocEntry {
   Float32List? data;
   List<double> params;
   String? sourceOp;
+  bool isGrad;
 
   AllocEntry(
       this.id,
@@ -25,14 +26,22 @@ class AllocEntry {
         this.data,
         this.params = const <double>[],
         this.sourceOp,
+        this.isGrad = false,
       });
 }
 
 class AllocBuffer {
   List<AllocEntry> entries = <AllocEntry>[];
 
-  void putEmpty(String id, List<int> shape, {String? sourceOp}) {
-    entries.add(AllocEntry(id, shape, AllocOp.loadEmpty, sourceOp: sourceOp));
+  void putEmpty(String id, List<int> shape,
+      {String? sourceOp, bool isGrad = false}) {
+    entries.add(AllocEntry(
+      id,
+      shape,
+      AllocOp.loadEmpty,
+      sourceOp: sourceOp,
+      isGrad: isGrad,
+    ));
   }
 
   void putData(String id, List<int> shape, Float32List data,
@@ -313,6 +322,17 @@ class AllocBuffer {
       AllocEntry entry = entries[i];
       if (entry.op == AllocOp.loadEmpty || entry.op == AllocOp.loadData) {
         GPUEngine.free(entry.id);
+      }
+    }
+  }
+
+  /// Zeros all grads of all entries that could be found.
+  void compileZeroGradTape(CommandBuffer tape) {
+    for (int i = 0; i < entries.length; i = i + 1) {
+      AllocEntry entry = entries[i];
+      if (entry.isGrad == true) {
+        tape.putInt(OP_ZERO_GRAD);
+        tape.putString(entry.id);
       }
     }
   }

@@ -1,21 +1,23 @@
+
 ![flutter_ml](https://raw.githubusercontent.com/NoirsCodingCorner/flutter_ml/master/doc/flutterML.png)
 
-A deep learning library for Dart and Flutter. It brings native hardware-accelerated machine learning directly to your device via **CUDA**, **WebGPU**, and a universal **Dart CPU Tape fallback**. Train models and run inference locally without Python, cloud APIs, or external runtimes.
+A deep learning library for Dart and Flutter. It brings native hardware-accelerated machine learning directly to your device via **CUDA** on Windows, **WebGPU** on other supported platforms, and a universal **Dart CPU Tape fallback**. Train models and run inference locally without Python, cloud APIs, or external runtimes.
 
 ## 🟥 Why flutter_ml?
 
-Most machine learning in Flutter relies on external Python servers or read-only TFLite models. This package provides a native alternative. You get full control over tensor math, autograd graphs, and custom model architectures.
+Most machine learning in Flutter relies on external Python servers or read-only TFLite models. This package provides a native alternative with full control over tensor math, autograd graphs, and custom model architectures.
 
-- **Multi-Backend Acceleration (CUDA, WebGPU & CPU Fallback):** Not tied to NVIDIA hardware. Dispatch the exact same compiled execution tapes to **CUDA** on desktop, **WebGPU** on Android and other supported device types, or fall back seamlessly to pure-Dart CPU execution (`DartTapeEngine`) on any platform.
-- **Zero Frame Drops:** Standard Dart lists trigger huge garbage collection pauses. This engine pre-allocates memory in native C heap or GPU VRAM. Static tape unrolling reuses buffers. Zero allocations happen during the training loop.
-- **Compiled Execution Tapes:** FFI calls are expensive. Calling native code for every math operation introduces massive overhead. This library records operations into a byte-encoded tape. The entire graph runs on the backend in a single dispatch.
+- **Multi-Backend Acceleration (CUDA, WebGPU & Dart Fallback):** Dispatch the exact same compiled execution tapes to **CUDA** on Windows, **WebGPU** on Android and other supported non-CUDA platforms, or fall back seamlessly to pure-Dart CPU execution (`DartTapeEngine`) on any platform.
+- **Separated Construction & Tape Execution:** `GPUTensor` graphs, `TapeLayer`s, and optimizers run once to validate shapes and compile into standalone memory (`AllocBuffer`) and execution (`CommandBuffer`) tapes. Once compiled, training and inference run strictly by replaying tapes—no graph traversal or layer calls during the loop.
+- **Zero Frame Drops:** Standard Dart lists trigger heavy garbage collection pauses. This engine pre-allocates memory in native C heap or GPU VRAM via `AllocBuffer` and reuses fixed buffers across every iteration. Zero allocations happen during the training loop.
+- **Compiled Execution Tapes with In-Place Patching:** FFI calls per operation introduce heavy overhead. Operations are recorded into a zero-copy byte-encoded tape and executed in a single dispatch, while per-step values (`step`, `lr`, `dropout_seed`, `dropout_rate`, `is_training`, `sample_index`) are patched directly into the buffer in place.
 - **On-Device Training:** Keep user data private. Train directly on the device.
 - **Hugging Face Compatibility:** Load and export standard `.safetensors` model weights natively. No Python conversion scripts are needed.
 - **Modern Architectures:** Build Transformers, Multi-Head Attention, RoPE, and spatio-temporal ConvLSTMs entirely in Dart.
 
 ## 🟧 CPU Engine (Eager Execution)
 
-The eager CPU engine builds a dynamic computation graph evaluated immediately in Dart on native C-heap memory. It is highly transparent. Use it for debugging, testing, or running lightweight models.
+The eager CPU engine builds a dynamic computation graph evaluated immediately in Dart on native C-heap memory. It is transparent and direct—use it for debugging, testing, or running lightweight models.
 
 🟠 *Does not require initialization or a specific device architecture.*
 
@@ -46,57 +48,64 @@ void main() {
 
   model.fit(inputs, targets, epochs: 1000, debug: true);
 }
+
 ```
 
-## 🟨 Tape & GPU Engine (CUDA, WebGPU & CPU Fallback)
+## 🟨 Tape & GPU Engine (CUDA, WebGPU & Dart Fallback)
 
-The Tape engine compiles static bytecode execution tapes for high performance across multiple operating systems and GPU vendors. It requires initialization and uses `TapeLayer` structures to orchestrate tensor memory.
+The Tape engine separates **graph construction** from **tape execution**. During construction, `GPUTensor`s, math operations, `TapeLayer`s, and optimizers record memory layouts into an `AllocBuffer` and bytecode instructions into `CommandBuffer`s without touching VRAM. During execution, `AllocBuffer.execute()` allocates device memory once and `GPUEngine.run(...)` replays the compiled tapes.
 
-**This backend is not limited to CUDA.** While desktop NVIDIA GPUs use native CUDA binaries, other supported device types run on **WebGPU**, and any platform without a native GPU binary is covered by the built-in **Dart CPU Tape fallback** (`DartTapeEngine`).
+**Backend Matrix (`GPUEngine.initialize(target: ...)`):**
 
-The engine supports the following targets via `GPUEngine.initialize(target: ...)`:
+🟡 **Windows — CUDA** (`Target.cuda`): Native NVIDIA GPU acceleration via bundled CUDA binaries.
 
-🟡 **Windows & Linux — CUDA** (`Target.cuda`): Native NVIDIA GPU acceleration via bundled `.dll` / `.so` binaries.
+🟡 **Other Platforms (Android & Non-CUDA Devices) — WebGPU** (`Target.androidArm64`, `Target.androidX8664`): Vendor-independent GPU acceleration powered by **WebGPU** — no NVIDIA hardware required.
 
-🟡 **Android — WebGPU** (`Target.androidArm64`, `Target.androidX8664`): Vendor-independent GPU acceleration powered by **WebGPU** inside bundled NDK `.so` binaries — no NVIDIA hardware required.
+🟡 **All Platforms — Dart CPU Fallback** (`Target.cpu`): Pure-Dart tape executor (`DartTapeEngine`) running the exact same `CommandBuffer` bytecode and `OpCodes` on the CPU.
 
-🟡 **Cross-Platform — Dart CPU Fallback** (`Target.cpu`): Pure-Dart tape executor (`DartTapeEngine`) executing the exact same `CommandBuffer` bytecode and `OpCodes` on the CPU.
-- **Explicit Mode:** Pass `target: Target.cpu` to run the full tape API (`GPUTensor`, `TapeLayer`, `SeqModel`) without native binaries — ideal for CI, unit tests, macOS, iOS, or CPU-only machines.
-- **Automatic Fallback:** If a requested native CUDA or WebGPU backend cannot be loaded on the current platform or device, `GPUEngine` automatically switches to `DartTapeEngine` (`GPUEngine.useCpu == true`) without breaking your model code.
+* **Auto Detection (`Target.auto`):** Detects the current OS/architecture, loads CUDA on Windows or WebGPU on supported non-Windows targets, and automatically falls back to `DartTapeEngine` (`GPUEngine.useCpu == true`) if no native GPU backend is available.
+* **Explicit CPU Mode (`Target.cpu`):** Run the full tape API (`GPUTensor`, `AllocBuffer`, `CommandBuffer`, `TapeLayer`, `SeqModel`) without native binaries — ideal for CI, unit tests, macOS, iOS, or CPU-only machines.
 
-To disable gradient allocation globally (e.g. for inference-only graphs), toggle:
+### Tapes & Object Permanence
 
-```dart
-GPUTensor.globalGrad = false;
-```
-
-You can also override this per tensor by passing `requiresGrad` to the `GPUTensor` constructor.
+* **Standard GPU Math:** Requires only `allocTape` (`AllocBuffer`) and `forwardTape` (`CommandBuffer`).
+* **ML Training:** Compiles five explicit tapes: `allocTape`, `zeroGradTape` (generated directly via `allocTape.compileZeroGradTape(...)`), `forwardTape`, `backwardTape`, and `optimizeTape`.
+* **Retained Handles:** Any `GPUTensor` handle kept after compilation remains valid as long as its `AllocBuffer` is live. Use `pushData()` to overwrite inputs in place without reallocation, and `dataToCpu()`, `gradToCpu()`, or `toCpu()` to selectively pull values back to Dart.
+* **Gradient Allocation Control:** To disable gradient allocation globally (e.g. for pure math or inference graphs), toggle `GPUTensor.globalGrad = false;` or pass `requiresGrad: false` per tensor.
 
 ```dart
 import 'package:flutter_ml/full_library.dart';
 
-void main() async {
-  // Choose Target.cuda (Windows/Linux CUDA), Target.androidArm64 / Target.androidX8664 (WebGPU),
-  // or Target.cpu (pure-Dart CPU tape backend). Falls back to CPU automatically if native libs are unavailable.
-  await GPUEngine.initialize(debug: false, target: Target.cuda);
+Future<void> main() async {
+  // Auto-selects CUDA on Windows, WebGPU on supported other platforms,
+  // or falls back to the pure-Dart CPU tape backend automatically.
+  await GPUEngine.initialize(debug: false, target: Target.auto);
 
   List<TapeLayer> layers = <TapeLayer>[];
   layers.add(DenseReluTL(8));
   layers.add(DenseTL(1));
 
-  GPUTensor<Matrix> input = GPUTensor<Matrix>.empty(<int>[4, 2]);
-  GPUTensor<Matrix> target = GPUTensor<Matrix>.empty(<int>[4, 1]);
+  // Record I/O tensor allocations into a dedicated AllocBuffer
+  AllocBuffer dataAlloc = AllocBuffer();
+  GPUTensor<Matrix> input = GPUTensor<Matrix>.empty(<int>[4, 2], dataAlloc);
+  GPUTensor<Matrix> target = GPUTensor<Matrix>.empty(
+    <int>[4, 1],
+    dataAlloc,
+    requiresGrad: false,
+  );
+  dataAlloc.execute();
 
   SeqModel<Matrix, Matrix> model = SeqModel<Matrix, Matrix>(
     layers,
     input,
     target: target,
     lossFunction: mseMatrixGPU,
-    optimizerBuilder: (List<GPUTensor> params) {
-      return AdamGPU(params, 0.01);
+    optimizerBuilder: (List<GPUTensor> params, AllocBuffer allocTape) {
+      return AdamGPU(params, 0.01, allocTape);
     },
   );
 
+  // Compiles allocTape, trainZeroGrad, trainForward, trainBackward, and trainOptimize
   model.compile();
 
   List<double> rawX = <double>[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
@@ -106,25 +115,30 @@ void main() async {
     model.runTraining(inputData: rawX, targetData: rawY);
   }
 
+  // Compile inference tape (disables dropout & sets batch norm to eval) and run
+  GPUTensor<Matrix> inferResult = model.predict(input);
   model.runForward(inputData: rawX);
-  model.inferResult!.toCpu();
-  print(model.inferResult!.value);
+  inferResult.dataToCpu();
+  print(inferResult.value);
 
   model.free();
+  dataAlloc.freeAll();
   GPUEngine.dispose();
 }
+
 ```
 
 ## Core Design Decisions
 
-Version `3.0.0` introduces complete framework restructuring. Architecture is focused on memory safety, static compilation, portability, and zero-allocation runtime.
+Version `3.0.0` introduces complete framework restructuring focused on strict construction/execution separation, memory ownership, portability, and zero-allocation runtime.
 
-- **Direct Pointer Memory:** Tensors allocate via native C `calloc` (eager CPU), device VRAM (CUDA / WebGPU), or managed `Float32List` buffers (CPU Tape fallback). Bypasses standard Dart list overhead during training.
-- **Dual Execution Modes:** Eager graph evaluation (`Tensor` / `Node`) alongside deferred static bytecode tape compilation (`GPUTensor` / `GPUNode` / `CommandBuffer`).
-- **Backend-Agnostic Bytecode Tapes:** A single compiled `Uint8List` instruction tape runs unmodified across **CUDA**, **WebGPU**, and the **Dart CPU fallback** (`DartTapeEngine`).
-- **Static Tape Unrolling:** Intermediate tensors pre-allocated during `build()`. Reused across iterations. Zero memory allocations during training loops.
-- **Hybrid Interop:** GPU/Tape subgraphs encapsulated within CPU autograd nodes. Native pointer accumulation via `GPUEngine.addPointers`.
-- **Safetensors I/O:** Native binary decoding/encoding of Hugging Face `.safetensors`. Zero external dependencies.
+* **One-Way Compilation (Construction vs. Execution):** `GPUTensor`, `GPUNode`, `TapeLayer`, and optimizers exist strictly to validate shapes and emit static tapes. Once compiled, execution runs exclusively through `AllocBuffer` and `CommandBuffer` with optional retained `GPUTensor` handles for I/O (`pushData`, `dataToCpu`, `gradToCpu`).
+* **Centralized Memory Ownership (`AllocBuffer`):** Tensors do not allocate VRAM on construction. Every data buffer, gradient buffer, intermediate, and optimizer state is recorded into an `AllocBuffer`, allocated together via `execute()`, zeroed via `compileZeroGradTape()`, and released via `freeAll()`.
+* **Named In-Place Tape Patching:** `CommandBuffer` tracks byte offsets for dynamic runtime parameters (`step`, `lr`, `dropout_seed`, `dropout_rate`, `is_training`, `sample_index`, `clip_value`) and returns a zero-copy `Uint8List.view`, eliminating tape recompilation and buffer copies during training loops.
+* **Backend-Agnostic Bytecode Tapes:** A single compiled `Uint8List` instruction tape runs unmodified across **CUDA** (Windows), **WebGPU** (Android and other supported platforms), and the **Dart CPU fallback** (`DartTapeEngine`).
+* **Direct Pointer Memory:** Tensors allocate via native C `calloc` (eager CPU), device VRAM (CUDA / WebGPU), or managed `Float32List` buffers (CPU Tape fallback).
+* **Hybrid Interop:** GPU/Tape subgraphs encapsulated within CPU autograd nodes. Native pointer accumulation via `GPUEngine.addPointers`.
+* **Safetensors I/O:** Native binary decoding/encoding of Hugging Face `.safetensors`. Zero external dependencies.
 
 ---
 
@@ -150,7 +164,7 @@ Adagrad, Adam, AdamW, AMSGrad, NAG, RMSprop, SGD, SGDMomentum.
 
 ## 🟦 Tape & GPU-Accelerated Components
 
-Version `3.0.0` utilizes `CommandBuffer` execution tapes mapped to 32-bit `OpCodes`. Compiled graphs dispatch in a single call to **CUDA 12.1+** (Windows/Linux), **WebGPU** (Android and non-CUDA device targets), or automatically fall back to the **Dart CPU Tape Engine** (`Target.cpu`) with full operation parity.
+Version `3.0.0` utilizes `AllocBuffer` memory tapes and `CommandBuffer` execution tapes mapped to 32-bit `OpCodes`. Compiled graphs dispatch in a single call to **CUDA 12.1+** (Windows), **WebGPU** (Android and other supported platforms), or automatically fall back to the **Dart CPU Tape Engine** (`Target.cpu`) with full operation parity.
 
 For full architectural blueprints, see the [GPU Tensor Documentation](https://github.com/NoirsCodingCorner/flutter_ml/blob/master/doc/gpu_tensor.md) and [Tape Layer](https://github.com/NoirsCodingCorner/flutter_ml/blob/master/doc/tapeLayer.md).
 
@@ -168,62 +182,99 @@ AdamGPU, SGDGPU.
 
 ---
 
-## Static Graph Compilation Example
+## Explicit Tape Compilation Example
 
-The `SeqModel` object replaces eager execution loops. It handles tensor memory lifecycle and compiles reusable execution tapes (`trainForward`, `trainBackward`, `trainOptimize`, `inferTape`) that execute on CUDA, WebGPU, or the Dart CPU fallback.
+You can also bypass `SeqModel` and manage the five tapes directly—useful for custom training loops, multi-input graphs, or pure GPU math.
 
 ```dart
 import 'package:flutter_ml/full_library.dart';
 
-void main() async {
-  // Initialize Backend: Target.cuda (CUDA), Target.androidArm64 / Target.androidX8664 (WebGPU),
-  // or Target.cpu (Dart CPU fallback). Automatically falls back to CPU if native backend is unavailable.
-  await GPUEngine.initialize(debug: false, target: Target.cuda);
+Future<void> main() async {
+  // CUDA on Windows, WebGPU on other supported platforms, Dart CPU fallback everywhere else
+  await GPUEngine.initialize(debug: false, target: Target.auto);
 
-  // Data mapping
-  List<double> rawX = <double>[0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0];
-  List<double> rawY = <double>[0.0, 1.0, 1.0, 0.0];
+  // 1. Create Explicit Tapes
+  AllocBuffer allocTape = AllocBuffer();
+  CommandBuffer zeroGradTape = CommandBuffer();
+  CommandBuffer forwardTape = CommandBuffer();
+  CommandBuffer backwardTape = CommandBuffer();
+  CommandBuffer optimizeTape = CommandBuffer();
 
-  // Define Architecture
-  List<TapeLayer> layers = <TapeLayer>[];
-  layers.add(DenseReluTL(8));
-  layers.add(DenseTL(1));
+  // 2. Construct Graph (Records into allocTape & forwardTape — no VRAM allocated yet)
+  Matrix xorInputs = <List<double>>[
+    <double>[0.0, 0.0],
+    <double>[0.0, 1.0],
+    <double>[1.0, 0.0],
+    <double>[1.0, 1.0],
+  ];
+  Matrix xorTargets = <List<double>>[
+    <double>[0.0],
+    <double>[1.0],
+    <double>[1.0],
+    <double>[0.0],
+  ];
 
-  // Define I/O Boundaries
-  GPUTensor<Matrix> input = GPUTensor<Matrix>.empty(<int>[4, 2]);
-  GPUTensor<Matrix> target = GPUTensor<Matrix>.empty(<int>[4, 1]);
-
-  // Build Sequential Compiler
-  SeqModel<Matrix, Matrix> net = SeqModel<Matrix, Matrix>(
-    layers,
-    input,
-    target: target,
-    lossFunction: mseMatrixGPU,
-    optimizerBuilder: (List<GPUTensor> params) {
-      return AdamGPU(params, 0.01);
-    },
+  GPUTensor<Matrix> input = GPUTensor<Matrix>(xorInputs, allocTape);
+  GPUTensor<Matrix> target = GPUTensor<Matrix>(
+    xorTargets,
+    allocTape,
+    requiresGrad: false,
   );
 
-  // Allocate Memory and Compile Tapes
-  net.compile();
+  List<TapeLayer> layers = <TapeLayer>[
+    DenseReluTL(8),
+    DenseTL(1),
+    SigmoidMatrixTL(),
+  ];
 
-  // High-Speed Training Loop
-  for (int epoch = 1; epoch <= 10000; epoch = epoch + 1) {
-    net.runTraining(inputData: rawX, targetData: rawY);
+  GPUTensor<dynamic> current = input;
+  for (int i = 0; i < layers.length; i = i + 1) {
+    current = layers[i].call(current, forwardTape, allocTape);
+  }
+  GPUTensor<Matrix> predictions = current as GPUTensor<Matrix>;
+
+  GPUTensor<Scalar> loss =
+      mseMatrixGPU(predictions, target, forwardTape, allocTape);
+
+  // 3. Compile Backward, Optimizer, and ZeroGrad Tapes
+  loss.backward(backwardTape);
+
+  List<GPUTensor> params = <GPUTensor>[];
+  for (int i = 0; i < layers.length; i = i + 1) {
+    List<GPUTensor> layerParams = layers[i].parameters;
+    for (int j = 0; j < layerParams.length; j = j + 1) {
+      params.add(layerParams[j]);
+    }
   }
 
-  // Compile Inference Tape & Predict
-  net.predict(input);
-  net.runForward(inputData: rawX);
+  AdamGPU optimizer = AdamGPU(params, 0.05, allocTape);
+  optimizer.step(optimizeTape);
 
-  // Synchronize Device Memory to CPU
-  net.inferResult!.toCpu();
-  print(net.inferResult!.value);
+  allocTape.compileZeroGradTape(zeroGradTape);
 
-  // Cleanup
-  net.free();
+  // 4. Allocate VRAM Once & Execute Tapes Only
+  allocTape.logBuffer();
+  allocTape.execute();
+
+  for (int step = 1; step <= 500; step = step + 1) {
+    optimizeTape.patchInt('step', step);
+
+    GPUEngine.run(zeroGradTape.bytes());
+    GPUEngine.run(forwardTape.bytes());
+    GPUEngine.run(backwardTape.bytes());
+    GPUEngine.run(optimizeTape.bytes());
+  }
+
+  // 5. Inspect Outputs via Retained Handles
+  GPUEngine.run(forwardTape.bytes());
+  predictions.dataToCpu();
+  print(predictions.value);
+
+  // 6. Teardown
+  allocTape.freeAll();
   GPUEngine.dispose();
 }
+
 ```
 
 ---
@@ -232,19 +283,19 @@ void main() async {
 
 **Test Environment**
 
-- **Hardware:** RTX 3060 12GB
-- **Backend:** CUDA 12.1 (Tensor Core acceleration enabled)
-- **Workload Size:** Vector operations evaluated on 134,217,728 elements (~537 MB); Matrix operations evaluated on 8192x8192 dimensions.
-- **Methodology:** 50 iterations per operation. VRAM is aggressively wiped and reallocated between each run to simulate cold loading and tape compilation times.
+* **Hardware:** RTX 3060 12GB
+* **Backend:** CUDA 12.1 (Windows, Tensor Core acceleration enabled)
+* **Workload Size:** Vector operations evaluated on 134,217,728 elements (~537 MB); Matrix operations evaluated on 8192x8192 dimensions.
+* **Methodology:** 50 iterations per operation. VRAM is aggressively wiped and reallocated between each run to simulate cold loading and tape compilation times.
 
 **Metric Descriptions**
 
-- **Operation:** The executed mathematical or layer function.
-- **Time (ms):** Pure native execution time on the GPU after the tape is compiled.
-- **Bandwidth (GB/s):** Memory throughput achieved during the operation.
-- **Compute (TFLOPs):** Theoretical processing overhead and throughput measured in TeraFLOPS.
-- **Alloc/Tape (ms):** Time required for the CPU to allocate VRAM and compile the execution tape. (Note: In standard training/inference, this is a one-time cost).
-- **Free (ms):** Time required to release VRAM and destroy native pointers.
+* **Operation:** The executed mathematical or layer function.
+* **Time (ms):** Pure native execution time on the GPU after the tape is compiled.
+* **Bandwidth (GB/s):** Memory throughput achieved during the operation.
+* **Compute (TFLOPs):** Theoretical processing overhead and throughput measured in TeraFLOPS.
+* **Alloc/Tape (ms):** Time required for the CPU to allocate VRAM and compile the execution tape. (Note: In standard training/inference, this is a one-time cost).
+* **Free (ms):** Time required to release VRAM and destroy native pointers.
 
 | Operation | Time (ms) | Bandwidth (GB/s) | Compute (TFLOPs) | Alloc/Tape (ms) | Free (ms) |
 | --- | --- | --- | --- | --- | --- |
@@ -297,18 +348,18 @@ void main() async {
 
 **Test Environment**
 
-- **Backend:** Pure-Dart CPU Tape Engine (`DartTapeEngine` / `Target.cpu`, Native AOT Release build)
-- **Workload Size:** Vector operations evaluated on 33,554,432 elements (~134 MB); Matrix operations evaluated on 1024x1024 dimensions.
-- **Methodology:** 50 iterations per operation. Tensor buffers are aggressively wiped and reallocated between each run to simulate cold loading and tape compilation times.
+* **Backend:** Pure-Dart CPU Tape Engine (`DartTapeEngine` / `Target.cpu`, Native AOT Release build)
+* **Workload Size:** Vector operations evaluated on 33,554,432 elements (~134 MB); Matrix operations evaluated on 1024x1024 dimensions.
+* **Methodology:** 50 iterations per operation. Tensor buffers are aggressively wiped and reallocated between each run to simulate cold loading and tape compilation times.
 
 **Metric Descriptions**
 
-- **Operation:** The executed mathematical or layer function.
-- **Time (ms):** Pure execution time on the CPU after the tape is compiled.
-- **Bandwidth (GB/s):** Memory throughput achieved during the operation.
-- **Compute (GFLOPs):** Theoretical processing throughput measured in GigaFLOPs.
-- **Alloc/Tape (ms):** Time required to allocate host buffers and compile the execution tape. (Note: In standard training/inference, this is a one-time cost).
-- **Free (ms):** Time required to release tensor memory from the CPU manager.
+* **Operation:** The executed mathematical or layer function.
+* **Time (ms):** Pure execution time on the CPU after the tape is compiled.
+* **Bandwidth (GB/s):** Memory throughput achieved during the operation.
+* **Compute (GFLOPs):** Theoretical processing throughput measured in GigaFLOPs.
+* **Alloc/Tape (ms):** Time required to allocate host buffers and compile the execution tape. (Note: In standard training/inference, this is a one-time cost).
+* **Free (ms):** Time required to release tensor memory from the CPU manager.
 
 | Operation | Time (ms) | Bandwidth (GB/s) | Compute (GFLOPs) | Alloc/Tape (ms) | Free (ms) |
 | --- | --- | --- | --- | --- | --- |
@@ -356,7 +407,6 @@ void main() async {
 | **EUC_DIST** | 91.67 | 8.78 | 1.0981 | 509.98 | 0.01 |
 | **COS_SIM** | 167.28 | 8.02 | 1.2035 | 667.83 | 0.01 |
 | **MAE_LOSS** | 78.12 | 10.31 | 1.2885 | 552.78 | 0.01 |
-
 
 ## Future Plans
 

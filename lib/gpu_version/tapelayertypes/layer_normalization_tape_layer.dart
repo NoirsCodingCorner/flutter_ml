@@ -21,12 +21,6 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
   /// Learnable shifting vector.
   late GPUTensor<Vector> beta;
 
-  /// Persistent Cache for Static Unrolling
-  int cacheBatchSize = -1;
-  GPUTensor<Vector>? cachedMean;
-  GPUTensor<Vector>? cachedRstd;
-  GPUTensor<Matrix>? cachedOut;
-
   /// Requires the number of expected features [numFeatures] and a small [epsilon] to prevent division by zero.
   LayerNormalizationTL(this.numFeatures, {this.epsilon = 1e-12});
 
@@ -69,53 +63,21 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
   }
 
   /// Appends [layerNormMatrixGPU] to the [tape].
-  /// Persistently caches intermediate tensors to avoid VRAM reallocation between batches.
   @override
-  GPUTensor<Matrix> forward(GPUTensor<Matrix> input, CommandBuffer tape,
-      AllocBuffer allocTape, List<GPUTensor> intermediates) {
+  GPUTensor<Matrix> forward(
+      GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     int batchSize = input.shape[0];
+    List<int> cacheShape = <int>[batchSize];
 
-    if (cacheBatchSize != batchSize) {
-      if (cachedMean != null) cachedMean!.free();
-      if (cachedRstd != null) cachedRstd!.free();
-      if (cachedOut != null) cachedOut!.free();
+    GPUTensor<Vector> meanCache = GPUTensor<Vector>.empty(cacheShape, allocTape,
+        requiresGrad: false, sourceOp: '$name:meanCache');
+    GPUTensor<Vector> rstdCache = GPUTensor<Vector>.empty(cacheShape, allocTape,
+        requiresGrad: false, sourceOp: '$name:rstdCache');
 
-      List<int> cacheShape = <int>[batchSize];
-      cachedMean = GPUTensor<Vector>.empty(cacheShape, allocTape,
-          requiresGrad: false, sourceOp: '$name:cachedMean');
-      cachedRstd = GPUTensor<Vector>.empty(cacheShape, allocTape,
-          requiresGrad: false, sourceOp: '$name:cachedRstd');
-      cachedOut = null;
-      cacheBatchSize = batchSize;
-    }
+    GPUTensor<Matrix> out = layerNormMatrixGPU(
+        input, gamma, beta, meanCache, rstdCache, epsilon, tape, allocTape);
 
-    // Reuse persistent buffers, bypassing the external intermediates list
-    cachedOut = layerNormMatrixGPU(
-        input, gamma, beta, cachedMean!, cachedRstd!, epsilon, tape, allocTape,
-        outTensor: cachedOut);
-
-    return cachedOut!;
-  }
-
-  /// Clears the gradients of all statically cached intermediate tensors.
-  /// The optimizer handles gamma and beta.
-  @override
-  void zeroStates(CommandBuffer tape) {
-    if (cachedOut != null) {
-      cachedOut!.zeroGrad(tape);
-    }
-  }
-
-  /// Frees VRAM for parameters and persistently cached intermediate tensors.
-  @override
-  void free() {
-    if (built) {
-      gamma.free();
-      beta.free();
-    }
-    if (cachedMean != null) cachedMean!.free();
-    if (cachedRstd != null) cachedRstd!.free();
-    if (cachedOut != null) cachedOut!.free();
+    return out;
   }
 
   /// Returns a map containing [gamma] and [beta].
@@ -126,8 +88,8 @@ class LayerNormalizationTL extends TapeLayer<Matrix, Matrix> {
       return wMap;
     }
 
-    gamma.toCpu();
-    beta.toCpu();
+    gamma.dataToCpu();
+    beta.dataToCpu();
 
     wMap['gamma'] = gamma.value;
     wMap['beta'] = beta.value;

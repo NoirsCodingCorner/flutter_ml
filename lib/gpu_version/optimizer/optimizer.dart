@@ -9,21 +9,19 @@ import '../ffi/command_buffer.dart';
 
 /// Optimizers are used to update a parameters value to reduce the error of the system.
 /// For that the gradient of the requested value is used.
-/// Optimizers CAN be static so their execution tapes can be reused of they may require recompilation on every training step.
+/// Optimizers compile their update instructions into a reusable execution tape and patch dynamic values per step.
 abstract class OptimizerGPU {
-  /// List of parameters the gradient is responsible for updating.
+  /// List of parameters the optimizer is responsible for updating.
   List<GPUTensor> parameters;
   double learningRate;
 
-  OptimizerGPU(this.parameters,this.learningRate);
+  OptimizerGPU(this.parameters, this.learningRate);
 
   /// Function to add an optimization step to a deferred execution tape.
   void step(CommandBuffer tape);
 
-  /// Function to reset the gradient of the parameter back to zero to make it ready for the next learning round.
-  void zeroGrad(CommandBuffer tape);
-
-  /// Called once before every replay of an already-compiled tape. Optimizers with no
-  /// per-step state (SGD) can leave this as a no-op; Adam overrides it to patch its step count.
-  void refreshStep(CommandBuffer tape) {}
+  /// Called once before every replay of an already-compiled tape to patch dynamic values such as [learningRate] or step count.
+  void refreshStep(CommandBuffer tape) {
+    tape.patchFloat('lr', learningRate);
+  }
 }
