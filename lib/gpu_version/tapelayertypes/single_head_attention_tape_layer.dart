@@ -90,10 +90,10 @@ class SingleHeadAttentionTL extends TapeLayer<Matrix, Matrix> {
 
     double scaleFactor = 1.0 / sqrt(dK);
     GPUTensor<Matrix> scaledScores =
-    scaleMatrixGPU(scores, scaleFactor, tape, allocTape);
+        scaleMatrixGPU(scores, scaleFactor, tape, allocTape);
 
     GPUTensor<Matrix> attentionWeights =
-    softmaxMatrixGPU(scaledScores, tape, allocTape);
+        softmaxMatrixGPU(scaledScores, tape, allocTape);
     lastAttentionWeights = attentionWeights;
 
     GPUTensor<Matrix> output = matMulGPU(attentionWeights, v, tape, allocTape);

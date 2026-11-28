@@ -35,7 +35,7 @@ class AveragePooling2DTL extends TapeLayer<Matrix, Matrix> {
   GPUTensor<Matrix> forward(
       GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Matrix> out =
-    avgPool2dGPU(input, poolSize, stride, tape, allocTape);
+        avgPool2dGPU(input, poolSize, stride, tape, allocTape);
     return out;
   }
 

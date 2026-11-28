@@ -23,7 +23,7 @@ GPUTensor<Matrix> reshapeVectorToMatrixGPU(GPUTensor<Vector> v, int numRows,
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(v.gradId);
@@ -38,8 +38,7 @@ GPUTensor<Matrix> reshapeVectorToMatrixGPU(GPUTensor<Vector> v, int numRows,
 
 GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(GPUTensor<Matrix> m, int c, int h,
     int w, CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(
-      <int>[c, h, w], allocTape,
+  GPUTensor<Tensor3D> out = GPUTensor<Tensor3D>.empty(<int>[c, h, w], allocTape,
       sourceOp: 'reshapeMatrixTo3DGPU');
 
   tape.putInt(OP_COPY);
@@ -48,7 +47,7 @@ GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(GPUTensor<Matrix> m, int c, int h,
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -62,8 +61,7 @@ GPUTensor<Tensor3D> reshapeMatrixTo3DGPU(GPUTensor<Matrix> m, int c, int h,
 
 GPUTensor<Matrix> reshape3DToMatrixGPU(GPUTensor<Tensor3D> t, int rows,
     int cols, CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
-      <int>[rows, cols], allocTape,
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape,
       sourceOp: 'reshape3DToMatrixGPU');
 
   tape.putInt(OP_COPY);
@@ -72,7 +70,7 @@ GPUTensor<Matrix> reshape3DToMatrixGPU(GPUTensor<Tensor3D> t, int rows,
 
   out.creator = GPUNode(
     <GPUTensor>[t],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(t.gradId);
@@ -91,8 +89,7 @@ GPUTensor<Matrix> flatten3DToMatrixGPU(
   int w = t.shape[2];
   int flatSize = c * h * w;
 
-  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
-      <int>[1, flatSize], allocTape,
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(<int>[1, flatSize], allocTape,
       sourceOp: 'flatten3DToMatrixGPU');
 
   tape.putInt(OP_COPY);
@@ -101,7 +98,7 @@ GPUTensor<Matrix> flatten3DToMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[t],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(t.gradId);
@@ -119,7 +116,7 @@ GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex,
 
   List<int> outShape = <int>[cols];
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(outShape, allocTape, sourceOp: 'loadSampleGPU');
+      GPUTensor<Vector>.empty(outShape, allocTape, sourceOp: 'loadSampleGPU');
 
   tape.putInt(OP_LOAD_SAMPLE);
   tape.putString(dataset.id);
@@ -128,7 +125,7 @@ GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex,
 
   out.creator = GPUNode(
     <GPUTensor>[dataset],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_STORE_SAMPLE);
       bTape.putString(out.gradId);
       bTape.putString(dataset.gradId);
@@ -148,8 +145,7 @@ GPUTensor<Vector> loadSampleGPU(GPUTensor<Matrix> dataset, int sampleIndex,
 /// Creates and allocates a Tensor to store the results.
 GPUTensor<T> addGPU<T>(
     GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'addGPU');
+  GPUTensor<T> out = GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'addGPU');
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);
@@ -158,7 +154,7 @@ GPUTensor<T> addGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -177,7 +173,7 @@ GPUTensor<T> addGPU<T>(
 GPUTensor<Vector> addVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
     CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(a.shape, allocTape, sourceOp: 'addVectorGPU');
+      GPUTensor<Vector>.empty(a.shape, allocTape, sourceOp: 'addVectorGPU');
 
   tape.putInt(OP_ADD);
   tape.putString(a.id);
@@ -186,7 +182,7 @@ GPUTensor<Vector> addVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -219,7 +215,7 @@ GPUTensor<Matrix> addMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -254,7 +250,7 @@ GPUTensor<Tensor3D> add3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -275,7 +271,7 @@ GPUTensor<Tensor3D> add3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 GPUTensor<T> subtractGPU<T>(
     GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'subtractGPU');
+      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'subtractGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -284,7 +280,7 @@ GPUTensor<T> subtractGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -304,7 +300,7 @@ GPUTensor<Vector> subtractVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
   int length = a.shape[0];
   List<int> shape = <int>[length];
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'subtractVectorGPU');
+      GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'subtractVectorGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -313,7 +309,7 @@ GPUTensor<Vector> subtractVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -337,7 +333,7 @@ GPUTensor<Matrix> subtractMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
   int numCols = a.shape[1];
   List<int> shape = <int>[numRows, numCols];
   GPUTensor<Matrix> out =
-  GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'subtractMatrixGPU');
+      GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'subtractMatrixGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -346,7 +342,7 @@ GPUTensor<Matrix> subtractMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -371,7 +367,7 @@ GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
   int width = a.shape[2];
   List<int> shape = <int>[depth, height, width];
   GPUTensor<Tensor3D> out =
-  GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'subtract3DGPU');
+      GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'subtract3DGPU');
 
   tape.putInt(OP_SUBTRACT);
   tape.putString(a.id);
@@ -380,7 +376,7 @@ GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -401,7 +397,7 @@ GPUTensor<Tensor3D> subtract3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 GPUTensor<T> multiplyGPU<T>(
     GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'multiplyGPU');
+      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'multiplyGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -410,7 +406,7 @@ GPUTensor<T> multiplyGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(b.id);
@@ -430,8 +426,8 @@ GPUTensor<T> multiplyGPU<T>(
 
 GPUTensor<Scalar> multiplyScalarGPU(GPUTensor<Scalar> a, GPUTensor<Scalar> b,
     CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<Scalar> out =
-  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'multiplyScalarGPU');
+  GPUTensor<Scalar> out = GPUTensor<Scalar>.empty(<int>[], allocTape,
+      sourceOp: 'multiplyScalarGPU');
 
   tape.putInt(OP_MULTIPLY);
   tape.putString(a.id);
@@ -440,7 +436,7 @@ GPUTensor<Scalar> multiplyScalarGPU(GPUTensor<Scalar> a, GPUTensor<Scalar> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(b.id);
@@ -472,7 +468,7 @@ GPUTensor<Vector> elementWiseMultiplyGPU(GPUTensor<Vector> a,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(b.id);
@@ -509,7 +505,7 @@ GPUTensor<Tensor3D> elementWiseMultiply3DGPU(GPUTensor<Tensor3D> a,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(b.id);
@@ -545,7 +541,7 @@ GPUTensor<Matrix> elementWiseMultiplyMatrixGPU(GPUTensor<Matrix> a,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MULTIPLY_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(b.id);
@@ -568,7 +564,7 @@ GPUTensor<Matrix> elementWiseMultiplyMatrixGPU(GPUTensor<Matrix> a,
 GPUTensor<T> divideGPU<T>(
     GPUTensor<T> a, GPUTensor<T> b, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'divideGPU');
+      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'divideGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -577,7 +573,7 @@ GPUTensor<T> divideGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
@@ -596,7 +592,7 @@ GPUTensor<Vector> divideVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
   int length = a.shape[0];
   List<int> shape = <int>[length];
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'divideVectorGPU');
+      GPUTensor<Vector>.empty(shape, allocTape, sourceOp: 'divideVectorGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -605,7 +601,7 @@ GPUTensor<Vector> divideVectorGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
@@ -628,7 +624,7 @@ GPUTensor<Matrix> divideMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
   int numCols = a.shape[1];
   List<int> shape = <int>[numRows, numCols];
   GPUTensor<Matrix> out =
-  GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'divideMatrixGPU');
+      GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'divideMatrixGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -637,7 +633,7 @@ GPUTensor<Matrix> divideMatrixGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
@@ -661,7 +657,7 @@ GPUTensor<Tensor3D> divide3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
   int width = a.shape[2];
   List<int> shape = <int>[depth, height, width];
   GPUTensor<Tensor3D> out =
-  GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'divide3DGPU');
+      GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'divide3DGPU');
 
   tape.putInt(OP_DIVIDE);
   tape.putString(a.id);
@@ -670,7 +666,7 @@ GPUTensor<Tensor3D> divide3DGPU(GPUTensor<Tensor3D> a, GPUTensor<Tensor3D> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_DIVIDE_BACKWARD);
       bTape.putString(a.id);
       bTape.putString(b.id);
@@ -690,7 +686,7 @@ GPUTensor<Vector> vectorExpGPU(
     GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int N = v.shape[0];
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'exp_vectorGPU');
+      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'exp_vectorGPU');
 
   tape.putInt(OP_EXP_ELEMENTWISE);
   tape.putString(v.id);
@@ -698,7 +694,7 @@ GPUTensor<Vector> vectorExpGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_EXP_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(out.id);
@@ -714,8 +710,7 @@ GPUTensor<Vector> vectorExpGPU(
 /// Appends the commands for applying the abs(v) exponential function on every element of [a] to [tape].
 GPUTensor<T> absGPU<T>(
     GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'absGPU');
+  GPUTensor<T> out = GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'absGPU');
 
   tape.putInt(OP_ABS_ELEMENTWISE);
   tape.putString(a.id);
@@ -723,7 +718,7 @@ GPUTensor<T> absGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ABS_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(a.id);
@@ -739,7 +734,7 @@ GPUTensor<T> absGPU<T>(
 GPUTensor<T> sqrtGPU<T>(
     GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'sqrtGPU');
+      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'sqrtGPU');
 
   tape.putInt(OP_SQRT_ELEMENTWISE);
   tape.putString(a.id);
@@ -747,7 +742,7 @@ GPUTensor<T> sqrtGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SQRT_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(out.id);
@@ -762,8 +757,7 @@ GPUTensor<T> sqrtGPU<T>(
 /// Appends the commands for applying the log(v) exponential function on every element of [v] to [tape].
 GPUTensor<T> logGPU<T>(
     GPUTensor<T> a, CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'logGPU');
+  GPUTensor<T> out = GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'logGPU');
 
   tape.putInt(OP_LOG_ELEMENTWISE);
   tape.putString(a.id);
@@ -771,7 +765,7 @@ GPUTensor<T> logGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_LOG_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(a.id);
@@ -784,10 +778,9 @@ GPUTensor<T> logGPU<T>(
 }
 
 /// Appends the commands for applying pow([v],[exponent]) exponential function on every element of [v] to [tape].
-GPUTensor<T> powGPU<T>(
-    GPUTensor<T> a, double exponent, CommandBuffer tape, AllocBuffer allocTape) {
-  GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'powGPU');
+GPUTensor<T> powGPU<T>(GPUTensor<T> a, double exponent, CommandBuffer tape,
+    AllocBuffer allocTape) {
+  GPUTensor<T> out = GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'powGPU');
 
   tape.putInt(OP_POW_ELEMENTWISE);
   tape.putString(a.id);
@@ -796,7 +789,7 @@ GPUTensor<T> powGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[a],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_POW_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(a.id);
@@ -813,7 +806,7 @@ GPUTensor<T> powGPU<T>(
 GPUTensor<T> clampGPU<T>(GPUTensor<T> a, double minVal, double maxVal,
     CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-  GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'clampGPU');
+      GPUTensor<T>.empty(a.shape, allocTape, sourceOp: 'clampGPU');
 
   tape.putInt(OP_CLAMP_ELEMENTWISE);
   tape.putString(a.id);
@@ -823,7 +816,7 @@ GPUTensor<T> clampGPU<T>(GPUTensor<T> a, double minVal, double maxVal,
 
   out.creator = GPUNode(
     <GPUTensor>[a],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CLAMP_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(a.id);
@@ -849,7 +842,7 @@ GPUTensor<Matrix> matMulGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
   int P = b.shape[1];
 
   GPUTensor<Matrix> out =
-  GPUTensor<Matrix>.empty(<int>[M, P], allocTape, sourceOp: 'matMulGPU');
+      GPUTensor<Matrix>.empty(<int>[M, P], allocTape, sourceOp: 'matMulGPU');
 
   tape.putInt(OP_MATMUL);
   tape.putString(a.id);
@@ -865,7 +858,7 @@ GPUTensor<Matrix> matMulGPU(GPUTensor<Matrix> a, GPUTensor<Matrix> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MATMUL);
       bTape.putString(out.gradId);
       bTape.putString(b.id);
@@ -914,7 +907,7 @@ GPUTensor<Vector> matVecMulGPU(GPUTensor<Matrix> mMat, GPUTensor<Vector> v,
 
   out.creator = GPUNode(
     <GPUTensor>[mMat, v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MATMUL);
       bTape.putString(out.gradId);
       bTape.putString(v.id);
@@ -949,7 +942,7 @@ GPUTensor<Matrix> transposeGPU(
   int N = a.shape[1];
 
   GPUTensor<Matrix> out =
-  GPUTensor<Matrix>.empty(<int>[N, M], allocTape, sourceOp: 'transposeGPU');
+      GPUTensor<Matrix>.empty(<int>[N, M], allocTape, sourceOp: 'transposeGPU');
   GPUTensor<Matrix> tmpGrad = GPUTensor<Matrix>.empty(<int>[M, N], allocTape,
       requiresGrad: false, sourceOp: 'transposeGPU:tmpGrad');
   out.subMap["tmpGrad"] = tmpGrad;
@@ -960,7 +953,7 @@ GPUTensor<Matrix> transposeGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[a],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_TRANSPOSE);
       bTape.putString(out.gradId);
       bTape.putString(tmpGrad.id);
@@ -994,7 +987,7 @@ GPUTensor<Matrix> addMatrixAndVectorGPU(GPUTensor<Matrix> m,
 
   out.creator = GPUNode(
     <GPUTensor>[m, v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1011,14 +1004,14 @@ GPUTensor<Matrix> addMatrixAndVectorGPU(GPUTensor<Matrix> m,
 }
 
 /// Appends a command for adding a scalar [b] to every element of a matrix [m] to [tape].
-GPUTensor<Matrix> addScalarMatrixGPU(GPUTensor<Matrix> m,
-    GPUTensor<Scalar> b, CommandBuffer tape, AllocBuffer allocTape) {
+GPUTensor<Matrix> addScalarMatrixGPU(GPUTensor<Matrix> m, GPUTensor<Scalar> b,
+    CommandBuffer tape, AllocBuffer allocTape) {
   int rows = m.shape[0];
   int cols = m.shape[1];
 
   List<int> shape = <int>[rows, cols];
-  GPUTensor<Matrix> out =
-  GPUTensor<Matrix>.empty(shape, allocTape, sourceOp: 'addScalarToMatrixGPU');
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(shape, allocTape,
+      sourceOp: 'addScalarToMatrixGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
   tape.putString(m.id);
@@ -1027,7 +1020,7 @@ GPUTensor<Matrix> addScalarMatrixGPU(GPUTensor<Matrix> m,
 
   out.creator = GPUNode(
     <GPUTensor>[m, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1057,7 +1050,7 @@ GPUTensor<Vector> addScalarVectorGPU(GPUTensor<Vector> v, double scalar,
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(v.gradId);
@@ -1086,7 +1079,7 @@ GPUTensor<Tensor3D> addScalar3DGPU(GPUTensor<Tensor3D> t, double scalar,
 
   out.creator = GPUNode(
     <GPUTensor>[t],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(t.gradId);
@@ -1115,7 +1108,7 @@ GPUTensor<Matrix> addBiasToFeatureMapGPU(GPUTensor<Matrix> m,
 
   out.creator = GPUNode(
     <GPUTensor>[m, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1137,8 +1130,7 @@ GPUTensor<Matrix> addBiasToMatMulOutGPU(GPUTensor<Matrix> m,
   int rows = m.shape[0];
   int cols = m.shape[1];
 
-  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
-      <int>[rows, cols], allocTape,
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape,
       sourceOp: 'addBiasToMatMulOutGPU');
 
   tape.putInt(OP_BROADCAST_ADD);
@@ -1148,7 +1140,7 @@ GPUTensor<Matrix> addBiasToMatMulOutGPU(GPUTensor<Matrix> m,
 
   out.creator = GPUNode(
     <GPUTensor>[m, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ADD_INTO);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1178,7 +1170,7 @@ GPUTensor<Matrix> broadcastAddVectorToMatrixGPU(GPUTensor<Matrix> m,
 
   out.creator = GPUNode(
     <GPUTensor>[m, v],
-        (CommandBuffer bTape) {},
+    (CommandBuffer bTape) {},
     opName: 'broadcastAddVectorToMatrixGPU',
     cost: m.shape[0] * m.shape[1],
   );
@@ -1187,8 +1179,8 @@ GPUTensor<Matrix> broadcastAddVectorToMatrixGPU(GPUTensor<Matrix> m,
 }
 
 /// Appends commands for additions of a scalar constant [s] to every element of matrix [m] to [tape].
-GPUTensor<Matrix> scaleMatrixGPU(GPUTensor<Matrix> m, double s,
-    CommandBuffer tape, AllocBuffer allocTape) {
+GPUTensor<Matrix> scaleMatrixGPU(
+    GPUTensor<Matrix> m, double s, CommandBuffer tape, AllocBuffer allocTape) {
   int numRows = m.shape[0];
   int numCols = m.shape[1];
 
@@ -1203,7 +1195,7 @@ GPUTensor<Matrix> scaleMatrixGPU(GPUTensor<Matrix> m, double s,
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SCALE_MATRIX_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1225,7 +1217,7 @@ GPUTensor<Matrix> scaleMatrixGPU(GPUTensor<Matrix> m, double s,
 GPUTensor<Vector> reluGPU(
     GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'reluGPU');
+      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'reluGPU');
 
   tape.putInt(OP_RELU);
   tape.putString(v.id);
@@ -1233,7 +1225,7 @@ GPUTensor<Vector> reluGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_RELU_BACKWARD);
       bTape.putString(v.id);
       bTape.putString(out.gradId);
@@ -1262,7 +1254,7 @@ GPUTensor<Matrix> reluMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_RELU_BACKWARD);
       bTape.putString(m.id);
       bTape.putString(out.gradId);
@@ -1279,7 +1271,7 @@ GPUTensor<Matrix> reluMatrixGPU(
 GPUTensor<T> sigmoidScalarGPU<T>(
     GPUTensor<T> s, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<T> out =
-  GPUTensor<T>.empty(s.shape, allocTape, sourceOp: 'sigmoidScalarGPU');
+      GPUTensor<T>.empty(s.shape, allocTape, sourceOp: 'sigmoidScalarGPU');
 
   tape.putInt(OP_SIGMOID);
   tape.putString(s.id);
@@ -1287,7 +1279,7 @@ GPUTensor<T> sigmoidScalarGPU<T>(
 
   out.creator = GPUNode(
     <GPUTensor>[s],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1304,7 +1296,7 @@ GPUTensor<T> sigmoidScalarGPU<T>(
 GPUTensor<Vector> sigmoidGPU(
     GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'sigmoidGPU');
+      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'sigmoidGPU');
 
   tape.putInt(OP_SIGMOID);
   tape.putString(v.id);
@@ -1312,7 +1304,7 @@ GPUTensor<Vector> sigmoidGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1341,7 +1333,7 @@ GPUTensor<Matrix> sigmoidMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1371,7 +1363,7 @@ GPUTensor<Tensor3D> sigmoid3DGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[t],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SIGMOID_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1389,7 +1381,7 @@ GPUTensor<Vector> vectorTanhGPU(
     GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int N = v.shape[0];
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'tanh_vectorGPU');
+      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'tanh_vectorGPU');
 
   tape.putInt(OP_TANH);
   tape.putString(v.id);
@@ -1397,7 +1389,7 @@ GPUTensor<Vector> vectorTanhGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_TANH_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1426,7 +1418,7 @@ GPUTensor<Matrix> tanhMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_TANH_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1456,7 +1448,7 @@ GPUTensor<Tensor3D> tanh3DGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[t],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_TANH_BACKWARD);
       bTape.putString(out.id);
       bTape.putString(out.gradId);
@@ -1475,7 +1467,7 @@ GPUTensor<Vector> geluGPU(
   int n = v.shape[0];
 
   GPUTensor<Vector> out =
-  GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'geluGPU');
+      GPUTensor<Vector>.empty(v.shape, allocTape, sourceOp: 'geluGPU');
 
   tape.putInt(OP_GELU_FORWARD);
   tape.putString(v.id);
@@ -1483,7 +1475,7 @@ GPUTensor<Vector> geluGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_GELU_BACKWARD);
       bTape.putString(v.id);
       bTape.putString(out.gradId);
@@ -1512,7 +1504,7 @@ GPUTensor<Matrix> geluMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_GELU_BACKWARD);
       bTape.putString(m.id);
       bTape.putString(out.gradId);
@@ -1541,7 +1533,7 @@ GPUTensor<Matrix> softmaxMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SOFTMAX_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(out.id);
@@ -1571,7 +1563,7 @@ GPUTensor<Scalar> binaryCrossEntropyGPU<T>(GPUTensor<T> prediction,
 
   out.creator = GPUNode(
     <GPUTensor>[prediction, target],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_BCE_LOSS_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(prediction.id);
@@ -1589,7 +1581,7 @@ GPUTensor<Scalar> binaryCrossEntropyGPU<T>(GPUTensor<T> prediction,
 GPUTensor<Scalar> mseGPU(GPUTensor<Vector> predictions,
     GPUTensor<Vector> targets, CommandBuffer tape, AllocBuffer allocTape) {
   GPUTensor<Scalar> out =
-  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mseGPU');
+      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mseGPU');
 
   tape.putInt(OP_MSE_LOSS_FORWARD);
   tape.putString(predictions.id);
@@ -1598,7 +1590,7 @@ GPUTensor<Scalar> mseGPU(GPUTensor<Vector> predictions,
 
   out.creator = GPUNode(
     <GPUTensor>[predictions, targets],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MSE_LOSS_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(predictions.id);
@@ -1619,7 +1611,7 @@ GPUTensor<Scalar> mseMatrixGPU(GPUTensor<Matrix> predictions,
   int numCols = predictions.shape[1];
 
   GPUTensor<Scalar> out =
-  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mse_matrixGPU');
+      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'mse_matrixGPU');
 
   tape.putInt(OP_MSE_LOSS_FORWARD);
   tape.putString(predictions.id);
@@ -1628,7 +1620,7 @@ GPUTensor<Scalar> mseMatrixGPU(GPUTensor<Matrix> predictions,
 
   out.creator = GPUNode(
     <GPUTensor>[predictions, targets],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MSE_LOSS_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(predictions.id);
@@ -1680,7 +1672,6 @@ void clipGradValueGPU(
   tape.putPatchableFloat('clip_value', clipValue);
 }
 
-
 /// /////////////////////////////////
 /// Reductions    (600-699)       ///
 /// /////////////////////////////////
@@ -1690,7 +1681,7 @@ GPUTensor<Scalar> sumGPU(
     GPUTensor<Vector> v, CommandBuffer tape, AllocBuffer allocTape) {
   int N = v.shape[0];
   GPUTensor<Scalar> out =
-  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_vectorGPU');
+      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_vectorGPU');
 
   tape.putInt(OP_SUM_REDUCE);
   tape.putString(v.id);
@@ -1698,7 +1689,7 @@ GPUTensor<Scalar> sumGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[v],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SUM_REDUCE_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(v.gradId);
@@ -1717,7 +1708,7 @@ GPUTensor<Scalar> sumMatrixGPU(
   int numCols = m.shape[1];
 
   GPUTensor<Scalar> out =
-  GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_matrixGPU');
+      GPUTensor<Scalar>.empty(<int>[], allocTape, sourceOp: 'sum_matrixGPU');
 
   tape.putInt(OP_SUM_REDUCE);
   tape.putString(m.id);
@@ -1725,7 +1716,7 @@ GPUTensor<Scalar> sumMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SUM_REDUCE_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1756,7 +1747,7 @@ GPUTensor<Matrix> embeddingLookupGPU(GPUTensor<Vector> indices,
 
   out.creator = GPUNode(
     <GPUTensor>[weights],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_EMBEDDING_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(indices.id);
@@ -1790,7 +1781,7 @@ GPUTensor<Tensor3D> embeddingLookupBatchGPU(GPUTensor<Matrix> batchIndices,
 
   out.creator = GPUNode(
     <GPUTensor>[weights],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_EMBEDDING_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(batchIndices.id);
@@ -1819,7 +1810,7 @@ GPUTensor<Vector> sumReduceColumnsGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_BROADCAST_ADD);
       bTape.putString(m.gradId);
       bTape.putString(out.gradId);
@@ -1847,7 +1838,7 @@ GPUTensor<Vector> sumReduceRowsGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_BROADCAST_ADD);
       bTape.putString(m.gradId);
       bTape.putString(out.gradId);
@@ -1882,7 +1873,7 @@ GPUTensor<Matrix> sliceColumnGPU(GPUTensor<Matrix> input, int startCol,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SLICE_COLUMN_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(input.gradId);
@@ -1911,7 +1902,7 @@ GPUTensor<Vector> selectRowGPU(GPUTensor<Matrix> m, int rowIndex,
 
   out.creator = GPUNode(
     <GPUTensor>[m],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_SLICE_ROW_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(m.gradId);
@@ -1943,7 +1934,7 @@ GPUTensor<Matrix> selectMatrixFrom3DGPU(GPUTensor<Tensor3D> t, int index,
 
   out.creator = GPUNode(
     <GPUTensor>[t],
-        (CommandBuffer backwardTape) {
+    (CommandBuffer backwardTape) {
       backwardTape.putInt(OP_SLICE_ROW_BACKWARD);
       backwardTape.putString(out.gradId);
       backwardTape.putString(t.gradId);
@@ -1962,8 +1953,7 @@ GPUTensor<Vector> concatenateGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
   int aLength = a.shape[0];
   int totalLength = aLength + b.shape[0];
 
-  GPUTensor<Vector> out = GPUTensor<Vector>.empty(
-      <int>[totalLength], allocTape,
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(<int>[totalLength], allocTape,
       sourceOp: 'concat_vectorGPU');
 
   tape.putInt(OP_CONCATENATE);
@@ -1974,7 +1964,7 @@ GPUTensor<Vector> concatenateGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CONCATENATE_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -2023,7 +2013,7 @@ GPUTensor<Matrix> concatenateMatricesByColumnGPU(
 
     out.creator = GPUNode(
       <GPUTensor>[a, b],
-          (CommandBuffer bTape) {
+      (CommandBuffer bTape) {
         bTape.putInt(OP_CONCATENATE_BACKWARD);
         bTape.putString(out.gradId);
         bTape.putString(a.gradId);
@@ -2067,7 +2057,7 @@ GPUTensor<Tensor3D> concatenate3DGPU(GPUTensor<Tensor3D> a,
 
   out.creator = GPUNode(
     <GPUTensor>[a, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CONCATENATE_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(a.gradId);
@@ -2092,7 +2082,7 @@ GPUTensor<Tensor3D> stackMatricesGPU(List<GPUTensor<Matrix>> matrices,
 
   List<int> shape = <int>[count, rows, cols];
   GPUTensor<Tensor3D> out =
-  GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'stackMatricesGPU');
+      GPUTensor<Tensor3D>.empty(shape, allocTape, sourceOp: 'stackMatricesGPU');
 
   tape.putInt(OP_STACK_ROWS);
   tape.putInt(count);
@@ -2104,7 +2094,7 @@ GPUTensor<Tensor3D> stackMatricesGPU(List<GPUTensor<Matrix>> matrices,
 
   out.creator = GPUNode(
     <GPUTensor>[...matrices],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_STACK_ROWS_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putInt(count);
@@ -2148,7 +2138,7 @@ GPUTensor<Matrix> scatterHeadsGPU(List<GPUTensor<Matrix>> heads, int dModel,
 
   out.creator = GPUNode(
     <GPUTensor>[...heads],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       for (int i = 0; i < heads.length; i = i + 1) {
         int startCol = i * dHead;
         int endCol = startCol + dHead;
@@ -2190,7 +2180,7 @@ GPUTensor<Matrix> padMatrixGPU(GPUTensor<Matrix> input, int padSize,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_PAD2D_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(input.gradId);
@@ -2223,8 +2213,8 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
     CommandBuffer tape,
     AllocBuffer allocTape,
     {String padding = 'valid',
-      int strideH = 1,
-      int strideW = 1}) {
+    int strideH = 1,
+    int strideW = 1}) {
   int inChannels = input.shape.length == 2 ? 1 : input.shape[0];
   int inHeight = input.shape.length == 2 ? input.shape[0] : input.shape[1];
   int inWidth = input.shape.length == 2 ? input.shape[1] : input.shape[2];
@@ -2265,7 +2255,7 @@ GPUTensor<Tensor3D> conv2dMultiChannelGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[input, weight, bias],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CONV2D_MULTI_BACKWARD_INPUT);
       bTape.putString(out.gradId);
       bTape.putString(weight.id);
@@ -2314,8 +2304,7 @@ GPUTensor<Matrix> conv2dSimpleGPU(GPUTensor<Matrix> input,
   int outH = inH - kH + 1;
   int outW = inW - kW + 1;
 
-  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
-      <int>[outH, outW], allocTape,
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(<int>[outH, outW], allocTape,
       sourceOp: 'conv2dSimpleGPU');
 
   tape.putInt(OP_CONV2D_FORWARD);
@@ -2325,7 +2314,7 @@ GPUTensor<Matrix> conv2dSimpleGPU(GPUTensor<Matrix> input,
 
   out.creator = GPUNode(
     <GPUTensor>[input, kernel],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CONV2D_BACKWARD_INPUT);
       bTape.putString(out.gradId);
       bTape.putString(kernel.id);
@@ -2358,8 +2347,7 @@ GPUTensor<Matrix> im2colGPU(GPUTensor<dynamic> input, int kH, int kW,
   int rows = inChannels * kH * kW;
   int cols = outH * outW;
 
-  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
-      <int>[rows, cols], allocTape,
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape,
       sourceOp: 'im2colGPU');
 
   tape.putInt(OP_IM2COL);
@@ -2370,7 +2358,7 @@ GPUTensor<Matrix> im2colGPU(GPUTensor<dynamic> input, int kH, int kW,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_COL2IM);
       bTape.putString(out.gradId);
       bTape.putString(input.gradId);
@@ -2392,8 +2380,7 @@ GPUTensor<Vector> maxPool1dGPU(GPUTensor<Vector> input, int poolSize,
   int inputSize = input.shape[0];
   int outputSize = (inputSize - poolSize) ~/ stride + 1;
 
-  GPUTensor<Vector> out = GPUTensor<Vector>.empty(
-      <int>[outputSize], allocTape,
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(<int>[outputSize], allocTape,
       sourceOp: 'maxPool1dGPU');
   GPUTensor<Vector> indices = GPUTensor<Vector>.empty(
       <int>[outputSize], allocTape,
@@ -2408,7 +2395,7 @@ GPUTensor<Vector> maxPool1dGPU(GPUTensor<Vector> input, int poolSize,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MAX_POOL_1D_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(indices.id);
@@ -2448,7 +2435,7 @@ GPUTensor<Matrix> maxPool2dGPU(GPUTensor<Matrix> input, int poolSize,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_MAX_POOL_2D_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(indices.id);
@@ -2474,7 +2461,7 @@ GPUTensor<Matrix> avgPool2dGPU(GPUTensor<Matrix> input, int poolSize,
 
   List<int> outShape = <int>[outHeight, outWidth];
   GPUTensor<Matrix> out =
-  GPUTensor<Matrix>.empty(outShape, allocTape, sourceOp: 'avg_pool_2d_gpu');
+      GPUTensor<Matrix>.empty(outShape, allocTape, sourceOp: 'avg_pool_2d_gpu');
 
   tape.putInt(OP_AVG_POOL_2D_FORWARD);
   tape.putString(input.id);
@@ -2484,7 +2471,7 @@ GPUTensor<Matrix> avgPool2dGPU(GPUTensor<Matrix> input, int poolSize,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer backwardTape) {
+    (CommandBuffer backwardTape) {
       backwardTape.putInt(OP_AVG_POOL_2D_BACKWARD);
       backwardTape.putString(out.gradId);
       backwardTape.putString(input.gradId);
@@ -2513,7 +2500,7 @@ GPUTensor<Vector> globalAveragePoolingGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer backwardTape) {
+    (CommandBuffer backwardTape) {
       backwardTape.putInt(OP_GLOBAL_AVG_POOL_BACKWARD);
       backwardTape.putString(out.gradId);
       backwardTape.putString(input.gradId);
@@ -2541,8 +2528,7 @@ GPUTensor<Vector> batchNorm1dGPU(
     AllocBuffer allocTape) {
   int numFeatures = input.shape[0];
 
-  GPUTensor<Vector> out = GPUTensor<Vector>.empty(
-      <int>[numFeatures], allocTape,
+  GPUTensor<Vector> out = GPUTensor<Vector>.empty(<int>[numFeatures], allocTape,
       sourceOp: 'batchNorm1dGPU');
   GPUTensor<Vector> savedMean = GPUTensor<Vector>.empty(
       <int>[numFeatures], allocTape,
@@ -2568,7 +2554,7 @@ GPUTensor<Vector> batchNorm1dGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[input, gamma, beta],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_BATCH_NORM_1D_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(input.id);
@@ -2632,7 +2618,7 @@ GPUTensor<Tensor3D> batchNorm2dGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[input, gamma, beta],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_BATCH_NORM_2D_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(input.id);
@@ -2681,7 +2667,7 @@ GPUTensor<Matrix> layerNormMatrixGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[m, gamma, beta],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_LAYER_NORM_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(m.id);
@@ -2708,7 +2694,7 @@ GPUTensor<T> dropoutGPU<T>(GPUTensor<T> input, double rate, CommandBuffer tape,
   int seed = Random().nextInt(1000000);
 
   GPUTensor<T> out =
-  GPUTensor<T>.empty(input.shape, allocTape, sourceOp: 'dropout_gpu');
+      GPUTensor<T>.empty(input.shape, allocTape, sourceOp: 'dropout_gpu');
   GPUTensor<T> mask = GPUTensor<T>.empty(input.shape, allocTape,
       requiresGrad: false, sourceOp: 'dropout_gpu:mask');
   out.subMap["mask"] = mask;
@@ -2727,7 +2713,7 @@ GPUTensor<T> dropoutGPU<T>(GPUTensor<T> input, double rate, CommandBuffer tape,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_DROPOUT_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(mask.id);
@@ -2817,12 +2803,8 @@ GPUTensor<Matrix> markovPredictGPU(
 /// Multiplies matrix [x] by weight matrix [w], broadcasts and adds the bias vector [b],
 /// and applies a ReLU activation in a single optimized pass.
 /// The operations are appended to [tape] for execution.
-GPUTensor<Matrix> matMulBiasReluGPU(
-    GPUTensor<Matrix> x,
-    GPUTensor<Matrix> w,
-    GPUTensor<Vector> b,
-    CommandBuffer tape,
-    AllocBuffer allocTape) {
+GPUTensor<Matrix> matMulBiasReluGPU(GPUTensor<Matrix> x, GPUTensor<Matrix> w,
+    GPUTensor<Vector> b, CommandBuffer tape, AllocBuffer allocTape) {
   int M = x.shape[0];
   int K = x.shape[1];
   int N = w.shape[1];
@@ -2846,7 +2828,7 @@ GPUTensor<Matrix> matMulBiasReluGPU(
 
   reluOut.creator = GPUNode(
     <GPUTensor>[x, w, b],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_RELU_BACKWARD);
       bTape.putString(preReluOut.id);
       bTape.putString(reluOut.gradId);
@@ -2931,7 +2913,7 @@ GPUTensor<Scalar> cosineSimilarityGPU(GPUTensor<Vector> a, GPUTensor<Vector> b,
   GPUTensor<Scalar> normA = l2NormGPU(a, tape, allocTape);
   GPUTensor<Scalar> normB = l2NormGPU(b, tape, allocTape);
   GPUTensor<Scalar> denominator =
-  multiplyGPU<Scalar>(normA, normB, tape, allocTape);
+      multiplyGPU<Scalar>(normA, normB, tape, allocTape);
   GPUTensor<Scalar> out = divideGPU<Scalar>(dot, denominator, tape, allocTape);
   out.subMap["dot"] = dot;
   out.subMap["normA"] = normA;
@@ -2952,7 +2934,7 @@ GPUTensor<Scalar> maeLossGPU(GPUTensor<Vector> preds, GPUTensor<Vector> targets,
       preds.shape[0].toDouble(), allocTape,
       sourceOp: 'maeLossGPU:nScalar');
   GPUTensor<Scalar> out =
-  divideGPU<Scalar>(totalError, nScalar, tape, allocTape);
+      divideGPU<Scalar>(totalError, nScalar, tape, allocTape);
   out.subMap["diff"] = diff;
   out.subMap["absoluteDiff"] = absoluteDiff;
   out.subMap["totalError"] = totalError;
@@ -2976,11 +2958,11 @@ GPUTensor<Matrix> rmsNormMatrixGPU(
   int numRows = input.shape[0];
   int numCols = input.shape[1];
 
-  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(<int>[numRows, numCols],
-      allocTape,
+  GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
+      <int>[numRows, numCols], allocTape,
       sourceOp: 'rmsNormMatrixGPU');
-  GPUTensor<Vector> rstdCache = GPUTensor<Vector>.empty(<int>[numRows],
-      allocTape,
+  GPUTensor<Vector> rstdCache = GPUTensor<Vector>.empty(
+      <int>[numRows], allocTape,
       requiresGrad: false, sourceOp: 'rmsNormMatrixGPU:rstdCache');
   out.subMap["rstdCache"] = rstdCache;
 
@@ -3007,7 +2989,7 @@ GPUTensor<Matrix> rmsNormMatrixGPU(
 
   out.creator = GPUNode(
     inputs,
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_RMS_NORM_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(input.id);
@@ -3047,7 +3029,7 @@ GPUTensor<Tensor3D> causalMaskGPU(GPUTensor<Tensor3D> input, int batchSize,
 
   out.creator = GPUNode(
     <GPUTensor>[input],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CAUSAL_MASK_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(input.gradId);
@@ -3095,7 +3077,7 @@ GPUTensor<Tensor3D> applyRopeGPU(
 
   out.creator = GPUNode(
     <GPUTensor>[input, cosTable, sinTable],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_ROPE_BACKWARD);
       bTape.putString(out.gradId);
       bTape.putString(cosTable.id);
@@ -3121,8 +3103,8 @@ GPUTensor<Vector> crossEntropyLossGPU(GPUTensor<Matrix> logits,
   int batchSize = logits.shape[0];
   int vocabSize = logits.shape[1];
 
-  GPUTensor<Vector> outLoss = GPUTensor<Vector>.empty(<int>[batchSize],
-      allocTape,
+  GPUTensor<Vector> outLoss = GPUTensor<Vector>.empty(
+      <int>[batchSize], allocTape,
       sourceOp: 'crossEntropyLossGPU');
 
   tape.putInt(OP_CROSS_ENTROPY_FORWARD);
@@ -3132,7 +3114,7 @@ GPUTensor<Vector> crossEntropyLossGPU(GPUTensor<Matrix> logits,
 
   outLoss.creator = GPUNode(
     <GPUTensor>[logits, targets],
-        (CommandBuffer bTape) {
+    (CommandBuffer bTape) {
       bTape.putInt(OP_CROSS_ENTROPY_BACKWARD);
       bTape.putString(outLoss.gradId);
       bTape.putString(logits.id);
@@ -3165,7 +3147,7 @@ GPUTensor<Vector> argmaxGPU(
 
   outIndices.creator = GPUNode(
     <GPUTensor>[logits],
-        (CommandBuffer bTape) {},
+    (CommandBuffer bTape) {},
     opName: 'argmaxGPU',
     cost: batchSize * vocabSize,
   );

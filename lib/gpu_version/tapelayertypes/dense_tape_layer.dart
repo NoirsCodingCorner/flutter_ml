@@ -67,7 +67,7 @@ class DenseTL extends TapeLayer<Matrix, Matrix> {
       GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Matrix> matMulResult = matMulGPU(input, weights, tape, allocTape);
     GPUTensor<Matrix> out =
-    addMatrixAndVectorGPU(matMulResult, bias, tape, allocTape);
+        addMatrixAndVectorGPU(matMulResult, bias, tape, allocTape);
 
     return out;
   }
@@ -172,7 +172,7 @@ class DenseReluTL extends TapeLayer<Matrix, Matrix> {
   GPUTensor<Matrix> forward(
       GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Matrix> out =
-    matMulBiasReluGPU(input, weights, bias, tape, allocTape);
+        matMulBiasReluGPU(input, weights, bias, tape, allocTape);
 
     return out;
   }

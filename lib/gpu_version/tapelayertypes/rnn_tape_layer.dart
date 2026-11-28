@@ -94,8 +94,8 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
     List<int> stateShape = <int>[hiddenSize, 1];
 
     List<GPUTensor<Matrix>> hStates = <GPUTensor<Matrix>>[];
-    hStates.add(
-        GPUTensor<Matrix>.empty(stateShape, allocTape, sourceOp: '$name:initH'));
+    hStates.add(GPUTensor<Matrix>.empty(stateShape, allocTape,
+        sourceOp: '$name:initH'));
 
     GPUTensor<Matrix> transposedInput = transposeGPU(input, tape, allocTape);
 
@@ -103,14 +103,14 @@ class RNNTL extends TapeLayer<Matrix, Matrix> {
       GPUTensor<Matrix> hPrev = hStates[i];
 
       GPUTensor<Matrix> xT =
-      sliceColumnGPU(transposedInput, i, i + 1, tape, allocTape);
+          sliceColumnGPU(transposedInput, i, i + 1, tape, allocTape);
 
       GPUTensor<Matrix> inputPart = matMulGPU(wXh, xT, tape, allocTape);
 
       GPUTensor<Matrix> hiddenPart = matMulGPU(wHh, hPrev, tape, allocTape);
 
       GPUTensor<Matrix> sum1 =
-      addMatrixGPU(inputPart, hiddenPart, tape, allocTape);
+          addMatrixGPU(inputPart, hiddenPart, tape, allocTape);
 
       GPUTensor<Matrix> combined = addMatrixGPU(sum1, bh, tape, allocTape);
 

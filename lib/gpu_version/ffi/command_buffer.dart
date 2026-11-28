@@ -17,7 +17,7 @@ import '/full_library.dart';
 /// ```
 /// Usually CommandBuffers do not need to be filled manually but are filled by providing them to [GPUTensor]- operations as arguments.
 class CommandBuffer {
-  static Random _defaultRng = Random();
+  static final Random _defaultRng = Random();
 
   int offset = 0;
   int _capacity = 1024;

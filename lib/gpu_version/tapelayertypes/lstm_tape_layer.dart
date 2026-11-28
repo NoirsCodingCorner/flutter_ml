@@ -115,11 +115,11 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
 
   // Helper to strictly slice a sequence row into a 1xN Matrix.
   GPUTensor<Matrix> sliceRowToMatrix(
-      GPUTensor<Matrix> sequence,
-      int rowIdx,
-      CommandBuffer tape,
-      AllocBuffer allocTape,
-      ) {
+    GPUTensor<Matrix> sequence,
+    int rowIdx,
+    CommandBuffer tape,
+    AllocBuffer allocTape,
+  ) {
     GPUTensor<Matrix> out = GPUTensor<Matrix>.empty(
         <int>[1, sequence.shape[1]], allocTape,
         sourceOp: '$name:sliceRowToMatrix');
@@ -142,10 +142,10 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
   /// Returns the [GPUTensor] representing the final hidden state of the sequence.
   @override
   GPUTensor<Matrix> forward(
-      GPUTensor<Matrix> input,
-      CommandBuffer tape,
-      AllocBuffer allocTape,
-      ) {
+    GPUTensor<Matrix> input,
+    CommandBuffer tape,
+    AllocBuffer allocTape,
+  ) {
     int seqLength = input.shape[0];
     List<int> stateShape = <int>[1, hiddenSize];
 
@@ -181,20 +181,19 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
       GPUTensor<Matrix> cTildeTX = matMulGPU(xT, wXc, tape, allocTape);
       GPUTensor<Matrix> cTildeTH = matMulGPU(prevH, wHc, tape, allocTape);
       GPUTensor<Matrix> cTildeTSum =
-      addMatrixGPU(cTildeTX, cTildeTH, tape, allocTape);
+          addMatrixGPU(cTildeTX, cTildeTH, tape, allocTape);
       GPUTensor<Matrix> cTildeTBiased =
-      addMatrixGPU(cTildeTSum, bc, tape, allocTape);
-      GPUTensor<Matrix> cTildeT =
-      tanhMatrixGPU(cTildeTBiased, tape, allocTape);
+          addMatrixGPU(cTildeTSum, bc, tape, allocTape);
+      GPUTensor<Matrix> cTildeT = tanhMatrixGPU(cTildeTBiased, tape, allocTape);
 
       // Cell State Update
       GPUTensor<Matrix> cRetained =
-      elementWiseMultiplyMatrixGPU(fT, prevC, tape, allocTape);
+          elementWiseMultiplyMatrixGPU(fT, prevC, tape, allocTape);
       GPUTensor<Matrix> cNewInfo =
-      elementWiseMultiplyMatrixGPU(iT, cTildeT, tape, allocTape);
+          elementWiseMultiplyMatrixGPU(iT, cTildeT, tape, allocTape);
 
       GPUTensor<Matrix> newC =
-      addMatrixGPU(cRetained, cNewInfo, tape, allocTape);
+          addMatrixGPU(cRetained, cNewInfo, tape, allocTape);
       cStates.add(newC);
 
       // Output Gate
@@ -208,7 +207,7 @@ class LSTMTL extends TapeLayer<Matrix, Matrix> {
       GPUTensor<Matrix> cActivated = tanhMatrixGPU(newC, tape, allocTape);
 
       GPUTensor<Matrix> newH =
-      elementWiseMultiplyMatrixGPU(oT, cActivated, tape, allocTape);
+          elementWiseMultiplyMatrixGPU(oT, cActivated, tape, allocTape);
       hStates.add(newH);
     }
 

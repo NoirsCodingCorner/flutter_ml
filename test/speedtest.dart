@@ -2,7 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_ml/full_library.dart';
 
-
 void fillTensorGPU(GPUTensor tensor, double value, CommandBuffer tape) {
   tape.putInt(OP_FILL);
   tape.putString(tensor.id);
@@ -71,9 +70,9 @@ void runBenchmarkIsolated({
   String gbStr = gbPerSec.toStringAsFixed(2).padLeft(8);
   String gflopsStr = gflops.toStringAsFixed(4).padLeft(8);
   String allocStr =
-  (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
+      (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
   String freeStr =
-  (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
+      (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
 
   print(
       "[BENCHMARK] ${name.padRight(10)} | Time: $timeStr ms | Bandwidth: $gbStr GB/s | Compute: $gflopsStr GFLOPs             Overhead  | Alloc/Tape: $allocStr ms | Free: $freeStr ms");
@@ -108,7 +107,7 @@ void testAll(Target target) async {
   int matmulFlops = 2 * M * M * M;
 
   // --- BINARY OPERATIONS ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
 
@@ -158,7 +157,7 @@ void testAll(Target target) async {
         CommandBuffer t = CommandBuffer();
 
         GPUTensor<Vector> shifted =
-        addScalarVectorGPU(sequence!, numStates / 2.0, t, allocTape);
+            addScalarVectorGPU(sequence!, numStates / 2.0, t, allocTape);
 
         GPUTensor<Vector> clamped = clampGPU<Vector>(
             shifted, 0.0, (numStates - 1).toDouble(), t, allocTape);
@@ -199,9 +198,9 @@ void testAll(Target target) async {
       flopsPerOp: predictFlops,
       allocateInputs: (AllocBuffer allocTape) {
         historyBatch =
-        GPUTensor<Matrix>.empty(<int>[predictBatchSize, order], allocTape);
+            GPUTensor<Matrix>.empty(<int>[predictBatchSize, order], allocTape);
         probTable =
-        GPUTensor<Matrix>.empty(<int>[numHistories, numStates], allocTape);
+            GPUTensor<Matrix>.empty(<int>[numHistories, numStates], allocTape);
       },
       initData: (AllocBuffer allocTape) {
         CommandBuffer t = CommandBuffer();
@@ -299,7 +298,7 @@ void testAll(Target target) async {
   }
 
   // --- UNARY OPERATIONS ---
-      {
+  {
     GPUTensor<Vector>? vecA;
 
     runBenchmarkIsolated(
@@ -420,7 +419,7 @@ void testAll(Target target) async {
   }
 
   // --- MATMUL ---
-      {
+  {
     GPUTensor<Matrix>? matA;
     GPUTensor<Matrix>? matB;
 
@@ -442,7 +441,7 @@ void testAll(Target target) async {
       buildTape: (AllocBuffer allocTape) {
         CommandBuffer tape = CommandBuffer();
         GPUTensor<Matrix> outMatmul =
-        GPUTensor<Matrix>.empty(matShape, allocTape);
+            GPUTensor<Matrix>.empty(matShape, allocTape);
 
         tape.putInt(OP_MATMUL);
         tape.putString(matA!.id);
@@ -460,7 +459,7 @@ void testAll(Target target) async {
   }
 
   // --- LINEAR ALGEBRA & BROADCASTING ---
-      {
+  {
     GPUTensor<Matrix>? matA;
 
     runBenchmarkIsolated(
@@ -587,7 +586,7 @@ void testAll(Target target) async {
   }
 
   // --- ACTIVATIONS ---
-      {
+  {
     GPUTensor<Vector>? vecA;
 
     runBenchmarkIsolated(
@@ -711,7 +710,7 @@ void testAll(Target target) async {
   }
 
   // --- LOSS FUNCTIONS (Memory Bound) ---
-      {
+  {
     GPUTensor<Vector>? vecA;
     GPUTensor<Vector>? vecB;
 
@@ -793,7 +792,7 @@ void testAll(Target target) async {
   }
 
   // --- REDUCTIONS (Memory Bound) ---
-      {
+  {
     GPUTensor<Vector>? vecA;
 
     runBenchmarkIsolated(
@@ -866,7 +865,7 @@ void testAll(Target target) async {
   }
 
   // --- EMBEDDING LOOKUPS (Memory Scatter/Gather Bound) ---
-      {
+  {
     int vocabSize = 32000;
     int embedDim = 768;
     int numTokens = 1048576;
@@ -887,7 +886,7 @@ void testAll(Target target) async {
       allocateInputs: (AllocBuffer allocTape) {
         indices = GPUTensor<Vector>.empty(<int>[numTokens], allocTape);
         weights =
-        GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
+            GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
       },
       initData: (AllocBuffer allocTape) {
         CommandBuffer t = CommandBuffer();
@@ -923,9 +922,9 @@ void testAll(Target target) async {
       flopsPerOp: 0,
       allocateInputs: (AllocBuffer allocTape) {
         batchIndices =
-        GPUTensor<Matrix>.empty(<int>[batchSize, seqLength], allocTape);
+            GPUTensor<Matrix>.empty(<int>[batchSize, seqLength], allocTape);
         weights =
-        GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
+            GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
       },
       initData: (AllocBuffer allocTape) {
         CommandBuffer t = CommandBuffer();
@@ -942,7 +941,7 @@ void testAll(Target target) async {
   }
 
   // --- TENSOR MANIPULATION & ROUTING (Memory Bound) ---
-      {
+  {
     int sliceRows = M;
     int sliceCols = M ~/ 2;
     int sliceBytes = (sliceRows * sliceCols * 4) * 2;
@@ -1156,7 +1155,7 @@ void testAll(Target target) async {
   }
 
   // --- NORMALIZATION & REGULARIZATION ---
-      {
+  {
     int dModel = M;
     int normBytes = (M * M * 4) + (dModel * 4 * 4) + (M * M * 4);
     int normFlops = M * M * 8;
@@ -1225,7 +1224,7 @@ void testAll(Target target) async {
   }
 
   // --- ADVANCED METRICS & LOSSES (Compositional) ---
-      {
+  {
     int dotBytes = N * 16;
     int dotFlops = N * 2;
 

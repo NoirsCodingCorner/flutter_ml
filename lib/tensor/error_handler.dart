@@ -56,15 +56,16 @@ class TensorErrorHandler {
   static int bufferSize = 50;
   static int _errorCounter = 0;
 
-  static Map<TensorErrorType, Map<String, TensorErrorCallback>> _listeners = {};
+  static final Map<TensorErrorType, Map<String, TensorErrorCallback>>
+      _listeners = {};
   static Map<String, TensorError> errorLog = {};
 
   /// Registers or overwrites a named [callback] for a specific [type].
   static void on(
-      TensorErrorType type,
-      String listenerName,
-      TensorErrorCallback callback,
-      ) {
+    TensorErrorType type,
+    String listenerName,
+    TensorErrorCallback callback,
+  ) {
     if (!_listeners.containsKey(type)) {
       _listeners[type] = {};
     }
@@ -116,8 +117,6 @@ class TensorErrorHandler {
 
     throw TensorException(error);
   }
-
-
 }
 
 class TensorValidator {
@@ -183,7 +182,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          'Inner dimensions do not match for matMul: ${a.id} ${a.shape} and ${b.id} ${b.shape}.',
+              'Inner dimensions do not match for matMul: ${a.id} ${a.shape} and ${b.id} ${b.shape}.',
           tensors: [a, b],
         ),
       );
@@ -203,7 +202,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          '${m.id} columns (${m.shape[1]}) do not match ${v.id} length (${v.shape[0]}).',
+              '${m.id} columns (${m.shape[1]}) do not match ${v.id} length (${v.shape[0]}).',
           tensors: [m, v],
         ),
       );
@@ -213,10 +212,10 @@ class TensorValidator {
   /// Verifies a list of matrices for stacking or column-wise concatenation.
   /// Set [requireSameCols] to `true` for `stackMatricesTo3D` and `false` for `concatenateMatricesByColumn`.
   static void requireMatrixListCompatible(
-      List<Tensor<Matrix>> matrices,
-      String opName, {
-        bool requireSameCols = true,
-      }) {
+    List<Tensor<Matrix>> matrices,
+    String opName, {
+    bool requireSameCols = true,
+  }) {
     if (matrices.isEmpty) {
       TensorErrorHandler.report(
         TensorError(
@@ -244,7 +243,7 @@ class TensorValidator {
             type: TensorErrorType.sizeMismatch,
             opName: opName,
             message:
-            '${current.id} ${current.shape} is incompatible with ${matrices[0].id} ${matrices[0].shape}.',
+                '${current.id} ${current.shape} is incompatible with ${matrices[0].id} ${matrices[0].shape}.',
             tensors: [matrices[0], current],
           ),
         );
@@ -264,7 +263,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          'Spatial dimensions of ${a.id} ${a.shape} and ${b.id} ${b.shape} do not match.',
+              'Spatial dimensions of ${a.id} ${a.shape} and ${b.id} ${b.shape} do not match.',
           tensors: [a, b],
         ),
       );
@@ -272,8 +271,7 @@ class TensorValidator {
   }
 
   /// Verifies that [targetShape] has positive dimensions and the exact same element count as [t].
-  static void requireReshape(
-      Tensor t, List<int> targetShape, String opName) {
+  static void requireReshape(Tensor t, List<int> targetShape, String opName) {
     requireValidData(t, opName);
 
     int targetCount = 1;
@@ -298,7 +296,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          'Cannot reshape ${t.id} (${t.data.length} elements) into $targetShape ($targetCount elements).',
+              'Cannot reshape ${t.id} (${t.data.length} elements) into $targetShape ($targetCount elements).',
           tensors: [t],
           extraParams: {'targetShape': targetShape},
         ),
@@ -321,7 +319,7 @@ class TensorValidator {
           type: TensorErrorType.invalidParameter,
           opName: opName,
           message:
-          'Index $index out of bounds [0, ${maxExclusive - 1}] for ${t.id} ${t.shape}.',
+              'Index $index out of bounds [0, ${maxExclusive - 1}] for ${t.id} ${t.shape}.',
           tensors: [t],
           extraParams: {'index': index},
         ),
@@ -340,7 +338,7 @@ class TensorValidator {
           type: TensorErrorType.invalidParameter,
           opName: opName,
           message:
-          'poolSize ($poolSize) and stride ($stride) must be greater than 0.',
+              'poolSize ($poolSize) and stride ($stride) must be greater than 0.',
           tensors: [input],
           extraParams: {'poolSize': poolSize, 'stride': stride},
         ),
@@ -353,7 +351,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          '${input.id} length (${input.shape[0]}) is smaller than poolSize ($poolSize).',
+              '${input.id} length (${input.shape[0]}) is smaller than poolSize ($poolSize).',
           tensors: [input],
           extraParams: {'poolSize': poolSize},
         ),
@@ -364,14 +362,14 @@ class TensorValidator {
   /// Verifies 2D kernel/window dimensions, stride, padding mode, and input spatial bounds.
   /// Used for: avgPool2d, maxPool2d, conv2d.
   static void requireWindow2D(
-      Tensor<Matrix> input,
-      int windowHeight,
-      int windowWidth,
-      int stride,
-      String opName, {
-        String padding = 'valid',
-        Tensor? kernel,
-      }) {
+    Tensor<Matrix> input,
+    int windowHeight,
+    int windowWidth,
+    int stride,
+    String opName, {
+    String padding = 'valid',
+    Tensor? kernel,
+  }) {
     requireValidData(input, opName);
     if (kernel != null) {
       requireValidData(kernel, opName);
@@ -384,7 +382,8 @@ class TensorValidator {
         TensorError(
           type: TensorErrorType.invalidParameter,
           opName: opName,
-          message: 'Unsupported padding "$padding". Expected "valid" or "same".',
+          message:
+              'Unsupported padding "$padding". Expected "valid" or "same".',
           tensors: involved,
           extraParams: {'padding': padding},
         ),
@@ -397,7 +396,7 @@ class TensorValidator {
           type: TensorErrorType.invalidParameter,
           opName: opName,
           message:
-          'Window [$windowHeight, $windowWidth] and stride ($stride) must be > 0.',
+              'Window [$windowHeight, $windowWidth] and stride ($stride) must be > 0.',
           tensors: involved,
         ),
       );
@@ -410,7 +409,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          '${input.id} ${input.shape} is smaller than window [$windowHeight, $windowWidth].',
+              '${input.id} ${input.shape} is smaller than window [$windowHeight, $windowWidth].',
           tensors: involved,
         ),
       );
@@ -436,15 +435,15 @@ class TensorValidator {
 
   /// Verifies BatchNorm feature/channel alignment and epsilon > 0.
   static void requireBatchNorm(
-      Tensor x,
-      Tensor<Vector> gamma,
-      Tensor<Vector> beta,
-      Vector runningMean,
-      Vector runningVariance,
-      int expectedSize,
-      double epsilon,
-      String opName,
-      ) {
+    Tensor x,
+    Tensor<Vector> gamma,
+    Tensor<Vector> beta,
+    Vector runningMean,
+    Vector runningVariance,
+    int expectedSize,
+    double epsilon,
+    String opName,
+  ) {
     requireValidData(x, opName);
     requireValidData(gamma, opName);
     requireValidData(beta, opName);
@@ -471,7 +470,7 @@ class TensorValidator {
           type: TensorErrorType.sizeMismatch,
           opName: opName,
           message:
-          'BatchNorm parameter sizes do not match expected size ($expectedSize).',
+              'BatchNorm parameter sizes do not match expected size ($expectedSize).',
           tensors: [x, gamma, beta],
           extraParams: {'expectedSize': expectedSize},
         ),
@@ -495,7 +494,7 @@ class TensorValidator {
             type: TensorErrorType.mathError,
             opName: opName,
             message:
-            '${t.id} contains non-positive or NaN value ($val) at flat index $i.',
+                '${t.id} contains non-positive or NaN value ($val) at flat index $i.',
             tensors: [t],
             extraParams: {'index': i, 'value': val},
           ),
@@ -516,7 +515,7 @@ class TensorValidator {
             type: TensorErrorType.mathError,
             opName: opName,
             message:
-            '${t.id} value ($val) at flat index $i must be strictly between 0.0 and 1.0.',
+                '${t.id} value ($val) at flat index $i must be strictly between 0.0 and 1.0.',
             tensors: [t],
             extraParams: {'index': i, 'value': val},
           ),
@@ -537,7 +536,7 @@ class TensorValidator {
             type: TensorErrorType.mathError,
             opName: opName,
             message:
-            '${t.id} contains zero or NaN value ($val) at flat index $i.',
+                '${t.id} contains zero or NaN value ($val) at flat index $i.',
             tensors: [t],
             extraParams: {'index': i, 'value': val},
           ),
@@ -558,7 +557,7 @@ class TensorValidator {
             type: TensorErrorType.mathError,
             opName: opName,
             message:
-            '${t.id} contains negative or NaN value ($val) at flat index $i.',
+                '${t.id} contains negative or NaN value ($val) at flat index $i.',
             tensors: [t],
             extraParams: {'index': i, 'value': val},
           ),

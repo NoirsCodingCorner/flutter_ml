@@ -28,12 +28,12 @@ class MaxPooling2DTL extends TapeLayer<Matrix, Matrix> {
   /// Writes the [maxPool2dGPU] operation to the provided [tape] and returns the [GPUTensor] where the result will be stored.
   @override
   GPUTensor<Matrix> forward(
-      GPUTensor<Matrix> input,
-      CommandBuffer tape,
-      AllocBuffer allocTape,
-      ) {
+    GPUTensor<Matrix> input,
+    CommandBuffer tape,
+    AllocBuffer allocTape,
+  ) {
     GPUTensor<Matrix> out =
-    maxPool2dGPU(input, poolSize, stride, tape, allocTape);
+        maxPool2dGPU(input, poolSize, stride, tape, allocTape);
     return out;
   }
 
@@ -72,7 +72,7 @@ class MaxPooling1DTL extends TapeLayer<Vector, Vector> {
   GPUTensor<Vector> forward(
       GPUTensor<Vector> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Vector> out =
-    maxPool1dGPU(input, poolSize, stride, tape, allocTape);
+        maxPool1dGPU(input, poolSize, stride, tape, allocTape);
     return out;
   }
 

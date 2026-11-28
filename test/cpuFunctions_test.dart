@@ -327,7 +327,7 @@ void main() {
       2,
       false,
       0.9,
-      0.01,
+      1e-5,
     );
     testVector(testOut.value, [1.0, 3.0]);
   });

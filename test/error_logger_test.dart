@@ -25,7 +25,7 @@ void main() {
     TensorErrorHandler.on(
       TensorErrorType.sizeMismatch,
       'shape_monitor',
-          (TensorError error) {
+      (TensorError error) {
         String alertMsg = '${error.opName}: ${error.message}';
         alerts.add(alertMsg);
         Logger.yellow('Listener triggered -> $alertMsg', prefix: '⚠️');

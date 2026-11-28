@@ -30,14 +30,14 @@ class AdamGPU extends OptimizerGPU {
   /// Requires the list of trainable [parameters], the [learningRate], and [allocTape].
   /// Optional parameters [beta1], [beta2], [epsilon], and [weightDecay] allow fine-tuning of the algorithm.
   AdamGPU(
-      super.parameters,
-      super.learningRate,
-      AllocBuffer allocTape, {
-        this.beta1 = 0.9,
-        this.beta2 = 0.999,
-        this.epsilon = 1e-7,
-        this.weightDecay = 0.0,
-      }) {
+    super.parameters,
+    super.learningRate,
+    AllocBuffer allocTape, {
+    this.beta1 = 0.9,
+    this.beta2 = 0.999,
+    this.epsilon = 1e-7,
+    this.weightDecay = 0.0,
+  }) {
     for (int i = 0; i < parameters.length; i = i + 1) {
       GPUTensor<dynamic> m = GPUTensor<dynamic>.empty(
         parameters[i].shape,

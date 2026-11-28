@@ -57,7 +57,7 @@ class EmbeddingTL extends TapeLayer<Vector, Matrix> {
   GPUTensor<Matrix> forward(
       GPUTensor<Vector> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Matrix> out =
-    embeddingLookupGPU(input, embeddings, tape, allocTape);
+        embeddingLookupGPU(input, embeddings, tape, allocTape);
     return out;
   }
 
@@ -141,7 +141,7 @@ class EmbeddingMatrixTL extends TapeLayer<Matrix, Tensor3D> {
   GPUTensor<Tensor3D> forward(
       GPUTensor<Matrix> input, CommandBuffer tape, AllocBuffer allocTape) {
     GPUTensor<Tensor3D> out =
-    embeddingLookupBatchGPU(input, embeddings, tape, allocTape);
+        embeddingLookupBatchGPU(input, embeddings, tape, allocTape);
     return out;
   }
 

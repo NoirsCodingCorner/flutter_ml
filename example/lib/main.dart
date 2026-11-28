@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_ml/full_library.dart';
 import 'package:flutter_ml/gpu_version/ffi/gpu_engine.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(MaterialApp(home: BenchmarkScreen()));
@@ -88,9 +87,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     String gbStr = gbPerSec.toStringAsFixed(2).padLeft(8);
     String gflopsStr = gflops.toStringAsFixed(4).padLeft(8);
     String allocStr =
-    (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
+        (allocSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
     String freeStr =
-    (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
+        (freeSw.elapsedMicroseconds / 1000.0).toStringAsFixed(2).padLeft(6);
 
     print(
         "[BENCHMARK] ${name.padRight(10)} | Time: $timeStr ms | Bandwidth: $gbStr GB/s | Compute: $gflopsStr GFLOPs             Overhead  | Alloc/Tape: $allocStr ms | Free: $freeStr ms");
@@ -107,7 +106,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
 
     int iterations = 50;
 
-    print("\n==================================================================");
+    print(
+        "\n==================================================================");
     print("                 CUDA ENGINE PERFORMANCE BENCHMARK                ");
     print("==================================================================");
     print(
@@ -116,7 +116,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     print("Iterations:  $iterations");
     print(
         "Note: VRAM is aggressively wiped and reallocated between each run to test loading speeds of different operations. ");
-    print("------------------------------------------------------------------\n");
+    print(
+        "------------------------------------------------------------------\n");
 
     int unaryBytes = N * 8;
     int binaryBytes = N * 12;
@@ -125,7 +126,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     int matmulFlops = 2 * M * M * M;
 
     // --- BINARY OPERATIONS ---
-        {
+    {
       GPUTensor<Vector>? vecA;
       GPUTensor<Vector>? vecB;
 
@@ -175,7 +176,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           CommandBuffer t = CommandBuffer();
 
           GPUTensor<Vector> shifted =
-          addScalarVectorGPU(sequence!, numStates / 2.0, t, allocTape);
+              addScalarVectorGPU(sequence!, numStates / 2.0, t, allocTape);
 
           GPUTensor<Vector> clamped = clampGPU<Vector>(
               shifted, 0.0, (numStates - 1).toDouble(), t, allocTape);
@@ -215,10 +216,10 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         bytesPerOp: predictBytes,
         flopsPerOp: predictFlops,
         allocateInputs: (AllocBuffer allocTape) {
-          historyBatch =
-          GPUTensor<Matrix>.empty(<int>[predictBatchSize, order], allocTape);
-          probTable =
-          GPUTensor<Matrix>.empty(<int>[numHistories, numStates], allocTape);
+          historyBatch = GPUTensor<Matrix>.empty(
+              <int>[predictBatchSize, order], allocTape);
+          probTable = GPUTensor<Matrix>.empty(
+              <int>[numHistories, numStates], allocTape);
         },
         initData: (AllocBuffer allocTape) {
           CommandBuffer t = CommandBuffer();
@@ -228,7 +229,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         },
         buildTape: (AllocBuffer allocTape) {
           CommandBuffer tape = CommandBuffer();
-          markovPredictGPU(historyBatch!, probTable!, numStates, tape, allocTape);
+          markovPredictGPU(
+              historyBatch!, probTable!, numStates, tape, allocTape);
           return tape;
         },
       );
@@ -316,7 +318,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- UNARY OPERATIONS ---
-        {
+    {
       GPUTensor<Vector>? vecA;
 
       runBenchmarkIsolated(
@@ -437,7 +439,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- MATMUL ---
-        {
+    {
       GPUTensor<Matrix>? matA;
       GPUTensor<Matrix>? matB;
 
@@ -459,7 +461,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         buildTape: (AllocBuffer allocTape) {
           CommandBuffer tape = CommandBuffer();
           GPUTensor<Matrix> outMatmul =
-          GPUTensor<Matrix>.empty(matShape, allocTape);
+              GPUTensor<Matrix>.empty(matShape, allocTape);
 
           tape.putInt(OP_MATMUL);
           tape.putString(matA!.id);
@@ -477,7 +479,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- LINEAR ALGEBRA & BROADCASTING ---
-        {
+    {
       GPUTensor<Matrix>? matA;
 
       runBenchmarkIsolated(
@@ -604,7 +606,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- ACTIVATIONS ---
-        {
+    {
       GPUTensor<Vector>? vecA;
 
       runBenchmarkIsolated(
@@ -728,7 +730,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- LOSS FUNCTIONS (Memory Bound) ---
-        {
+    {
       GPUTensor<Vector>? vecA;
       GPUTensor<Vector>? vecB;
 
@@ -810,7 +812,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- REDUCTIONS (Memory Bound) ---
-        {
+    {
       GPUTensor<Vector>? vecA;
 
       runBenchmarkIsolated(
@@ -883,7 +885,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- EMBEDDING LOOKUPS (Memory Scatter/Gather Bound) ---
-        {
+    {
       int vocabSize = 32000;
       int embedDim = 768;
       int numTokens = 1048576;
@@ -904,7 +906,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         allocateInputs: (AllocBuffer allocTape) {
           indices = GPUTensor<Vector>.empty(<int>[numTokens], allocTape);
           weights =
-          GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
+              GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
         },
         initData: (AllocBuffer allocTape) {
           CommandBuffer t = CommandBuffer();
@@ -940,9 +942,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         flopsPerOp: 0,
         allocateInputs: (AllocBuffer allocTape) {
           batchIndices =
-          GPUTensor<Matrix>.empty(<int>[batchSize, seqLength], allocTape);
+              GPUTensor<Matrix>.empty(<int>[batchSize, seqLength], allocTape);
           weights =
-          GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
+              GPUTensor<Matrix>.empty(<int>[vocabSize, embedDim], allocTape);
         },
         initData: (AllocBuffer allocTape) {
           CommandBuffer t = CommandBuffer();
@@ -959,7 +961,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- TENSOR MANIPULATION & ROUTING (Memory Bound) ---
-        {
+    {
       int sliceRows = M;
       int sliceCols = M ~/ 2;
       int sliceBytes = (sliceRows * sliceCols * 4) * 2;
@@ -1088,7 +1090,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         allocateInputs: (AllocBuffer allocTape) {
           matrices = <GPUTensor<Matrix>>[];
           for (int i = 0; i < numMatrices; i = i + 1) {
-            matrices!.add(GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape));
+            matrices!
+                .add(GPUTensor<Matrix>.empty(<int>[rows, cols], allocTape));
           }
         },
         initData: (AllocBuffer allocTape) {
@@ -1124,7 +1127,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         allocateInputs: (AllocBuffer allocTape) {
           heads = <GPUTensor<Matrix>>[];
           for (int i = 0; i < numHeads; i = i + 1) {
-            heads!.add(GPUTensor<Matrix>.empty(<int>[seqLen, dHead], allocTape));
+            heads!
+                .add(GPUTensor<Matrix>.empty(<int>[seqLen, dHead], allocTape));
           }
         },
         initData: (AllocBuffer allocTape) {
@@ -1173,7 +1177,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- NORMALIZATION & REGULARIZATION ---
-        {
+    {
       int dModel = M;
       int normBytes = (M * M * 4) + (dModel * 4 * 4) + (M * M * 4);
       int normFlops = M * M * 8;
@@ -1242,7 +1246,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     }
 
     // --- ADVANCED METRICS & LOSSES (Compositional) ---
-        {
+    {
       int dotBytes = N * 16;
       int dotFlops = N * 2;
 
@@ -1392,7 +1396,6 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     GPUEngine.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1412,12 +1415,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               ),
               SizedBox(height: 32.0),
               ElevatedButton(
-                onPressed: (){
+                onPressed: () {
                   testAll(Target.auto);
                 },
                 child: Padding(
                   padding:
-                  EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                      EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
                   child: Text(
                     isRunning ? 'Running...' : 'Run Benchmarks',
                     style: TextStyle(fontSize: 16.0),

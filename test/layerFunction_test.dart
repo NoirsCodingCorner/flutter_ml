@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   setUpAll(() async {
-    await GPUEngine.initialize(target: Target.cuda);
+    await GPUEngine.initialize(target: Target.auto);
   });
 
   tearDownAll(() {
@@ -284,7 +284,7 @@ void main() {
     AllocBuffer dataAlloc = AllocBuffer();
 
     GPUTensor<Vector> trainInput =
-    GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0], dataAlloc);
+        GPUTensor<Vector>(<double>[1.0, 3.0, 5.0, 2.0], dataAlloc);
 
     GPUTensor<Matrix> trainTarget = GPUTensor<Matrix>(<List<double>>[
       <double>[0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -328,7 +328,7 @@ void main() {
 
     AllocBuffer inferAlloc = AllocBuffer();
     GPUTensor<Vector> inferInput =
-    GPUTensor<Vector>(<double>[1.0, 3.0], inferAlloc);
+        GPUTensor<Vector>(<double>[1.0, 3.0], inferAlloc);
     inferAlloc.execute();
 
     GPUTensor<Matrix> inferResult = model.predict(inferInput);

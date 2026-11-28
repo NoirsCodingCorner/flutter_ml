@@ -71,6 +71,7 @@ class DartCpuManager {
       elem.data[i] = 0.0;
     }
   }
+
   void copy(String nameSrc, String nameDest) {
     DartCpuElement src = memory[nameSrc]!;
     DartCpuElement dest = memory[nameDest]!;
@@ -78,12 +79,14 @@ class DartCpuManager {
       dest.data[i] = src.data[i];
     }
   }
+
   void fill(String name, double value) {
     DartCpuElement elem = memory[name]!;
     for (int i = 0; i < elem.totalElements; i = i + 1) {
       elem.data[i] = value;
     }
   }
+
   void initRandomUniform(String name, double scale, int seed) {
     DartCpuElement elem = memory[name]!;
     for (int i = 0; i < elem.totalElements; i = i + 1) {
@@ -106,6 +109,7 @@ class DartCpuManager {
       outElem.data[i] = inElem.data[i] + scalar;
     }
   }
+
   void pad2d(
       String nameIn, String nameOut, int padT, int padB, int padL, int padR) {
     DartCpuElement inElem = memory[nameIn]!;
@@ -130,6 +134,7 @@ class DartCpuManager {
       }
     }
   }
+
   void pad2dBackward(String nameGradOut, String nameGradIn, int padT, int padB,
       int padL, int padR) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
@@ -159,6 +164,7 @@ class DartCpuManager {
       c.data[i] = a.data[i] + b.data[i];
     }
   }
+
   void addInto(String nameSrc, String nameDest) {
     DartCpuElement src = memory[nameSrc]!;
     DartCpuElement dest = memory[nameDest]!;
@@ -175,6 +181,7 @@ class DartCpuManager {
       c.data[i] = a.data[i] - b.data[i];
     }
   }
+
   void subtractInto(String nameSrc, String nameDest) {
     DartCpuElement src = memory[nameSrc]!;
     DartCpuElement dest = memory[nameDest]!;
@@ -191,6 +198,7 @@ class DartCpuManager {
       c.data[i] = a.data[i] * b.data[i];
     }
   }
+
   void multiplyBackward(
       String gradOutName, String otherInputName, String gradInName) {
     DartCpuElement gradOut = memory[gradOutName]!;
@@ -209,6 +217,7 @@ class DartCpuManager {
       c.data[i] = a.data[i] / b.data[i];
     }
   }
+
   void divideBackward(String nameA, String nameB, String gradOutName,
       String gradAName, String gradBName) {
     DartCpuElement a = memory[nameA]!;
@@ -232,8 +241,8 @@ class DartCpuManager {
       outElem.data[i] = exp(inElem.data[i]);
     }
   }
-  void expBackward(
-      String nameGradOut, String nameOutData, String nameGradIn) {
+
+  void expBackward(String nameGradOut, String nameOutData, String nameGradIn) {
     DartCpuElement gradOut = memory[nameGradOut]!;
     DartCpuElement outData = memory[nameOutData]!;
     DartCpuElement gradIn = memory[nameGradIn]!;
@@ -253,6 +262,7 @@ class DartCpuManager {
       outElem.data[i] = log(val);
     }
   }
+
   void logBackward(String nameGradOut, String nameInData, String nameGradIn) {
     DartCpuElement gradOut = memory[nameGradOut]!;
     DartCpuElement inData = memory[nameInData]!;
@@ -273,6 +283,7 @@ class DartCpuManager {
       outElem.data[i] = inElem.data[i].abs();
     }
   }
+
   void absBackward(String nameGradOut, String nameInData, String nameGradIn) {
     DartCpuElement gradOut = memory[nameGradOut]!;
     DartCpuElement inData = memory[nameInData]!;
@@ -300,8 +311,8 @@ class DartCpuManager {
       outElem.data[i] = sqrt(val);
     }
   }
-  void sqrtBackward(
-      String nameGradOut, String nameOutData, String nameGradIn) {
+
+  void sqrtBackward(String nameGradOut, String nameOutData, String nameGradIn) {
     DartCpuElement gradOut = memory[nameGradOut]!;
     DartCpuElement outData = memory[nameOutData]!;
     DartCpuElement gradIn = memory[nameGradIn]!;
@@ -321,6 +332,7 @@ class DartCpuManager {
       outElem.data[i] = pow(inElem.data[i], exponent).toDouble();
     }
   }
+
   void powBackward(String nameGradOut, String nameInData, String nameGradIn,
       double exponent) {
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -347,6 +359,7 @@ class DartCpuManager {
       outElem.data[i] = val;
     }
   }
+
   void clampBackward(String nameGradOut, String nameInData, String nameGradIn,
       double minVal, double maxVal) {
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -406,6 +419,7 @@ class DartCpuManager {
       }
     }
   }
+
   void broadcastAdd(String nameA, String nameB, String nameC) {
     DartCpuElement a = memory[nameA]!;
     DartCpuElement b = memory[nameB]!;
@@ -450,6 +464,7 @@ class DartCpuManager {
       outElem.data[i] = inElem.data[i] * scale;
     }
   }
+
   void scaleMatrixBackward(
       String nameGradOut, String nameGradIn, double scale) {
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -467,6 +482,7 @@ class DartCpuManager {
       outElem.data[i] = val > 0.0 ? val : 0.0;
     }
   }
+
   void reluBackward(String nameIn, String nameGradOut, String nameGradIn) {
     DartCpuElement inElem = memory[nameIn]!;
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -485,6 +501,7 @@ class DartCpuManager {
       outElem.data[i] = 1.0 / (1.0 + exp(-inElem.data[i]));
     }
   }
+
   void sigmoidBackward(
       String nameOutData, String nameGradOut, String nameGradIn) {
     DartCpuElement outData = memory[nameOutData]!;
@@ -508,8 +525,8 @@ class DartCpuManager {
       }
     }
   }
-  void tanhBackward(
-      String nameOutData, String nameGradOut, String nameGradIn) {
+
+  void tanhBackward(String nameOutData, String nameGradOut, String nameGradIn) {
     DartCpuElement outData = memory[nameOutData]!;
     DartCpuElement gradOut = memory[nameGradOut]!;
     DartCpuElement gradIn = memory[nameGradIn]!;
@@ -527,9 +544,7 @@ class DartCpuManager {
         (0.254829592 +
             t *
                 (-0.284496736 +
-                    t *
-                        (1.421413741 +
-                            t * (-1.453152027 + t * 1.061405429))));
+                    t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
     double y = 1.0 - poly * exp(-ax * ax);
     return sign * y;
   }
@@ -542,6 +557,7 @@ class DartCpuManager {
       outElem.data[i] = 0.5 * x * (1.0 + _erf(x * 0.707106781));
     }
   }
+
   void geluBackward(String nameIn, String nameGradOut, String nameGradIn) {
     DartCpuElement inElem = memory[nameIn]!;
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -584,6 +600,7 @@ class DartCpuManager {
       }
     }
   }
+
   void softmaxBackward(
       String nameGradOut, String nameOutData, String nameGradIn) {
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -598,14 +615,14 @@ class DartCpuManager {
 
       double dotProd = 0.0;
       for (int c = 0; c < cols; c = c + 1) {
-        dotProd = dotProd +
-            gradOut.data[rowOffset + c] * outData.data[rowOffset + c];
+        dotProd =
+            dotProd + gradOut.data[rowOffset + c] * outData.data[rowOffset + c];
       }
 
       for (int c = 0; c < cols; c = c + 1) {
         int idx = rowOffset + c;
-        gradIn.data[idx] =
-            gradIn.data[idx] + outData.data[idx] * (gradOut.data[idx] - dotProd);
+        gradIn.data[idx] = gradIn.data[idx] +
+            outData.data[idx] * (gradOut.data[idx] - dotProd);
       }
     }
   }
@@ -623,6 +640,7 @@ class DartCpuManager {
     }
     out.data[0] = sum / n;
   }
+
   void mseLossBackward(String predName, String targetName, String gradInName,
       String gradOutName) {
     DartCpuElement pred = memory[predName]!;
@@ -658,6 +676,7 @@ class DartCpuManager {
     }
     out.data[0] = sum / n;
   }
+
   void bceLossBackward(String nameGradOut, String namePred, String nameTarget,
       String nameGradIn) {
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -687,6 +706,7 @@ class DartCpuManager {
       dataElem.data[i] = dataElem.data[i] - (learningRate * gradElem.data[i]);
     }
   }
+
   void adamUpdate(
       String dataName,
       String gradName,
@@ -805,6 +825,7 @@ class DartCpuManager {
       }
     }
   }
+
   void layerNormBackward(
       String nameGradOut,
       String nameIn,
@@ -914,6 +935,7 @@ class DartCpuManager {
       }
     }
   }
+
   void conv2dBackwardKernel(
       String nameIn, String nameGradOut, String nameGradKernel) {
     DartCpuElement inElem = memory[nameIn]!;
@@ -981,10 +1003,8 @@ class DartCpuManager {
                   continue;
                 }
                 int inIdx = inC * (inH * inW) + inY * inW + inX;
-                int wIdx = outC * (cIn * kH * kW) +
-                    inC * (kH * kW) +
-                    ky * kW +
-                    kx;
+                int wIdx =
+                    outC * (cIn * kH * kW) + inC * (kH * kW) + ky * kW + kx;
                 sum = sum + inElem.data[inIdx] * weightElem.data[wIdx];
               }
             }
@@ -995,6 +1015,7 @@ class DartCpuManager {
       }
     }
   }
+
   void conv2dMultiBackwardInput(
       String nameGradOut,
       String nameWeight,
@@ -1011,10 +1032,12 @@ class DartCpuManager {
     DartCpuElement weightElem = memory[nameWeight]!;
     DartCpuElement gradInElem = memory[nameGradIn]!;
 
-    int inH =
-    gradInElem.sizes.length == 3 ? gradInElem.sizes[1] : gradInElem.sizes[0];
-    int inW =
-    gradInElem.sizes.length == 3 ? gradInElem.sizes[2] : gradInElem.sizes[1];
+    int inH = gradInElem.sizes.length == 3
+        ? gradInElem.sizes[1]
+        : gradInElem.sizes[0];
+    int inW = gradInElem.sizes.length == 3
+        ? gradInElem.sizes[2]
+        : gradInElem.sizes[1];
     int outH = gradOutElem.sizes[1];
     int outW = gradOutElem.sizes[2];
 
@@ -1042,11 +1065,10 @@ class DartCpuManager {
                   continue;
                 }
                 int gradOutIdx = outC * (outH * outW) + outY * outW + outX;
-                int wIdx = outC * (cIn * kH * kW) +
-                    inC * (kH * kW) +
-                    ky * kW +
-                    kx;
-                sum = sum + gradOutElem.data[gradOutIdx] * weightElem.data[wIdx];
+                int wIdx =
+                    outC * (cIn * kH * kW) + inC * (kH * kW) + ky * kW + kx;
+                sum =
+                    sum + gradOutElem.data[gradOutIdx] * weightElem.data[wIdx];
               }
             }
           }
@@ -1056,6 +1078,7 @@ class DartCpuManager {
       }
     }
   }
+
   void conv2dMultiBackwardWeight(
       String nameInput,
       String nameGradOut,
@@ -1099,8 +1122,7 @@ class DartCpuManager {
                 sum = sum + inElem.data[inIdx] * gradOutElem.data[gradOutIdx];
               }
             }
-            int wIdx =
-                outC * (cIn * kH * kW) + inC * (kH * kW) + ky * kW + kx;
+            int wIdx = outC * (cIn * kH * kW) + inC * (kH * kW) + ky * kW + kx;
             gradWeightElem.data[wIdx] = gradWeightElem.data[wIdx] + sum;
           }
         }
@@ -1143,6 +1165,7 @@ class DartCpuManager {
       }
     }
   }
+
   void col2im(String nameColGrad, String nameInGrad, int kernelHeight,
       int kernelWidth) {
     DartCpuElement colGradElem = memory[nameColGrad]!;
@@ -1185,6 +1208,7 @@ class DartCpuManager {
       outElem.data[col] = sum / seqLen;
     }
   }
+
   void globalAvgPoolBackward(String nameGradOut, String nameGradIn) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
     DartCpuElement gradInElem = memory[nameGradIn]!;
@@ -1230,6 +1254,7 @@ class DartCpuManager {
       indicesElem.data[outIdx] = maxIdx.toDouble();
     }
   }
+
   void maxPool1dBackward(
       String nameGradOut, String nameIndices, String nameGradIn) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
@@ -1287,6 +1312,7 @@ class DartCpuManager {
       }
     }
   }
+
   void maxPool2dBackward(
       String nameGradOut, String nameIndices, String nameGradIn) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
@@ -1335,6 +1361,7 @@ class DartCpuManager {
       }
     }
   }
+
   void avgPool2dBackward(
       String nameGradOut, String nameGradIn, int poolSize, int stride) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
@@ -1392,8 +1419,8 @@ class DartCpuManager {
 
     for (int i = 0; i < numFeatures; i = i + 1) {
       if (isTraining) {
-        runningMeanElem.data[i] =
-            momentum * runningMeanElem.data[i] + (1.0 - momentum) * inElem.data[i];
+        runningMeanElem.data[i] = momentum * runningMeanElem.data[i] +
+            (1.0 - momentum) * inElem.data[i];
         runningVarElem.data[i] = momentum * runningVarElem.data[i];
       }
 
@@ -1408,6 +1435,7 @@ class DartCpuManager {
       outElem.data[i] = gammaElem.data[i] * xHat + betaElem.data[i];
     }
   }
+
   void batchNorm1dBackward(
       String nameGradOut,
       String nameIn,
@@ -1505,6 +1533,7 @@ class DartCpuManager {
       }
     }
   }
+
   void batchNorm2dBackward(
       String nameGradOut,
       String nameIn,
@@ -1577,8 +1606,8 @@ class DartCpuManager {
       }
     }
   }
-  void dropoutBackward(
-      String nameGradOut, String nameMask, String nameGradIn) {
+
+  void dropoutBackward(String nameGradOut, String nameMask, String nameGradIn) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
     DartCpuElement maskElem = memory[nameMask]!;
     DartCpuElement gradInElem = memory[nameGradIn]!;
@@ -1606,6 +1635,7 @@ class DartCpuManager {
       countElem.data[tableIdx] = countElem.data[tableIdx] + 1.0;
     }
   }
+
   void markovNormalize(String nameCountTable, String nameProbTable,
       int numHistories, int numStates) {
     DartCpuElement countElem = memory[nameCountTable]!;
@@ -1627,6 +1657,7 @@ class DartCpuManager {
       }
     }
   }
+
   void markovPredict(String nameHistory, String nameProbTable,
       String nameOutProbs, int order, int numStates) {
     DartCpuElement histElem = memory[nameHistory]!;
@@ -1659,6 +1690,7 @@ class DartCpuManager {
       outElem.data[i] = inElem.data[offset + i];
     }
   }
+
   void sliceRowBackward(String nameGradOut, String nameGradIn, int rowIndex) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
     DartCpuElement gradInElem = memory[nameGradIn]!;
@@ -1682,10 +1714,11 @@ class DartCpuManager {
     for (int r = 0; r < inRows; r = r + 1) {
       for (int c = 0; c < outCols; c = c + 1) {
         outElem.data[r * outCols + c] =
-        inElem.data[r * inCols + (c + startCol)];
+            inElem.data[r * inCols + (c + startCol)];
       }
     }
   }
+
   void sliceColumnBackward(
       String nameGradOut, String nameGradIn, int startCol, int endCol) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
@@ -1716,6 +1749,7 @@ class DartCpuManager {
       offset = offset + inElem.totalElements;
     }
   }
+
   void stackRowsBackward(
       String nameGradOut, List<String> namesGradIn, int axis) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
@@ -1763,6 +1797,7 @@ class DartCpuManager {
       }
     }
   }
+
   void concatenateBackward(String nameGradOut, String nameGradInA,
       String nameGradInB, int axis, int splitIndex) {
     DartCpuElement gradOut = memory[nameGradOut]!;
@@ -1810,6 +1845,7 @@ class DartCpuManager {
     }
     outElem.data[0] = sum;
   }
+
   void sumReduceBackward(String nameGradOut, String nameGradIn) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;
     DartCpuElement gradInElem = memory[nameGradIn]!;
@@ -1838,6 +1874,7 @@ class DartCpuManager {
       }
     }
   }
+
   void sumReduceRows(String nameIn, String nameOut) {
     DartCpuElement inElem = memory[nameIn]!;
     DartCpuElement outElem = memory[nameOut]!;
@@ -1853,8 +1890,7 @@ class DartCpuManager {
     }
   }
 
-  void embeddingForward(
-      String nameIndices, String nameWeight, String nameOut) {
+  void embeddingForward(String nameIndices, String nameWeight, String nameOut) {
     DartCpuElement indicesElem = memory[nameIndices]!;
     DartCpuElement weightElem = memory[nameWeight]!;
     DartCpuElement outElem = memory[nameOut]!;
@@ -1878,6 +1914,7 @@ class DartCpuManager {
       }
     }
   }
+
   void embeddingBackward(
       String nameGradOut, String nameIndices, String nameGradWeight) {
     DartCpuElement gradOutElem = memory[nameGradOut]!;

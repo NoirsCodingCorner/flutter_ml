@@ -73,7 +73,7 @@ void main() {
   }
 
   setUpAll(() async {
-    await GPUEngine.initialize(target: Target.cpu, debug: true);
+    await GPUEngine.initialize(target: Target.auto, debug: true);
     setupAlloc = AllocBuffer();
 
     scalarA = GPUTensor<Scalar>(-1.5, setupAlloc);
@@ -127,7 +127,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    addVectorGPU(vectorA, vectorB, buffer, allocTape);
+        addVectorGPU(vectorA, vectorB, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[-0.5, -1.5, 5.0]);
   });
 
@@ -135,7 +135,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    addMatrixGPU(matrixA, matrixC, buffer, allocTape);
+        addMatrixGPU(matrixA, matrixC, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[1.0, -1.0],
       <double>[1.0, 3.0],
@@ -146,7 +146,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    add3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
+        add3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[3.0, 5.0],
@@ -159,7 +159,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Scalar> testOut =
-    subtractGPU(scalarC, scalarA, buffer, allocTape);
+        subtractGPU(scalarC, scalarA, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 4.0);
   });
 
@@ -167,7 +167,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    subtractVectorGPU(vectorA, vectorB, buffer, allocTape);
+        subtractVectorGPU(vectorA, vectorB, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[-1.5, 1.5, -1.0]);
   });
 
@@ -175,7 +175,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    subtractMatrixGPU(matrixA, matrixC, buffer, allocTape);
+        subtractMatrixGPU(matrixA, matrixC, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[1.0, -3.0],
       <double>[5.0, -3.0],
@@ -186,7 +186,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    subtract3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
+        subtract3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[-1.0, -1.0],
@@ -199,7 +199,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Scalar> testOut =
-    multiplyGPU(scalarA, scalarC, buffer, allocTape);
+        multiplyGPU(scalarA, scalarC, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, -3.75);
   });
 
@@ -207,7 +207,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Scalar> testOut =
-    multiplyScalarGPU(scalarA, scalarC, buffer, allocTape);
+        multiplyScalarGPU(scalarA, scalarC, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, -3.75);
   });
 
@@ -215,7 +215,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    elementWiseMultiplyGPU(vectorA, vectorB, buffer, allocTape);
+        elementWiseMultiplyGPU(vectorA, vectorB, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[-0.5, 0.0, 6.0]);
   });
 
@@ -223,7 +223,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    elementWiseMultiplyMatrixGPU(matrixA, matrixB, buffer, allocTape);
+        elementWiseMultiplyMatrixGPU(matrixA, matrixB, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[-1.0, -1.0],
       <double>[6.0, 0.0],
@@ -234,7 +234,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    elementWiseMultiply3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
+        elementWiseMultiply3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[2.0, 6.0],
@@ -254,7 +254,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    divideVectorGPU(vectorA, vectorB, buffer, allocTape);
+        divideVectorGPU(vectorA, vectorB, buffer, allocTape);
     testVectorGPU(
         testOut, buffer, allocTape, <double>[-2.0, 0.0, 0.6666666666666666]);
   });
@@ -263,7 +263,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    divideMatrixGPU(matrixA, matrixB, buffer, allocTape);
+        divideMatrixGPU(matrixA, matrixB, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[-1.0, -4.0],
       <double>[1.5, 0.0],
@@ -274,7 +274,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    divide3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
+        divide3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[0.5, 0.6666666666666666],
@@ -338,7 +338,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> posVector =
-    GPUTensor<Vector>(<double>[1.0, 4.0, 9.0], allocTape);
+        GPUTensor<Vector>(<double>[1.0, 4.0, 9.0], allocTape);
     GPUTensor<Vector> testOut = sqrtGPU(posVector, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[1.0, 2.0, 3.0]);
   });
@@ -380,7 +380,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> posVector =
-    GPUTensor<Vector>(<double>[1.0, 2.0, 3.0], allocTape);
+        GPUTensor<Vector>(<double>[1.0, 2.0, 3.0], allocTape);
     GPUTensor<Vector> testOut = logGPU(posVector, buffer, allocTape);
     testVectorGPU(
         testOut, buffer, allocTape, <double>[0.0, 0.693147, 1.098612]);
@@ -476,7 +476,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    clampGPU(tensor3DA, 2.0, 3.0, buffer, allocTape);
+        clampGPU(tensor3DA, 2.0, 3.0, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[2.0, 2.0],
@@ -499,7 +499,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    matVecMulGPU(matrixA, vectorD, buffer, allocTape);
+        matVecMulGPU(matrixA, vectorD, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[-5.0, -3.0]);
   });
 
@@ -517,7 +517,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    addMatrixAndVectorGPU(matrixA, vectorD, buffer, allocTape);
+        addMatrixAndVectorGPU(matrixA, vectorD, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.0, 0.0],
       <double>[2.0, 2.0],
@@ -528,7 +528,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    addScalarMatrixGPU(matrixA, scalarA, buffer, allocTape);
+        addScalarMatrixGPU(matrixA, scalarA, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[-0.5, -3.5],
       <double>[1.5, -1.5],
@@ -539,7 +539,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    addScalarVectorGPU(vectorA, 2.0, buffer, allocTape);
+        addScalarVectorGPU(vectorA, 2.0, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[1.0, 2.0, 4.0]);
   });
 
@@ -547,7 +547,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    addScalar3DGPU(tensor3DA, 2.0, buffer, allocTape);
+        addScalar3DGPU(tensor3DA, 2.0, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[3.0, 4.0],
@@ -563,7 +563,7 @@ void main() {
       <double>[2.0]
     ], allocTape);
     GPUTensor<Matrix> testOut =
-    addBiasToFeatureMapGPU(matrixA, bias, buffer, allocTape);
+        addBiasToFeatureMapGPU(matrixA, bias, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[3.0, 0.0],
       <double>[5.0, 2.0],
@@ -574,7 +574,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    addBiasToMatMulOutGPU(matrixA, vectorD, buffer, allocTape);
+        addBiasToMatMulOutGPU(matrixA, vectorD, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.0, 0.0],
       <double>[2.0, 2.0],
@@ -585,7 +585,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    broadcastAddVectorToMatrixGPU(matrixA, vectorD, buffer, allocTape);
+        broadcastAddVectorToMatrixGPU(matrixA, vectorD, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.0, 0.0],
       <double>[2.0, 2.0],
@@ -623,7 +623,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Scalar> testOut =
-    sigmoidScalarGPU<Scalar>(scalarC, buffer, allocTape);
+        sigmoidScalarGPU<Scalar>(scalarC, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 0.92414);
   });
 
@@ -727,7 +727,7 @@ void main() {
     GPUTensor<Scalar> small = GPUTensor<Scalar>(0.7, allocTape);
     GPUTensor<Scalar> big = GPUTensor<Scalar>(0.9, allocTape);
     GPUTensor<Scalar> testOut =
-    binaryCrossEntropyGPU<Scalar>(small, big, buffer, allocTape);
+        binaryCrossEntropyGPU<Scalar>(small, big, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 0.44140473);
   });
 
@@ -742,7 +742,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Scalar> testOut =
-    mseMatrixGPU(matrixA, matrixB, buffer, allocTape);
+        mseMatrixGPU(matrixA, matrixB, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 3.375);
   });
 
@@ -807,9 +807,9 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> indices =
-    GPUTensor<Vector>(<double>[1.0, 0.0], allocTape);
+        GPUTensor<Vector>(<double>[1.0, 0.0], allocTape);
     GPUTensor<Matrix> testOut =
-    embeddingLookupGPU(indices, matrixA, buffer, allocTape);
+        embeddingLookupGPU(indices, matrixA, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[3.0, 0.0],
       <double>[1.0, -2.0],
@@ -824,7 +824,7 @@ void main() {
       <double>[0.0, 1.0],
     ], allocTape);
     GPUTensor<Tensor3D> testOut =
-    embeddingLookupBatchGPU(batchIndices, matrixA, buffer, allocTape);
+        embeddingLookupBatchGPU(batchIndices, matrixA, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[3.0, 0.0],
@@ -840,8 +840,7 @@ void main() {
   test('sumReduceColumnsGPU', () {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
-    GPUTensor<Vector> testOut =
-    sumReduceColumnsGPU(matrixB, buffer, allocTape);
+    GPUTensor<Vector> testOut = sumReduceColumnsGPU(matrixB, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[1.0, -1.0]);
   });
 
@@ -856,7 +855,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    sliceColumnGPU(matrixA, 0, 1, buffer, allocTape);
+        sliceColumnGPU(matrixA, 0, 1, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[1.0],
       <double>[3.0],
@@ -874,7 +873,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Matrix> testOut =
-    selectMatrixFrom3DGPU(tensor3DA, 0, buffer, allocTape);
+        selectMatrixFrom3DGPU(tensor3DA, 0, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[1.0, 2.0],
       <double>[3.0, 4.0],
@@ -885,7 +884,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> testOut =
-    concatenateGPU(vectorA, vectorB, buffer, allocTape);
+        concatenateGPU(vectorA, vectorB, buffer, allocTape);
     testVectorGPU(
         testOut, buffer, allocTape, <double>[-1.0, 0.0, 2.0, 0.5, -1.5, 3.0]);
   });
@@ -905,7 +904,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Tensor3D> testOut =
-    concatenate3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
+        concatenate3DGPU(tensor3DA, tensor3DB, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[1.0, 2.0],
@@ -975,7 +974,7 @@ void main() {
     GPUTensor<Vector> bias = GPUTensor<Vector>(<double>[0.0], allocTape);
 
     GPUTensor<Tensor3D> testOut =
-    conv2dMultiChannelGPU(input, weight, bias, 2, 2, buffer, allocTape);
+        conv2dMultiChannelGPU(input, weight, bias, 2, 2, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[-4.0, -4.0],
@@ -998,7 +997,7 @@ void main() {
     ], allocTape);
 
     GPUTensor<Matrix> testOut =
-    conv2dSimpleGPU(input, kernel, buffer, allocTape);
+        conv2dSimpleGPU(input, kernel, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[-4.0, -4.0],
       <double>[-4.0, -4.0],
@@ -1027,7 +1026,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> input =
-    GPUTensor<Vector>(<double>[1.0, 3.0, 2.0, 5.0, 4.0], allocTape);
+        GPUTensor<Vector>(<double>[1.0, 3.0, 2.0, 5.0, 4.0], allocTape);
 
     GPUTensor<Vector> testOut = maxPool1dGPU(input, 2, 2, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[3.0, 5.0]);
@@ -1077,7 +1076,7 @@ void main() {
     ], allocTape);
 
     GPUTensor<Vector> testOut =
-    globalAveragePoolingGPU(input, buffer, allocTape);
+        globalAveragePoolingGPU(input, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[3.0, 4.0]);
   });
 
@@ -1088,9 +1087,9 @@ void main() {
     GPUTensor<Vector> gamma = GPUTensor<Vector>(<double>[1.0, 2.0], allocTape);
     GPUTensor<Vector> beta = GPUTensor<Vector>(<double>[0.0, 1.0], allocTape);
     GPUTensor<Vector> runningMean =
-    GPUTensor<Vector>(<double>[0.0, 2.0], allocTape);
+        GPUTensor<Vector>(<double>[0.0, 2.0], allocTape);
     GPUTensor<Vector> runningVar =
-    GPUTensor<Vector>(<double>[4.0, 4.0], allocTape);
+        GPUTensor<Vector>(<double>[4.0, 4.0], allocTape);
 
     GPUTensor<Vector> testOut = batchNorm1dGPU(
       x,
@@ -1151,9 +1150,9 @@ void main() {
     GPUTensor<Vector> gamma = GPUTensor<Vector>(<double>[1.0, 1.0], allocTape);
     GPUTensor<Vector> beta = GPUTensor<Vector>(<double>[0.0, 0.0], allocTape);
     GPUTensor<Vector> meanCache =
-    GPUTensor<Vector>(<double>[0.0, 0.0], allocTape);
+        GPUTensor<Vector>(<double>[0.0, 0.0], allocTape);
     GPUTensor<Vector> rstdCache =
-    GPUTensor<Vector>(<double>[0.0, 0.0], allocTape);
+        GPUTensor<Vector>(<double>[0.0, 0.0], allocTape);
 
     GPUTensor<Matrix> testOut = layerNormMatrixGPU(
       m,
@@ -1175,7 +1174,7 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> input =
-    GPUTensor<Vector>(<double>[1.0, 2.0, 3.0], allocTape);
+        GPUTensor<Vector>(<double>[1.0, 2.0, 3.0], allocTape);
 
     GPUTensor<Vector> testOut = dropoutGPU(input, 0.0, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[1.0, 2.0, 3.0]);
@@ -1185,10 +1184,10 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> sequence =
-    GPUTensor<Vector>(<double>[0.0, 1.0, 0.0, 1.0, 1.0], allocTape);
+        GPUTensor<Vector>(<double>[0.0, 1.0, 0.0, 1.0, 1.0], allocTape);
 
     GPUTensor<Matrix> testOut =
-    buildMarkovTableGPU(sequence, 1, 2, buffer, allocTape);
+        buildMarkovTableGPU(sequence, 1, 2, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.0, 1.0],
       <double>[0.5, 0.5],
@@ -1208,7 +1207,7 @@ void main() {
     ], allocTape);
 
     GPUTensor<Matrix> testOut =
-    markovPredictGPU(historyBatch, probTable, 2, buffer, allocTape);
+        markovPredictGPU(historyBatch, probTable, 2, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.5, 0.5],
       <double>[0.0, 1.0],
@@ -1242,7 +1241,7 @@ void main() {
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> a = GPUTensor<Vector>(<double>[1.0, 2.0, 3.0], allocTape);
     GPUTensor<Vector> b =
-    GPUTensor<Vector>(<double>[2.0, -1.0, 0.5], allocTape);
+        GPUTensor<Vector>(<double>[2.0, -1.0, 0.5], allocTape);
 
     GPUTensor<Scalar> testOut = dotProductGPU(a, b, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 1.5);
@@ -1262,7 +1261,7 @@ void main() {
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> a = GPUTensor<Vector>(<double>[1.0, 2.0, 3.0], allocTape);
     GPUTensor<Vector> b =
-    GPUTensor<Vector>(<double>[4.0, 2.0, -1.0], allocTape);
+        GPUTensor<Vector>(<double>[4.0, 2.0, -1.0], allocTape);
 
     GPUTensor<Scalar> testOut = euclideanDistanceGPU(a, b, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 5.0);
@@ -1282,9 +1281,9 @@ void main() {
     CommandBuffer buffer = CommandBuffer();
     AllocBuffer allocTape = AllocBuffer();
     GPUTensor<Vector> preds =
-    GPUTensor<Vector>(<double>[1.0, 3.0, 5.0], allocTape);
+        GPUTensor<Vector>(<double>[1.0, 3.0, 5.0], allocTape);
     GPUTensor<Vector> targets =
-    GPUTensor<Vector>(<double>[2.0, 1.0, 5.0], allocTape);
+        GPUTensor<Vector>(<double>[2.0, 1.0, 5.0], allocTape);
 
     GPUTensor<Scalar> testOut = maeLossGPU(preds, targets, buffer, allocTape);
     testScalarGPU(testOut, buffer, allocTape, 1.0);
@@ -1299,7 +1298,7 @@ void main() {
     GPUTensor<Vector> weight = GPUTensor<Vector>(<double>[1.0, 1.0], allocTape);
 
     GPUTensor<Matrix> testOut =
-    rmsNormMatrixGPU(input, weight, 0.0, false, buffer, allocTape);
+        rmsNormMatrixGPU(input, weight, 0.0, false, buffer, allocTape);
     testMatrixGPU(testOut, buffer, allocTape, <List<double>>[
       <double>[0.848528, 1.131371],
     ]);
@@ -1316,7 +1315,7 @@ void main() {
     ], allocTape);
 
     GPUTensor<Tensor3D> testOut =
-    causalMaskGPU(input, 1, 1, 2, buffer, allocTape);
+        causalMaskGPU(input, 1, 1, 2, buffer, allocTape);
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
         <double>[1.0, -10000.0],
@@ -1342,7 +1341,7 @@ void main() {
     ], allocTape);
 
     GPUTensor<Tensor3D> testOut =
-    applyRopeGPU(input, cosTable, sinTable, 1, 1, 1, 2, buffer, allocTape);
+        applyRopeGPU(input, cosTable, sinTable, 1, 1, 1, 2, buffer, allocTape);
 
     testTensor3DGPU(testOut, buffer, allocTape, <List<List<double>>>[
       <List<double>>[
@@ -1360,7 +1359,7 @@ void main() {
     GPUTensor<Vector> targets = GPUTensor<Vector>(<double>[1.0], allocTape);
 
     GPUTensor<Vector> testOut =
-    crossEntropyLossGPU(logits, targets, buffer, allocTape);
+        crossEntropyLossGPU(logits, targets, buffer, allocTape);
     testVectorGPU(testOut, buffer, allocTape, <double>[0.551444]);
   });
 

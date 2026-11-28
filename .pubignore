@@ -1,10 +1,10 @@
-# Ignore all C++ build caches and intermediate files
+# C++ build caches and intermediate files
 cuda_engine/cmake-build-debug/
 cuda_engine/.cmake/
 CMakeCache.txt
 CMakeFiles/
 
-# Ignore heavy Windows debug symbols and linking files
+# Windows debug symbols and linking files
 *.pdb
 *.ilk
 *.exp
@@ -12,6 +12,18 @@ CMakeFiles/
 *.exe
 *.obj
 
-# Ignore heavy local JSON weight files
+# Local JSON weight files
 language_model_epoch_1.json
 sentiment_classifier.json
+
+build/
+
+# Native Binaries
+*.dll
+*.so
+*.zip
+*.iml
+
+lib/tensor/*.txt
+cuda_engine/main.txt
+doc/*.clip

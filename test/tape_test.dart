@@ -1,4 +1,3 @@
-
 import 'package:flutter_ml/full_library.dart';
 
 Future<void> main() async {
@@ -69,7 +68,7 @@ Future<void> main() async {
 
   // Record MSE loss at the end of forwardTape
   GPUTensor<Scalar> loss =
-  mseMatrixGPU(predictions, target, forwardTape, allocTape);
+      mseMatrixGPU(predictions, target, forwardTape, allocTape);
 
   // Compile backward pass once from the loss graph into backwardTape
   loss.backward(backwardTape);
@@ -153,10 +152,14 @@ Future<void> main() async {
   // =========================================================================
   // Push fresh input data in place into the existing input handle (no reallocation)
   List<double> flatTestInput = <double>[
-    0.0, 0.0,
-    0.0, 1.0,
-    1.0, 0.0,
-    1.0, 1.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    1.0,
+    0.0,
+    1.0,
+    1.0,
   ];
   input.pushData(flatTestInput);
 

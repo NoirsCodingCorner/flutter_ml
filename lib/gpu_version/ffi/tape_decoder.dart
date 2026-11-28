@@ -510,7 +510,8 @@ class TapeDecoder {
           String gradOutPool = _readString();
           String nameIndicesPoolBw = _readString();
           String gradInPool = _readString();
-          Logger.blue('$opName: $gradInPool = max_pool_bw($gradOutPool, indices: $nameIndicesPoolBw)');
+          Logger.blue(
+              '$opName: $gradInPool = max_pool_bw($gradOutPool, indices: $nameIndicesPoolBw)');
           break;
         case OP_AVG_POOL_2D_FORWARD:
           String nameInAvg = _readString();

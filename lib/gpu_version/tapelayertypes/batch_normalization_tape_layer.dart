@@ -30,10 +30,10 @@ class BatchNorm1DTL extends TapeLayer<Vector, Vector> {
 
   /// Requires the size of the input vector [numFeatures]. Initializes with a fixed [momentum] and a safety variance addition [epsilon] to prevent division by zero.
   BatchNorm1DTL(
-      this.numFeatures, {
-        this.momentum = 0.9,
-        this.epsilon = 1e-5,
-      });
+    this.numFeatures, {
+    this.momentum = 0.9,
+    this.epsilon = 1e-5,
+  });
 
   /// Returns the trainable parameters [gamma] and [beta].
   @override
@@ -164,10 +164,10 @@ class BatchNorm2DTL extends TapeLayer<Tensor3D, Tensor3D> {
 
   /// Requires the number of channels [numChannels] (the amount of matrices in the input [Tensor3D]). Initializes with a fixed [momentum] and a safety variance addition [epsilon] to prevent division by zero.
   BatchNorm2DTL(
-      this.numChannels, {
-        this.momentum = 0.9,
-        this.epsilon = 1e-5,
-      });
+    this.numChannels, {
+    this.momentum = 0.9,
+    this.epsilon = 1e-5,
+  });
 
   /// Returns the trainable parameters [gamma] and [beta].
   @override

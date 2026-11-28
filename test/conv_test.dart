@@ -12,7 +12,7 @@ void main() async {
   // deliberately an overfit-one-example sanity check: if it's wired up right, the
   // loss should drop toward 0 over the 50 steps below.
   GPUTensor<Tensor3D> input =
-  GPUTensor<Tensor3D>.empty(<int>[1, 8, 8], dataAlloc);
+      GPUTensor<Tensor3D>.empty(<int>[1, 8, 8], dataAlloc);
   GPUTensor<Matrix> target = GPUTensor<Matrix>.empty(<int>[1, 2], dataAlloc);
 
   dataAlloc.execute();

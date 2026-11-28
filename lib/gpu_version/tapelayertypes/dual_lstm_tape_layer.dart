@@ -147,7 +147,7 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
     for (int i = 0; i < totalSteps; i = i + 1) {
       GPUTensor<Vector> xVec = selectRowGPU(input, i, tape, allocTape);
       GPUTensor<Matrix> xT =
-      reshapeVectorToMatrixGPU(xVec, 1, inputSize, tape, allocTape);
+          reshapeVectorToMatrixGPU(xVec, 1, inputSize, tape, allocTape);
 
       GPUTensor<Matrix> prevLH = lhStates[i];
       GPUTensor<Matrix> prevLC = lcStates[i];
@@ -167,19 +167,18 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       GPUTensor<Matrix> liT = sigmoidMatrixGPU(liBiased, tape, allocTape);
 
       GPUTensor<Matrix> lcTildeLinear =
-      matMulGPU(combLow, lWc, tape, allocTape);
+          matMulGPU(combLow, lWc, tape, allocTape);
       GPUTensor<Matrix> lcTildeBiased =
-      addMatrixGPU(lcTildeLinear, lbc, tape, allocTape);
-      GPUTensor<Matrix> lcTilde =
-      tanhMatrixGPU(lcTildeBiased, tape, allocTape);
+          addMatrixGPU(lcTildeLinear, lbc, tape, allocTape);
+      GPUTensor<Matrix> lcTilde = tanhMatrixGPU(lcTildeBiased, tape, allocTape);
 
       GPUTensor<Matrix> lcRetained =
-      elementWiseMultiplyMatrixGPU(lfT, prevLC, tape, allocTape);
+          elementWiseMultiplyMatrixGPU(lfT, prevLC, tape, allocTape);
       GPUTensor<Matrix> lcNewInfo =
-      elementWiseMultiplyMatrixGPU(liT, lcTilde, tape, allocTape);
+          elementWiseMultiplyMatrixGPU(liT, lcTilde, tape, allocTape);
 
       GPUTensor<Matrix> newLC =
-      addMatrixGPU(lcRetained, lcNewInfo, tape, allocTape);
+          addMatrixGPU(lcRetained, lcNewInfo, tape, allocTape);
       lcStates.add(newLC);
 
       GPUTensor<Matrix> loLinear = matMulGPU(combLow, lWo, tape, allocTape);
@@ -189,7 +188,7 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
       GPUTensor<Matrix> lcActivated = tanhMatrixGPU(newLC, tape, allocTape);
 
       GPUTensor<Matrix> newLH =
-      elementWiseMultiplyMatrixGPU(loT, lcActivated, tape, allocTape);
+          elementWiseMultiplyMatrixGPU(loT, lcActivated, tape, allocTape);
       lhStates.add(newLH);
 
       //  HIGHER TIER
@@ -199,39 +198,39 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
 
         GPUTensor<Matrix> hfLinear = matMulGPU(combHigh, hWf, tape, allocTape);
         GPUTensor<Matrix> hfBiased =
-        addMatrixGPU(hfLinear, hbf, tape, allocTape);
+            addMatrixGPU(hfLinear, hbf, tape, allocTape);
         GPUTensor<Matrix> hfT = sigmoidMatrixGPU(hfBiased, tape, allocTape);
 
         GPUTensor<Matrix> hiLinear = matMulGPU(combHigh, hWi, tape, allocTape);
         GPUTensor<Matrix> hiBiased =
-        addMatrixGPU(hiLinear, hbi, tape, allocTape);
+            addMatrixGPU(hiLinear, hbi, tape, allocTape);
         GPUTensor<Matrix> hiT = sigmoidMatrixGPU(hiBiased, tape, allocTape);
 
         GPUTensor<Matrix> hcTildeLinear =
-        matMulGPU(combHigh, hWc, tape, allocTape);
+            matMulGPU(combHigh, hWc, tape, allocTape);
         GPUTensor<Matrix> hcTildeBiased =
-        addMatrixGPU(hcTildeLinear, hbc, tape, allocTape);
+            addMatrixGPU(hcTildeLinear, hbc, tape, allocTape);
         GPUTensor<Matrix> hcTilde =
-        tanhMatrixGPU(hcTildeBiased, tape, allocTape);
+            tanhMatrixGPU(hcTildeBiased, tape, allocTape);
 
         GPUTensor<Matrix> hcRetained =
-        elementWiseMultiplyMatrixGPU(hfT, prevHC, tape, allocTape);
+            elementWiseMultiplyMatrixGPU(hfT, prevHC, tape, allocTape);
         GPUTensor<Matrix> hcNewInfo =
-        elementWiseMultiplyMatrixGPU(hiT, hcTilde, tape, allocTape);
+            elementWiseMultiplyMatrixGPU(hiT, hcTilde, tape, allocTape);
 
         GPUTensor<Matrix> newHC =
-        addMatrixGPU(hcRetained, hcNewInfo, tape, allocTape);
+            addMatrixGPU(hcRetained, hcNewInfo, tape, allocTape);
         hcStates.add(newHC);
 
         GPUTensor<Matrix> hoLinear = matMulGPU(combHigh, hWo, tape, allocTape);
         GPUTensor<Matrix> hoBiased =
-        addMatrixGPU(hoLinear, hbo, tape, allocTape);
+            addMatrixGPU(hoLinear, hbo, tape, allocTape);
         GPUTensor<Matrix> hoT = sigmoidMatrixGPU(hoBiased, tape, allocTape);
 
         GPUTensor<Matrix> hcActivated = tanhMatrixGPU(newHC, tape, allocTape);
 
         GPUTensor<Matrix> newHH =
-        elementWiseMultiplyMatrixGPU(hoT, hcActivated, tape, allocTape);
+            elementWiseMultiplyMatrixGPU(hoT, hcActivated, tape, allocTape);
         hhStates.add(newHH);
       } else {
         hcStates.add(prevHC);
@@ -240,7 +239,7 @@ class DualLSTMTL extends TapeLayer<Matrix, Vector> {
     }
 
     GPUTensor<Vector> finalVector =
-    selectRowGPU(lhStates.last, 0, tape, allocTape);
+        selectRowGPU(lhStates.last, 0, tape, allocTape);
 
     return finalVector;
   }

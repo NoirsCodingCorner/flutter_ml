@@ -22,7 +22,7 @@ class DartGraphExecutor {
       int op = _readInt();
 
       switch (op) {
-      // --- 0 - 99: Data & Memory Management ---
+        // --- 0 - 99: Data & Memory Management ---
         case OP_LOAD_SAMPLE:
           String nameIn = _readString();
           String nameOut = _readString();
@@ -50,7 +50,7 @@ class DartGraphExecutor {
           manager.zeroGrad(name);
           break;
 
-      // --- 100 - 199: Basic Math (Scalars & Element-wise) ---
+        // --- 100 - 199: Basic Math (Scalars & Element-wise) ---
         case OP_ADD:
           String nameA = _readString();
           String nameB = _readString();
@@ -180,7 +180,7 @@ class DartGraphExecutor {
               nameGradOut, nameInData, nameGradIn, minVal, maxVal);
           break;
 
-      // --- 200 - 299: Matrix Operations ---
+        // --- 200 - 299: Matrix Operations ---
         case OP_MATMUL:
           String nameA = _readString();
           String nameB = _readString();
@@ -217,7 +217,7 @@ class DartGraphExecutor {
           manager.scaleMatrixBackward(gradOutName, gradInName, scale);
           break;
 
-      // --- 300 - 399: Activations ---
+        // --- 300 - 399: Activations ---
         case OP_RELU:
           String nameIn = _readString();
           String nameOut = _readString();
@@ -274,7 +274,7 @@ class DartGraphExecutor {
           manager.softmaxBackward(nameGradOut, nameOutData, nameGradIn);
           break;
 
-      // --- 400 - 499: Loss Functions ---
+        // --- 400 - 499: Loss Functions ---
         case OP_MSE_LOSS_FORWARD:
           String namePred = _readString();
           String nameTarget = _readString();
@@ -286,7 +286,8 @@ class DartGraphExecutor {
           String namePred = _readString();
           String nameTarget = _readString();
           String nameGradIn = _readString();
-          manager.mseLossBackward(namePred, nameTarget, nameGradIn, nameGradOut);
+          manager.mseLossBackward(
+              namePred, nameTarget, nameGradIn, nameGradOut);
           break;
         case OP_BCE_LOSS_FORWARD:
           String namePred = _readString();
@@ -299,10 +300,11 @@ class DartGraphExecutor {
           String namePred = _readString();
           String nameTarget = _readString();
           String nameGradIn = _readString();
-          manager.bceLossBackward(nameGradOut, namePred, nameTarget, nameGradIn);
+          manager.bceLossBackward(
+              nameGradOut, namePred, nameTarget, nameGradIn);
           break;
 
-      // --- 500 - 599: Optimizers ---
+        // --- 500 - 599: Optimizers ---
         case OP_SGD_UPDATE:
           String nameData = _readString();
           String nameGrad = _readString();
@@ -329,7 +331,7 @@ class DartGraphExecutor {
           manager.clipGradValue(nameBuffer, clipVal);
           break;
 
-      // --- 600 - 699: Reductions ---
+        // --- 600 - 699: Reductions ---
         case OP_SUM_REDUCE:
           String nameIn = _readString();
           String nameOut = _readString();
@@ -363,7 +365,7 @@ class DartGraphExecutor {
           manager.embeddingBackward(nameGradOut, nameIndices, nameGradWeight);
           break;
 
-      // --- 700 - 799: Tensor Manipulation ---
+        // --- 700 - 799: Tensor Manipulation ---
         case OP_SLICE_ROW:
           String nameIn = _readString();
           String nameOut = _readString();
@@ -442,10 +444,11 @@ class DartGraphExecutor {
           int padB = _readInt();
           int padL = _readInt();
           int padR = _readInt();
-          manager.pad2dBackward(nameGradOut, nameGradIn, padT, padB, padL, padR);
+          manager.pad2dBackward(
+              nameGradOut, nameGradIn, padT, padB, padL, padR);
           break;
 
-      // --- 800 - 999: Advanced Spatial & Sequence Layers ---
+        // --- 800 - 999: Advanced Spatial & Sequence Layers ---
         case OP_CONV2D_FORWARD:
           String nameIn = _readString();
           String nameKernel = _readString();
@@ -704,7 +707,7 @@ class DartGraphExecutor {
           manager.markovPredict(nameHist, nameProb, nameOut, order, numStates);
           break;
 
-      // --- 1000+: Fused Kernels ---
+        // --- 1000+: Fused Kernels ---
         case OP_MATMUL_BIAS_RELU_FORWARD:
           String nameX = _readString();
           String nameW = _readString();
@@ -715,7 +718,7 @@ class DartGraphExecutor {
               nameX, nameW, nameB, nameReluOut, namePreROut);
           break;
 
-      // --- 2000+: Transformer Ops ---
+        // --- 2000+: Transformer Ops ---
         case OP_RMS_NORM_FORWARD:
           String nameIn = _readString();
           String nameW = _readString();

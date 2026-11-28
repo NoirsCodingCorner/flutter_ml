@@ -85,13 +85,13 @@ class GPUTensor<T> {
   late bool localGrad;
 
   GPUTensor(
-      T initialValue,
-      AllocBuffer allocTape, {
-        this.creator,
-        String? id,
-        bool? requiresGrad,
-        String? sourceOp,
-      }) {
+    T initialValue,
+    AllocBuffer allocTape, {
+    this.creator,
+    String? id,
+    bool? requiresGrad,
+    String? sourceOp,
+  }) {
     localGrad = requiresGrad ?? globalGrad;
     this.id = id ?? _generateId();
 
@@ -122,13 +122,13 @@ class GPUTensor<T> {
   }
 
   GPUTensor.scalar(
-      Scalar? initialValue,
-      AllocBuffer allocTape, {
-        this.creator,
-        this.id = "EMPTY",
-        bool? requiresGrad,
-        String? sourceOp,
-      }) {
+    Scalar? initialValue,
+    AllocBuffer allocTape, {
+    this.creator,
+    this.id = "EMPTY",
+    bool? requiresGrad,
+    String? sourceOp,
+  }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
@@ -148,13 +148,13 @@ class GPUTensor<T> {
   }
 
   GPUTensor.vector(
-      Vector initialValue,
-      AllocBuffer allocTape, {
-        this.creator,
-        this.id = "EMPTY",
-        bool? requiresGrad,
-        String? sourceOp,
-      }) {
+    Vector initialValue,
+    AllocBuffer allocTape, {
+    this.creator,
+    this.id = "EMPTY",
+    bool? requiresGrad,
+    String? sourceOp,
+  }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
@@ -170,13 +170,13 @@ class GPUTensor<T> {
   }
 
   GPUTensor.matrix(
-      Matrix initialValue,
-      AllocBuffer allocTape, {
-        this.creator,
-        this.id = "EMPTY",
-        bool? requiresGrad,
-        String? sourceOp,
-      }) {
+    Matrix initialValue,
+    AllocBuffer allocTape, {
+    this.creator,
+    this.id = "EMPTY",
+    bool? requiresGrad,
+    String? sourceOp,
+  }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
@@ -194,13 +194,13 @@ class GPUTensor<T> {
   }
 
   GPUTensor.tensor3D(
-      Tensor3D initialValue,
-      AllocBuffer allocTape, {
-        this.creator,
-        this.id = "EMPTY",
-        bool? requiresGrad,
-        String? sourceOp,
-      }) {
+    Tensor3D initialValue,
+    AllocBuffer allocTape, {
+    this.creator,
+    this.id = "EMPTY",
+    bool? requiresGrad,
+    String? sourceOp,
+  }) {
     localGrad = requiresGrad ?? globalGrad;
     if (id == "EMPTY") {
       id = _generateId();
@@ -221,12 +221,12 @@ class GPUTensor<T> {
   /// Create a GPUTensor with the given shape and records an empty allocation in [allocTape].
   /// Additionally the [creator] GPUNode can be set.
   GPUTensor.empty(
-      List<int> initialShape,
-      AllocBuffer allocTape, {
-        this.creator,
-        bool? requiresGrad,
-        String? sourceOp,
-      }) : id = _generateId() {
+    List<int> initialShape,
+    AllocBuffer allocTape, {
+    this.creator,
+    bool? requiresGrad,
+    String? sourceOp,
+  }) : id = _generateId() {
     localGrad = requiresGrad ?? globalGrad;
     shape = <int>[];
     for (int i = 0; i < initialShape.length; i = i + 1) {
@@ -243,14 +243,14 @@ class GPUTensor<T> {
   /// Create a GPUTensor with the given shape and records a random uniform initialization in [allocTape].
   /// Additionally the [creator] GPUNode can be set as well as a seed for randomization.
   GPUTensor.randomUniform(
-      List<int> initialShape,
-      double scale,
-      AllocBuffer allocTape, {
-        int? seed,
-        this.creator,
-        bool? requiresGrad,
-        String? sourceOp,
-      }) : id = _generateId() {
+    List<int> initialShape,
+    double scale,
+    AllocBuffer allocTape, {
+    int? seed,
+    this.creator,
+    bool? requiresGrad,
+    String? sourceOp,
+  }) : id = _generateId() {
     localGrad = requiresGrad ?? globalGrad;
     shape = <int>[];
     for (int i = 0; i < initialShape.length; i = i + 1) {
@@ -508,7 +508,7 @@ class GPUTensor<T> {
         for (int h = 0; h < initialValue[d].length; h = h + 1) {
           for (int w = 0; w < initialValue[d][h].length; w = w + 1) {
             flat[(d * height * width) + (h * width) + w] =
-            initialValue[d][h][w];
+                initialValue[d][h][w];
           }
         }
       }

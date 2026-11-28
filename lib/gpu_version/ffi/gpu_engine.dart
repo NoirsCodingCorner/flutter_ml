@@ -141,15 +141,16 @@ class GPUEngine {
       // Windows and Linux automatically check the directory of the executable for the DLL/SO and its dependencies.
       DynamicLibrary dylib = DynamicLibrary.open(libName);
 
-      _create = dylib.lookupFunction<NativeCreate, DartCreate>('create_executor');
+      _create =
+          dylib.lookupFunction<NativeCreate, DartCreate>('create_executor');
       _free = dylib.lookupFunction<NativeFree, DartFree>('free_executor');
       _load = dylib.lookupFunction<NativeLoad, DartLoad>('load_tensor_h2d');
       _retrieve = dylib.lookupFunction<NativeRetrieve, DartRetrieve>(
           'retrieve_tensor_d2h_into');
       _run = dylib.lookupFunction<NativeRun, DartRun>('run_tape');
       _freeTensor = dylib.lookupFunction<NativeFreeT, DartFreeT>('free_tensor');
-      _getTensorNames =
-          dylib.lookupFunction<NativeGetNames, DartGetNames>('get_tensor_names');
+      _getTensorNames = dylib
+          .lookupFunction<NativeGetNames, DartGetNames>('get_tensor_names');
       _freeString =
           dylib.lookupFunction<NativeFreeStr, DartFreeStr>('free_string');
       _addPointers = dylib

@@ -124,19 +124,23 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
 
     kXf = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
         sourceOp: '$name:kXf');
-    kHf = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+    kHf = GPUTensor<Tensor3D>(
+        initWeight(hiddenFilters, hiddenFilters), allocTape,
         sourceOp: '$name:kHf');
     kXi = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
         sourceOp: '$name:kXi');
-    kHi = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+    kHi = GPUTensor<Tensor3D>(
+        initWeight(hiddenFilters, hiddenFilters), allocTape,
         sourceOp: '$name:kHi');
     kXc = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
         sourceOp: '$name:kXc');
-    kHc = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+    kHc = GPUTensor<Tensor3D>(
+        initWeight(hiddenFilters, hiddenFilters), allocTape,
         sourceOp: '$name:kHc');
     kXo = GPUTensor<Tensor3D>(initWeight(inChannels, hiddenFilters), allocTape,
         sourceOp: '$name:kXo');
-    kHo = GPUTensor<Tensor3D>(initWeight(hiddenFilters, hiddenFilters), allocTape,
+    kHo = GPUTensor<Tensor3D>(
+        initWeight(hiddenFilters, hiddenFilters), allocTape,
         sourceOp: '$name:kHo');
 
     bf = GPUTensor<Vector>(initBias(hiddenFilters), allocTape,
@@ -173,8 +177,7 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
         sourceOp: '$name:initC'));
 
     for (int t = 0; t < seqLength; t = t + 1) {
-      GPUTensor<Matrix> xT =
-      selectMatrixFrom3DGPU(input, t, tape, allocTape);
+      GPUTensor<Matrix> xT = selectMatrixFrom3DGPU(input, t, tape, allocTape);
 
       GPUTensor<Tensor3D> prevH = hStates[t];
       GPUTensor<Tensor3D> prevC = cStates[t];
@@ -211,9 +214,9 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
 
       // Cell State Update
       GPUTensor<Tensor3D> cRetained =
-      elementWiseMultiply3DGPU(fT, prevC, tape, allocTape);
+          elementWiseMultiply3DGPU(fT, prevC, tape, allocTape);
       GPUTensor<Tensor3D> cNewInfo =
-      elementWiseMultiply3DGPU(iT, cTildeT, tape, allocTape);
+          elementWiseMultiply3DGPU(iT, cTildeT, tape, allocTape);
 
       GPUTensor<Tensor3D> newC = add3DGPU(cRetained, cNewInfo, tape, allocTape);
       cStates.add(newC);
@@ -232,7 +235,7 @@ class ConvLSTMTL extends TapeLayer<Tensor3D, Tensor3D> {
       GPUTensor<Tensor3D> cActivated = tanh3DGPU(newC, tape, allocTape);
 
       GPUTensor<Tensor3D> newH =
-      elementWiseMultiply3DGPU(oT, cActivated, tape, allocTape);
+          elementWiseMultiply3DGPU(oT, cActivated, tape, allocTape);
       hStates.add(newH);
     }
 

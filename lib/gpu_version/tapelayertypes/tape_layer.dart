@@ -70,17 +70,17 @@ abstract class TapeLayer<InputType, OutputType> {
   /// Appends this layer's forward operations to the [tape] and records transient tensor allocations into [allocTape]. The intermediates list captures transient tensors to prevent VRAM creep on complex architectures.
   /// The input tensor should match the tensor provided in the [build] method.
   GPUTensor<OutputType> forward(
-      GPUTensor<InputType> input,
-      CommandBuffer tape,
-      AllocBuffer allocTape,
-      );
+    GPUTensor<InputType> input,
+    CommandBuffer tape,
+    AllocBuffer allocTape,
+  );
 
   /// Helper function that, if not overwritten, checks whether [build] has already been called; if not, it calls [build] and only then [forward].
   GPUTensor<OutputType> call(
-      GPUTensor<InputType> input,
-      CommandBuffer tape,
-      AllocBuffer allocTape,
-      ) {
+    GPUTensor<InputType> input,
+    CommandBuffer tape,
+    AllocBuffer allocTape,
+  ) {
     if (built == false) {
       build(input, allocTape);
     }

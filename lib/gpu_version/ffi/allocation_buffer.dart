@@ -20,14 +20,14 @@ class AllocEntry {
   bool isGrad;
 
   AllocEntry(
-      this.id,
-      this.shape,
-      this.op, {
-        this.data,
-        this.params = const <double>[],
-        this.sourceOp,
-        this.isGrad = false,
-      });
+    this.id,
+    this.shape,
+    this.op, {
+    this.data,
+    this.params = const <double>[],
+    this.sourceOp,
+    this.isGrad = false,
+  });
 }
 
 class AllocBuffer {
@@ -223,8 +223,7 @@ class AllocBuffer {
         medianBytes = tensorSizesBytes[mid].toDouble();
         medianElements = tensorElementCounts[mid].toDouble();
       } else {
-        medianBytes =
-            (tensorSizesBytes[mid - 1] + tensorSizesBytes[mid]) / 2.0;
+        medianBytes = (tensorSizesBytes[mid - 1] + tensorSizesBytes[mid]) / 2.0;
         medianElements =
             (tensorElementCounts[mid - 1] + tensorElementCounts[mid]) / 2.0;
       }
@@ -260,7 +259,8 @@ class AllocBuffer {
 
     if (verbose) {
       Logger.cyan(subDivider, prefix: '');
-      Logger.cyan('Source Operations Breakdown (sorted by memory):', prefix: '');
+      Logger.cyan('Source Operations Breakdown (sorted by memory):',
+          prefix: '');
 
       List<String> sortedOps = sourceOpCounts.keys.toList();
       sortedOps.sort((String a, String b) =>

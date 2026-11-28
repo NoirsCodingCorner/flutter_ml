@@ -74,8 +74,8 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     double scaleW2 = sqrt(2.0 / (dff + dModel));
     w2 = GPUTensor<Matrix>.randomUniform(<int>[dff, dModel], scaleW2, allocTape,
         sourceOp: '$name:w2');
-    b2 = GPUTensor<Vector>.empty(<int>[dModel], allocTape,
-        sourceOp: '$name:b2');
+    b2 =
+        GPUTensor<Vector>.empty(<int>[dModel], allocTape, sourceOp: '$name:b2');
 
     built = true;
   }
@@ -112,7 +112,7 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     GPUTensor<Matrix> ffn1MatMul = matMulGPU(norm1Out, w1, tape, allocTape);
 
     GPUTensor<Matrix> ffn1Bias =
-    addBiasToMatMulOutGPU(ffn1MatMul, b1, tape, allocTape);
+        addBiasToMatMulOutGPU(ffn1MatMul, b1, tape, allocTape);
 
     GPUTensor<Matrix> ffn1 = geluMatrixGPU(ffn1Bias, tape, allocTape);
 
@@ -120,7 +120,7 @@ class TransformerEncoderBlockTapeLayer extends TapeLayer<Matrix, Matrix> {
     GPUTensor<Matrix> ffn2MatMul = matMulGPU(ffn1, w2, tape, allocTape);
 
     GPUTensor<Matrix> ffn2 =
-    addBiasToMatMulOutGPU(ffn2MatMul, b2, tape, allocTape);
+        addBiasToMatMulOutGPU(ffn2MatMul, b2, tape, allocTape);
 
     // 5. Residual Add & Layer Norm 2
     GPUTensor<Matrix> add2 = addMatrixGPU(norm1Out, ffn2, tape, allocTape);

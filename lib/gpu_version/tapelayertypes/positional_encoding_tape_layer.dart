@@ -42,8 +42,7 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
       peValuesTransposed.add(row);
     }
 
-    encodingMatrixTransposed = GPUTensor<Matrix>(
-        peValuesTransposed, allocTape,
+    encodingMatrixTransposed = GPUTensor<Matrix>(peValuesTransposed, allocTape,
         sourceOp: '$name:encodingMatrixTransposed');
     built = true;
   }
@@ -59,10 +58,10 @@ class PositionalEncodingTL extends TapeLayer<Matrix, Matrix> {
         encodingMatrixTransposed, 0, sequenceLength, tape, allocTape);
 
     GPUTensor<Matrix> positionalTensor =
-    transposeGPU(slicedTransposed, tape, allocTape);
+        transposeGPU(slicedTransposed, tape, allocTape);
 
     GPUTensor<Matrix> out =
-    addMatrixGPU(input, positionalTensor, tape, allocTape);
+        addMatrixGPU(input, positionalTensor, tape, allocTape);
 
     return out;
   }
